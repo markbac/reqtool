@@ -109,12 +109,12 @@ cmd_install() {
         _yellow "npm not found -- skipping UI build. Install Node.js 18+ to build the UI."
     else
         _yellow "Installing UI dependencies ..."
-        npm --prefix "$ui_dir" install --legacy-peer-deps || {
+        (cd "$ui_dir" && npm install --legacy-peer-deps) || {
             _red "npm install failed. Check Node.js version (18+ required)."
             exit 1
         }
         _yellow "Building UI ..."
-        npm --prefix "$ui_dir" run build || {
+        (cd "$ui_dir" && npm run build) || {
             _red "npm run build failed."
             exit 1
         }

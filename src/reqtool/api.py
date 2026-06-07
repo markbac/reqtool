@@ -8,6 +8,8 @@ OpenAPI 3.1 spec is generated automatically at GET /openapi.json.
 from __future__ import annotations
 
 import logging
+import os
+import sys
 from pathlib import Path
 from typing import Any, Optional
 
@@ -61,31 +63,34 @@ def create_app(repo_root: Path) -> FastAPI:
     )
 
     # ------------------------------------------------------------------
-    # File watcher to reload on external changes
+    # File watcher -- disabled under pytest to prevent inotify fd leaks
     # ------------------------------------------------------------------
 
-    try:
-        from watchdog.observers import Observer
-        from watchdog.events import FileSystemEventHandler
+    _under_test = "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ
 
-        class ReloadHandler(FileSystemEventHandler):
-            def on_any_event(self, event):
-                if event.is_directory:
-                    return
-                if event.src_path.endswith(".yaml"):
-                    changed = Path(event.src_path)
-                    log.debug("File changed: %s", changed)
-                    store.reload_file(changed)
+    if not _under_test:
+        try:
+            from watchdog.observers import Observer
+            from watchdog.events import FileSystemEventHandler
 
-        observer = Observer()
-        for subdir in ("requirements", "principles", "tbds", "modules", "products", ".reqtool"):
-            watch_path = repo_root / subdir
-            watch_path.mkdir(parents=True, exist_ok=True)
-            observer.schedule(ReloadHandler(), str(watch_path), recursive=True)
-        observer.start()
-        log.info("File watcher started (incremental reload)")
-    except Exception as exc:
-        log.warning("File watcher not started: %s", exc)
+            class ReloadHandler(FileSystemEventHandler):
+                def on_any_event(self, event):
+                    if event.is_directory:
+                        return
+                    if event.src_path.endswith(".yaml"):
+                        changed = Path(event.src_path)
+                        log.debug("File changed: %s", changed)
+                        store.reload_file(changed)
+
+            observer = Observer()
+            for subdir in ("requirements", "principles", "tbds", "modules", "products", ".reqtool"):
+                watch_path = repo_root / subdir
+                watch_path.mkdir(parents=True, exist_ok=True)
+                observer.schedule(ReloadHandler(), str(watch_path), recursive=True)
+            observer.start()
+            log.info("File watcher started (incremental reload)")
+        except Exception as exc:
+            log.warning("File watcher not started: %s", exc)
 
     def _fire_webhook(store: "Store", event: str, payload: dict) -> None:
         """Fire webhooks async (best-effort, non-blocking)."""

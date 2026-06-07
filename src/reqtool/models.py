@@ -356,11 +356,26 @@ class ProductLock(BaseModel):
 # ---------------------------------------------------------------------------
 
 class CoreEnums(BaseModel):
-    status: list[str] = ["draft", "in_review", "approved", "deprecated"]
+    status: list[str] = [
+        # Formal / systems workflow
+        "draft", "in_review", "reviewed", "approved", "deprecated",
+        # Sprint / agile workflow
+        "backlog", "ready", "in_progress", "done", "cancelled",
+        # Lightweight workflow
+        "active",
+        # TBD
+        "open", "resolved",
+    ]
     priority: list[str] = ["critical", "high", "medium", "low"]
     req_type: list[str] = [
+        # Systems engineering types
         "functional", "performance", "interface", "physical",
         "safety", "security", "compliance", "operational", "constraint",
+        # Stakeholder / top-level
+        "stakeholder_need",
+        # Agile planning types
+        "theme", "initiative", "epic", "feature",
+        "story", "task", "bug", "spike",
     ]
     approval_status: list[str] = ["draft", "in_review", "approved", "rejected", "deprecated"]
     verification_method: list[str] = ["analysis", "inspection", "test", "demonstration"]

@@ -193,8 +193,17 @@ function Invoke-Install {
     }
 
     if (-not $skipBuild) {
+        # On Windows, npm is npm.cmd -- find it via Get-Command
+        $npmCmd = (Get-Command npm -ErrorAction SilentlyContinue)?.Source
+        if (-not $npmCmd) {
+            Write-Red "npm not found in PATH."
+            Write-Yellow "Install Node.js 18+ from https://nodejs.org/ and re-run."
+            exit 1
+        }
+        Write-Host "  npm: $npmCmd" -ForegroundColor DarkGray
+
         Write-Yellow "Installing UI dependencies ..."
-        $proc = Start-Process -FilePath 'npm' -ArgumentList 'install','--legacy-peer-deps' `
+        $proc = Start-Process -FilePath $npmCmd -ArgumentList 'install','--legacy-peer-deps' `
                               -WorkingDirectory $uiDir -Wait -PassThru -NoNewWindow
         if ($proc.ExitCode -ne 0) {
             Write-Red "npm install failed (exit $($proc.ExitCode))."
@@ -203,7 +212,7 @@ function Invoke-Install {
         }
 
         Write-Yellow "Building UI ..."
-        $proc2 = Start-Process -FilePath 'npm' -ArgumentList 'run','build' `
+        $proc2 = Start-Process -FilePath $npmCmd -ArgumentList 'run','build' `
                                -WorkingDirectory $uiDir -Wait -PassThru -NoNewWindow
         if ($proc2.ExitCode -ne 0) {
             Write-Red "npm run build failed (exit $($proc2.ExitCode))."

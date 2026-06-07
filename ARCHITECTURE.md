@@ -29,102 +29,83 @@ This document covers:
 
 ### 2.1 Component overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        reqtool process                          │
-│                                                                 │
-│  ┌──────────┐   ┌─────────────────────────────────────────┐    │
-│  │   CLI    │   │            FastAPI application           │    │
-│  │ (Click)  │   │                                         │    │
-│  │          │   │  ┌────────────┐  ┌────────────────────┐ │    │
-│  │req serve │──▶│  │  REST API  │  │  WebSocket (/ws)   │ │    │
-│  │req init  │   │  │ endpoints  │  │  ConnectionManager │ │    │
-│  │req new   │   │  └─────┬──────┘  └────────┬───────────┘ │    │
-│  │req valid │   │        │                  │             │    │
-│  │req verify│   │  ┌─────▼──────────────────▼───────────┐ │    │
-│  └──────────┘   │  │              Store                  │ │    │
-│                 │  │  in-memory graph of all artefacts   │ │    │
-│                 │  │  hierarchy config  ·  filter prefs  │ │    │
-│                 │  └──────┬────────────────────────────┬─┘ │    │
-│                 │         │                            │    │    │
-│                 │  ┌──────▼──────┐  ┌─────────────────▼─┐ │    │
-│                 │  │   fileio    │  │    validation /    │ │    │
-│                 │  │  YAML I/O   │  │    exports /       │ │    │
-│                 │  │  hashing    │  │    git_ops         │ │    │
-│                 │  │  uuid7      │  └───────────────────┘ │    │
-│                 │  └──────┬──────┘                        │    │
-│                 └─────────┼────────────────────────────────┘    │
-└───────────────────────────┼─────────────────────────────────────┘
-                            │ read / write
-        ┌───────────────────▼────────────────────┐
-        │          Requirements repository        │
-        │  (a plain git repository on disk)       │
-        │                                         │
-        │  .reqtool/                              │
-        │    config.yaml  enums.yaml              │
-        │    hierarchy.yaml  help.yaml            │
-        │    templates.yaml  filter_presets.yaml  │
-        │                                         │
-        │  requirements/<uid>.yaml  (one per req) │
-        │  principles/<uid>.yaml                  │
-        │  tbds/<uid>.yaml                        │
-        │  modules/<id>/_module.yaml + reqs       │
-        │  products/<id>/_product.yaml + .lock    │
-        │  comments/<uid>.yaml                    │
-        │  attachments/<uid>/<filename>           │
-        └─────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph process["reqtool process"]
+        CLI["CLI (Click)<br/>req serve / init / new<br/>validate / verify"]
+        subgraph app["FastAPI application"]
+            REST["REST API<br/>endpoints"]
+            WS["WebSocket /ws<br/>ConnectionManager"]
+            REST --> Store
+            WS --> Store
+        end
+        CLI --> app
+        Store["Store<br/>in-memory graph · hierarchy config<br/>filter presets · impact index"]
+        fileio["fileio<br/>YAML I/O · hashing · uuid7"]
+        validation["validation<br/>exports · git_ops"]
+        Store --> fileio
+        Store --> validation
+    end
+    fileio -- "read / write" --> repo
+
+    subgraph repo["Requirements repository (git)"]
+        config[".reqtool/<br/>config.yaml · enums.yaml<br/>hierarchy.yaml · help.yaml"]
+        reqs["requirements/&lt;uid&gt;.yaml"]
+        mods["modules/&lt;id&gt;/"]
+        prods["products/&lt;id&gt;/"]
+    end
 ```
 
 ### 2.2 Module dependency graph
 
-```
-cli.py
- └── store.py ──── fileio.py
- └── api.py ─────── store.py
-                └── validation.py ─── fileio.py
-                └── exports.py ─────── store.py
-                └── git_ops.py
- └── validation.py
- └── exports.py
+```mermaid
+graph LR
+    cli --> store
+    cli --> api
+    cli --> validation
+    cli --> exports
+    api --> store
+    api --> validation
+    api --> exports
+    api --> git_ops
+    store --> fileio
+    store --> models
+    validation --> fileio
+    validation --> models
+    exports --> models
+    main --> api
 
-models.py  (no imports from reqtool -- pure Pydantic)
-main.py    (thin ASGI factory -- imports api.py only)
+    models["models.py<br/>(pure Pydantic, no internal deps)"]
+    main["main.py<br/>(thin ASGI factory)"]
 ```
 
 All reqtool modules depend on `models.py` for type definitions. `models.py` itself has no internal dependencies, only Pydantic and the standard library. This makes models safe to import anywhere without triggering side effects.
 
 ### 2.3 Process startup
 
-```
-req serve
-    │
-    ▼
-cli.py::serve()
-    │  sets REQTOOL_REPO env var
-    │
-    ▼
-uvicorn.run("reqtool.main:app_factory", factory=True)
-    │
-    ▼
-main.py::app_factory()
-    │  reads REQTOOL_REPO
-    │
-    ▼
-api.py::create_app(repo_root: Path)
-    │
-    ├── Store(repo_root).load()          reads all YAML from disk
-    │       ├── _load_config()
-    │       ├── _load_enums()
-    │       ├── _load_hierarchy()        loads hierarchy.yaml
-    │       ├── _load_dir(requirements)
-    │       ├── _load_dir(principles)
-    │       ├── _load_dir(tbds)
-    │       ├── _load_modules()
-    │       └── _load_products()
-    │
-    ├── watchdog.Observer.start()        file system watcher for hot reload
-    │
-    └── FastAPI app returned to uvicorn
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI as cli.py::serve()
+    participant Uvicorn
+    participant Main as main.py::app_factory()
+    participant API as api.py::create_app()
+    participant Store
+
+    User->>CLI: req serve
+    CLI->>CLI: set REQTOOL_REPO env var
+    CLI->>Uvicorn: uvicorn.run(factory=True)
+    Uvicorn->>Main: app_factory()
+    Main->>API: create_app(repo_root)
+    API->>Store: Store(repo_root).load()
+    Store->>Store: _load_config()
+    Store->>Store: _load_enums()
+    Store->>Store: _load_hierarchy()
+    Store->>Store: _load_dir(requirements/principles/tbds)
+    Store->>Store: _load_modules() / _load_products()
+    API->>API: start watchdog Observer (skipped in tests)
+    API-->>Uvicorn: FastAPI app
+    Uvicorn-->>User: listening on http://host:port
 ```
 
 ---
@@ -710,62 +691,77 @@ Module integrity is verified by computing a SHA-256 over all module requirement 
 
 **Sprint workflow** (epic, feature, story, task, bug, spike):
 
-```
-        ┌──────────────────────────────────────────┐
-        │                                          │
-        ▼                                          │
-    ┌─────────┐    ┌───────┐    ┌─────────────┐   │
-    │ backlog │───▶│ ready │───▶│ in_progress │───┘
-    └─────────┘    └───────┘    └──────┬──────┘
-         ▲              │              │
-         │              │         ┌───▼──────┐
-         └──────────────┴─────────│ in_review│
-                                  └───┬──────┘
-                                      │
-                               ┌──────▼──────┐    ┌───────────┐
-                               │    done     │    │ cancelled │
-                               └─────────────┘    └───────────┘
-```
-
-**Formal workflow** (functional, performance, interface, etc.):
-
-```
-    ┌───────┐    ┌───────────┐    ┌──────────┐    ┌──────────┐    ┌────────────┐
-    │ draft │───▶│ in_review │───▶│ reviewed │───▶│ approved │───▶│ deprecated │
-    └───────┘    └─────┬─────┘    └────┬─────┘    └────┬─────┘    └────────────┘
-         ▲             │               │               │
-         └─────────────┘               └───────────────┘
-              (back)                        (back)
+```mermaid
+stateDiagram-v2
+    [*] --> backlog
+    backlog --> ready
+    backlog --> in_progress
+    ready --> in_progress
+    ready --> backlog
+    in_progress --> in_review
+    in_progress --> done
+    in_progress --> backlog
+    in_review --> done
+    in_review --> in_progress
+    done --> [*]
+    backlog --> cancelled
+    in_progress --> cancelled
 ```
 
-**Safety formal workflow** (safety requirements):
+**Formal workflow** (functional, performance, interface, compliance, constraint, operational, physical):
 
-Same states and transitions as formal, plus an `approved` guard requiring:
-- `content.description` non-empty
-- `content.rationale` non-empty
-- `safety_classification` set
-- at least one acceptance criterion
+```mermaid
+stateDiagram-v2
+    [*] --> draft
+    draft --> in_review
+    draft --> approved
+    in_review --> reviewed
+    in_review --> draft
+    reviewed --> approved
+    reviewed --> in_review
+    approved --> deprecated
+    approved --> in_review
+    deprecated --> [*]
+```
+
+**Safety formal workflow** (safety requirements -- adds guard on `approved`):
+
+Same transitions as formal. The `approved` state has a guard requiring:
+`content.description`, `content.rationale`, `safety_classification`, and at least one AC.
+
+**Lightweight workflow** (theme, initiative, stakeholder_need):
+
+```mermaid
+stateDiagram-v2
+    [*] --> draft
+    draft --> active
+    active --> done
+    active --> cancelled
+    active --> draft
+    done --> active
+```
 
 ### 13.2 Write path sequence
 
-```
-Client                  API endpoint              Store              Disk
-  │                          │                      │                  │
-  │── PUT /requirements/uid ▶│                      │                  │
-  │                          │── validate_transition│                  │
-  │                          │       (if status     │                  │
-  │                          │        changing)     │                  │
-  │                          │── update_requirement▶│                  │
-  │                          │                      │── _sanitise      │
-  │                          │                      │── deep merge     │
-  │                          │                      │── recompute hash │
-  │                          │                      │── bump version   │
-  │                          │                      │── append history │
-  │                          │                      │── save_yaml ────▶│
-  │                          │◀─── updated dict ────│                  │
-  │                          │── _fire_webhook       │                  │
-  │                          │── _broadcast_sync     │                  │
-  │◀──── 200 JSON ───────────│                      │                  │
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as API endpoint
+    participant Store
+    participant Disk
+
+    C->>API: PUT /requirements/{uid}
+    API->>Store: validate_transition (if status changing)
+    Store-->>API: ok or 409 guard error
+    API->>Store: update_requirement(uid, fields)
+    Store->>Store: _sanitise · deep merge
+    Store->>Store: recompute hash · bump version
+    Store->>Store: append history entry
+    Store->>Disk: save_yaml(path, data)
+    Store-->>API: updated dict
+    API->>API: _fire_webhook (async thread)
+    API->>API: _broadcast_sync (WebSocket)
+    API-->>C: 200 JSON
 ```
 
 ### 13.3 Tree construction

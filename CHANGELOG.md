@@ -4,6 +4,48 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.3.9] -- 2025-06-07
+
+### Fixed
+
+- **`stakeholder_need` and all agile types missing from `CoreEnums.req_type`**: validation
+  rejected any requirement with `req_type = stakeholder_need` (or theme/epic/story/task/bug/spike)
+  with "value not in enum". All new types added to `CoreEnums.req_type` and all workflow states
+  (backlog, ready, in_progress, active, etc.) added to `CoreEnums.status`.
+
+- **Watchdog observer leaking inotify file descriptors across tests**: `create_app()` now skips
+  the watchdog `Observer` when running under pytest (`"pytest" in sys.modules` or
+  `PYTEST_CURRENT_TEST` in env). This was causing `TestInitDefaults` and all API tests to time
+  out due to exhausted inotify watches on CI (Linux). API tests now run in ~17 s (was 60 s+).
+
+- **`Start-Process npm` fails on Windows** (`%1 is not a valid Win32 application`): `npm` on
+  Windows is `npm.cmd`, not an `.exe`. `dev.ps1` now resolves the full path via
+  `Get-Command npm` and passes that to `Start-Process -FilePath`, which handles `.cmd` files
+  correctly.
+
+- **Validation smoke-test fails on warnings**: `req validate` exits 1 when there are warnings
+  (missing owner, missing test refs). The CI step now checks only for hard errors (unknown
+  req_type etc.) and treats warnings as advisory.
+
+### Added
+
+- **Enhanced demo dataset (`req init demo`)**: now creates agile items alongside systems
+  requirements -- a theme, 3 epics, stories/tasks/bug/spike linked to systems requirements
+  via `satisfies` relationships, and a `comms-security` module with 5 pre-approved security
+  requirements included in the product.
+
+- **`comms-security` module**: reusable communications security baseline (TLS 1.2+, certificate
+  validation, per-device credentials, mTLS, MQTT ACLs) usable across any Wi-Fi/Matter IoT product.
+
+### Changed
+
+- **`ARCHITECTURE.md` diagrams converted to Mermaid**: component overview, module dependency
+  graph, startup sequence, write path sequence, and all state machine diagrams are now Mermaid
+  blocks that render natively in GitHub and MkDocs.
+
+- **`dev.ps1` npm diagnostics**: prints resolved npm path and Node.js version on failure.
+
+
 ## [0.3.8] -- 2025-06-07
 
 ### Changed

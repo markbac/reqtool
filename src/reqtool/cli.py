@@ -1449,9 +1449,189 @@ def init_demo(repo: Optional[str]):
     r_count = len(store.requirements)
     t_count = len(store.tbds)
     p_count = len(store.principles)
+
+    # -----------------------------------------------------------------------
+    # Add agile items (epics → stories/tasks) linked to systems requirements
+    # -----------------------------------------------------------------------
+    import shutil
+
+    # Copy hierarchy.yaml so agile types are recognised
+    default_hierarchy = Path(__file__).parent / "defaults" / "hierarchy.yaml"
+    if default_hierarchy.exists():
+        shutil.copy(str(default_hierarchy), str(root / ".reqtool" / "hierarchy.yaml"))
+        store._load_hierarchy()  # reload so prefixes are available
+
+    # Update enums with agile types
+    enums_path = root / ".reqtool" / "enums.yaml"
+    from .fileio import load_yaml, save_yaml
+    enums = load_yaml(enums_path)
+    enums["estimate_unit"] = "points"
+    enums["id_domain"] = {**enums.get("id_domain", {}),
+                          "TH": "theme", "EP": "epic", "FT": "feature",
+                          "US": "story", "TK": "task", "BG": "bug"}
+    save_yaml(enums_path, enums)
+    store._load_enums()
+
+    def req(id_):
+        """Look up uid by id."""
+        for v in store.requirements.values():
+            if v.get("id") == id_:
+                return v["uid"]
+        return None
+
+    # Theme
+    th = store.create_requirement({"id": "TH-001", "title": "Consumer IoT Sensor Platform",
+        "req_type": "theme", "status": "active",
+        "content": {"description": "Deliver a production-ready environmental sensor device on Matter/Wi-Fi with a supporting cloud and app ecosystem.", "rationale": ""}})
+
+    # Epics
+    ep_fw = store.create_requirement({"id": "EP-001", "title": "Sensor Firmware v1.0",
+        "req_type": "epic", "parentId": th["uid"], "status": "in_progress", "estimate": 40,
+        "content": {"description": "All firmware required for initial production firmware release.", "rationale": ""}})
+    ep_cloud = store.create_requirement({"id": "EP-002", "title": "Cloud Integration",
+        "req_type": "epic", "parentId": th["uid"], "status": "backlog", "estimate": 24,
+        "content": {"description": "MQTT ingestion, time-series storage, and device management API.", "rationale": ""}})
+    ep_app = store.create_requirement({"id": "EP-003", "title": "Mobile / Web Dashboard",
+        "req_type": "epic", "parentId": th["uid"], "status": "backlog", "estimate": 32,
+        "content": {"description": "Real-time dashboard showing sensor readings with history and alerts.", "rationale": ""}})
+
+    # Stories and tasks -- firmware epic
+    us_boot = store.create_requirement({"id": "US-001", "title": "Sensor boots and reads all three sensors within 5 s",
+        "req_type": "story", "parentId": ep_fw["uid"], "status": "done", "estimate": 5,
+        "assignee": "firmware.lead", "iteration": "Sprint-1",
+        "content": {"description": "As a device, I boot, initialise BME280, and publish first readings within 5 s of power-on.", "rationale": ""},
+        "relationships": [{"type": "satisfies", "target": {"uid": req("DR-BME-1") or req("SYS-SEN-1") or ""}}]})
+    us_ota = store.create_requirement({"id": "US-002", "title": "OTA firmware update over Wi-Fi",
+        "req_type": "story", "parentId": ep_fw["uid"], "status": "in_progress", "estimate": 8,
+        "assignee": "firmware.lead", "iteration": "Sprint-2",
+        "content": {"description": "As a device owner, I receive and apply a signed firmware update over Wi-Fi without physical access.", "rationale": ""},
+        "relationships": [{"type": "satisfies", "target": {"uid": req("SR-OTA-1") or req("SYS-COMMS-1") or ""}}]})
+    us_matter = store.create_requirement({"id": "US-003", "title": "Device pairs with Apple Home and Google Home via Matter",
+        "req_type": "story", "parentId": ep_fw["uid"], "status": "backlog", "estimate": 13,
+        "assignee": "firmware.lead", "iteration": "Sprint-3",
+        "content": {"description": "As a user, I commission the device via QR code and it appears in my chosen smart home app.", "rationale": ""}})
+
+    tk_bme = store.create_requirement({"id": "TK-001", "title": "Integrate BME280 driver with DMA read",
+        "req_type": "task", "parentId": us_boot["uid"], "status": "done", "estimate": 2,
+        "assignee": "firmware.lead", "iteration": "Sprint-1",
+        "content": {"description": "Implement I2C DMA read path for BME280 to avoid blocking the main loop.", "rationale": ""}})
+    tk_tls = store.create_requirement({"id": "TK-002", "title": "Configure TLS 1.3 for MQTT transport",
+        "req_type": "task", "parentId": us_ota["uid"], "status": "in_progress", "estimate": 3,
+        "assignee": "firmware.lead", "iteration": "Sprint-2",
+        "content": {"description": "Configure Mbed TLS on the MCU for TLS 1.3 with server certificate verification.", "rationale": ""}})
+
+    # Stories -- cloud epic
+    us_mqtt = store.create_requirement({"id": "US-004", "title": "Ingest sensor readings via MQTT",
+        "req_type": "story", "parentId": ep_cloud["uid"], "status": "backlog", "estimate": 5,
+        "assignee": "systems.lead", "iteration": "Sprint-2",
+        "content": {"description": "As the cloud platform, I receive sensor readings from all registered devices via MQTT and write them to the time-series store.", "rationale": ""}})
+    us_api = store.create_requirement({"id": "US-005", "title": "REST API for device readings",
+        "req_type": "story", "parentId": ep_cloud["uid"], "status": "backlog", "estimate": 8,
+        "content": {"description": "As a developer, I query the last 24 h of readings for a device via a REST API.", "rationale": ""}})
+
+    # Bug
+    bg = store.create_requirement({"id": "BG-001", "title": "Humidity reading drifts +3 % RH after 2 h",
+        "req_type": "bug", "parentId": ep_fw["uid"], "status": "in_progress", "priority": "high",
+        "assignee": "firmware.lead", "iteration": "Sprint-2",
+        "content": {"description": "After 2 h of continuous operation, humidity readings are 3 % RH above reference. Root cause: self-heating from MCU not compensated.", "rationale": ""}})
+
+    # Spike
+    sp = store.create_requirement({"id": "SP-001", "title": "Spike: evaluate Thread vs Wi-Fi for battery life",
+        "req_type": "spike", "parentId": ep_fw["uid"], "status": "done", "estimate": 3,
+        "content": {"description": "Time-box: 3 points. Compare Thread and Wi-Fi current draw on the target MCU. Produce a measurement report.", "rationale": ""}})
+
+    agile_count = len(store.requirements) - r_count
+
+    # -----------------------------------------------------------------------
+    # Module: comms-security-baseline
+    # A reusable set of communications security requirements that can be
+    # included in any product using the same radio stack.
+    # -----------------------------------------------------------------------
+    import shutil as _shutil
+    modules_dir = root / "modules" / "comms-security"
+    modules_dir.mkdir(parents=True, exist_ok=True)
+
+    module_manifest = {
+        "schema_version": "1.0.0",
+        "id": "comms-security",
+        "title": "Communications Security Baseline",
+        "version": "1.0.0",
+        "description": "Reusable communications security requirements applicable to any Wi-Fi/Matter IoT product.",
+        "overrideable_fields": ["priority", "owner", "status"],
+        "maintainer": "security.lead",
+    }
+    from .fileio import save_yaml
+    save_yaml(modules_dir / "_module.yaml", module_manifest)
+
+    MODULE_REQS = [
+        {"id": "MOD-SEC-001", "title": "TLS 1.2+ for all network transport",
+         "req_type": "security", "priority": "critical",
+         "content": {"description": "All network communication shall use TLS 1.2 or later. TLS 1.0 and 1.1 are prohibited.", "rationale": "TLS 1.0/1.1 have known weaknesses and are prohibited by current security standards."},
+         "acceptance_criteria": [{"text": "Network traffic captured under test shows only TLS 1.2+ handshakes.", "uid": "ac-mod-sec-001-1", "id": "AC-1"}]},
+        {"id": "MOD-SEC-002", "title": "Certificate validation mandatory",
+         "req_type": "security", "priority": "critical",
+         "content": {"description": "Devices shall validate server certificates against a trusted CA bundle. Certificate pinning is encouraged for OTA endpoints.", "rationale": "Without certificate validation, devices are vulnerable to MITM attacks."},
+         "acceptance_criteria": [{"text": "Connection to a server with an invalid certificate is rejected.", "uid": "ac-mod-sec-002-1", "id": "AC-1"}]},
+        {"id": "MOD-SEC-003", "title": "Unique per-device credentials",
+         "req_type": "security", "priority": "critical",
+         "content": {"description": "No credential (key, certificate, password) shall be shared across more than one device unit.", "rationale": "Universal credentials are prohibited by PSTI Act 2022 and enable fleet-wide compromise."},
+         "acceptance_criteria": [{"text": "Provisioning system generates unique X.509 cert per device serial.", "uid": "ac-mod-sec-003-1", "id": "AC-1"}]},
+        {"id": "MOD-SEC-004", "title": "Mutual TLS for cloud API",
+         "req_type": "security", "priority": "high",
+         "content": {"description": "Device-to-cloud API connections shall use mutual TLS (mTLS). The cloud endpoint shall reject connections without a valid device certificate.", "rationale": "mTLS provides device identity assurance to the cloud."},
+         "acceptance_criteria": [{"text": "Cloud rejects connections without valid device cert.", "uid": "ac-mod-sec-004-1", "id": "AC-1"}]},
+        {"id": "MOD-SEC-005", "title": "MQTT topic ACLs per device",
+         "req_type": "security", "priority": "high",
+         "content": {"description": "Each device shall only publish to and subscribe from its own topic namespace. Cross-device topic access shall be denied by the broker.", "rationale": "Topic ACLs prevent a compromised device from reading or injecting data for other devices."},
+         "acceptance_criteria": [{"text": "Device A cannot publish to Device B topic namespace.", "uid": "ac-mod-sec-005-1", "id": "AC-1"}]},
+    ]
+
+    from .fileio import uuid7, utcnow_iso, compute_requirement_hash
+    from . import __version__ as TOOL_VERSION
+
+    for mr in MODULE_REQS:
+        uid = uuid7()
+        now = utcnow_iso()
+        data = {
+            "schema_version": "1.0.0", "type": "requirement", "tool_version": TOOL_VERSION,
+            "uid": uid, "id": mr["id"], "parentId": None,
+            "title": mr["title"], "version": "1.0.0",
+            "content": mr["content"],
+            "acceptance_criteria": mr.get("acceptance_criteria", []),
+            "status": "approved", "priority": mr.get("priority", "high"),
+            "req_type": mr["req_type"], "owner": "security.lead",
+            "relationships": [], "links": [], "attachments": [],
+            "dor_checklist": [], "dod_checklist": [],
+            "attributes": {}, "custom_fields": {}, "nfr": {},
+            "constraints": [], "assumptions": [],
+            "risk": "none", "safety_related": False, "safety_classification": None,
+            "verification_method": "test",
+            "verification": {"status": "not_started", "verified_date": None, "note": ""},
+            "approval": {"status": "approved", "approved_by": "security.lead", "approved_date": now},
+            "review": {"last_reviewed": now, "reviewers": ["security.lead"], "note": ""},
+            "implementation": {"status": "not_started", "branch": None},
+            "content_hash": "", "created": now, "last_modified": now, "deleted": False,
+            "history": [{"version": "1.0.0", "date": now, "modified_by": "reqtool", "summary": "Initial.", "commit_sha": None, "change_ref": None}],
+        }
+        data["content_hash"] = compute_requirement_hash(data)
+        save_yaml(modules_dir / f"{uid}.yaml", data)
+
+    # Register module in product
+    product_path = root / "products" / "env-sensor-v1" / "_product.yaml"
+    if product_path.exists():
+        from .fileio import load_yaml
+        product_data = load_yaml(product_path) or {}
+        if "modules" not in product_data:
+            product_data["modules"] = []
+        product_data["modules"].append({"id": "comms-security", "version": "1.0.0", "overrides": {}})
+        save_yaml(product_path, product_data)
+
     click.echo(click.style(f"Demo repository initialised at {root}", fg="green"))
-    click.echo(f"  {r_count} requirements  |  {t_count} TBDs  |  {p_count} principles")
-    click.echo(f"  Product: env-sensor-v1")
+    click.echo(f"  {r_count} systems requirements  |  {t_count} TBDs  |  {p_count} principles")
+    click.echo(f"  {agile_count} agile items (theme → epics → stories/tasks/bug/spike)")
+    click.echo(f"  1 module: comms-security ({len(MODULE_REQS)} pre-approved security requirements)")
+    click.echo(f"  Product: env-sensor-v1 (includes comms-security module)")
+    click.echo(f"  Cross-links: stories satisfy systems requirements via 'satisfies' relationships")
     _print_next_steps(root)
 
 
