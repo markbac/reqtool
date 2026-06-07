@@ -193,17 +193,41 @@ function Invoke-Install {
     }
 
     if (-not $skipBuild) {
-        # On Windows, npm is npm.cmd -- find it via Get-Command
-        $npmCmd = (Get-Command npm -ErrorAction SilentlyContinue)?.Source
+        # Find npm.cmd explicitly -- Start-Process cannot run .ps1 shims
+        $npmCmd = $null
+
+        # 1. Look for npm.cmd on PATH first
+        $npmCmd = (Get-Command 'npm.cmd' -ErrorAction SilentlyContinue)?.Source
+
+        # 2. Try npm.exe
         if (-not $npmCmd) {
-            Write-Red "npm not found in PATH."
-            Write-Yellow "Install Node.js 18+ from https://nodejs.org/ and re-run."
+            $npmCmd = (Get-Command 'npm.exe' -ErrorAction SilentlyContinue)?.Source
+        }
+
+        # 3. Search common Node.js install locations
+        if (-not $npmCmd) {
+            $candidates = @(
+                "$env:ProgramFiles\nodejs\npm.cmd",
+                "${env:ProgramFiles(x86)}\nodejs\npm.cmd",
+                "$env:APPDATA\npm\npm.cmd",
+                "$env:LOCALAPPDATA\Programs\nodejs\npm.cmd"
+            )
+            foreach ($c in $candidates) {
+                if (Test-Path $c) { $npmCmd = $c; break }
+            }
+        }
+
+        if (-not $npmCmd) {
+            Write-Red "Cannot find npm.cmd. Install Node.js 18+ from https://nodejs.org/"
+            Write-Yellow "After installing Node.js, close and reopen this shell, then re-run."
             exit 1
         }
+
         Write-Host "  npm: $npmCmd" -ForegroundColor DarkGray
 
         Write-Yellow "Installing UI dependencies ..."
-        $proc = Start-Process -FilePath $npmCmd -ArgumentList 'install','--legacy-peer-deps' `
+        $proc = Start-Process -FilePath 'cmd.exe' `
+                              -ArgumentList "/c `"$npmCmd`" install --legacy-peer-deps" `
                               -WorkingDirectory $uiDir -Wait -PassThru -NoNewWindow
         if ($proc.ExitCode -ne 0) {
             Write-Red "npm install failed (exit $($proc.ExitCode))."
@@ -212,7 +236,8 @@ function Invoke-Install {
         }
 
         Write-Yellow "Building UI ..."
-        $proc2 = Start-Process -FilePath $npmCmd -ArgumentList 'run','build' `
+        $proc2 = Start-Process -FilePath 'cmd.exe' `
+                               -ArgumentList "/c `"$npmCmd`" run build" `
                                -WorkingDirectory $uiDir -Wait -PassThru -NoNewWindow
         if ($proc2.ExitCode -ne 0) {
             Write-Red "npm run build failed (exit $($proc2.ExitCode))."

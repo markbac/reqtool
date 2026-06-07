@@ -4,6 +4,18 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.3.10] -- 2025-06-07
+
+### Fixed
+
+- **`dev.ps1 install` fails with npm.ps1** (`%1 is not a valid Win32 application`):
+  `Get-Command npm` returns `npm.ps1` (a PowerShell shim installed by some Node version
+  managers), which `Start-Process -FilePath` cannot execute. The script now explicitly
+  searches for `npm.cmd` first, then `npm.exe`, then four common Node.js install paths.
+  Whichever is found is invoked via `cmd.exe /c "<path>" install ...` so the working
+  directory is set at the Win32 level and `.cmd` batch files execute correctly.
+
+
 ## [0.3.9] -- 2025-06-07
 
 ### Fixed

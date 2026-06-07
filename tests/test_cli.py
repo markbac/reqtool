@@ -252,7 +252,7 @@ class TestVersion:
     def test_version_in_package(self):
         """Version is exposed as __version__, not as a CLI command."""
         from reqtool import __version__
-        assert __version__ == "0.3.9"
+        assert __version__ == "0.3.10"
 
     def test_no_version_command(self):
         assert "version" not in cli.commands
