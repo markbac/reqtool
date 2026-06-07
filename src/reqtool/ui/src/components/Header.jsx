@@ -77,7 +77,7 @@ function OverflowMenu({ items }) {
 
 export default function Header({ onValidate, onExport, onCoverage, onBulk, onVocabularies,
                                onBaselines, onMetrics, onImport, onTraceability, onGlobalCommit,
-                               onCustomFields, onWebhooks, onToggleSidebar }) {
+                               onCustomFields, onWebhooks, onToggleSidebar, onHelp }) {
   const { state, dispatch, toast } = useApp();
   const { products, activeProduct, activeVariant } = state;
   const [gitStatus, setGitStatus] = useState(null);
@@ -199,12 +199,11 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
         {unstagedCount > 0 && (
           <span className="header-unstaged-badge">{unstagedCount} unstaged</span>
         )}
-        {/* Primary actions always visible */}
-        <button className="btn btn-ghost header-action-btn" onClick={onValidate} title="Validate all (§13)">✓ Validate</button>
+        {/* Primary actions */}
+        <button className="btn btn-ghost header-action-btn" onClick={onValidate} title="Validate all requirements">✓ Validate</button>
+        <button className="btn btn-ghost header-action-btn" onClick={onExport}   title="Export requirements">↓ Export</button>
         <button className="btn btn-ghost header-action-btn" onClick={onMetrics}  title="Metrics dashboard">⊕ Metrics</button>
-        <button className="btn btn-ghost header-action-btn" onClick={onExport}   title="Export">↓ Export</button>
-        <button className="btn btn-ghost header-action-btn" onClick={onImport}   title="Import from CSV">↑ Import</button>
-        {/* Overflow menu for less-used actions */}
+        {/* Overflow menu */}
         <OverflowMenu items={[
           { label: '⊞ Coverage',     action: onCoverage },
           { label: '⊗ Traceability', action: onTraceability },
@@ -214,7 +213,7 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
           { label: '⊚ Custom fields',action: onCustomFields },
           { label: '⇌ Webhooks',     action: onWebhooks },
           { label: '⬡ Workflow',     action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showWorkflow', value: true }) },
-          { label: '◫ Templates',    action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showTemplates', value: true }) },
+          { label: '↑ Import CSV',   action: onImport },
         ]} />
         <button
           className="btn btn-ghost header-action-btn"
@@ -222,6 +221,12 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
           title={`Switch to ${state.theme === 'dark' ? 'light' : 'dark'} mode`}
           style={{ fontSize: 14, padding: '4px 8px' }}
         >{state.theme === 'dark' ? '☀' : '☾'}</button>
+        <button
+          className="btn btn-ghost header-action-btn"
+          onClick={onHelp}
+          title="Help, About & Templates (press ?)"
+          style={{ fontWeight: 700, fontSize: 15, padding: '4px 10px', color: 'var(--text-secondary)' }}
+        >?</button>
         <UserIdentityWidget />
       </div>
     </header>

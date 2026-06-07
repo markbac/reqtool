@@ -1482,63 +1482,130 @@ def init_demo(repo: Optional[str]):
     # Theme
     th = store.create_requirement({"id": "TH-001", "title": "Consumer IoT Sensor Platform",
         "req_type": "theme", "status": "active",
-        "content": {"description": "Deliver a production-ready environmental sensor device on Matter/Wi-Fi with a supporting cloud and app ecosystem.", "rationale": ""}})
+        "content": {
+            "description": "Deliver a production-ready environmental sensor device on Matter/Wi-Fi with a supporting cloud dashboard and mobile app ecosystem.",
+            "rationale": "The smart home sensor market is growing at 20% CAGR. A Matter-certified device opens distribution through Apple, Google and Amazon channels without custom integrations.",
+        }})
 
     # Epics
     ep_fw = store.create_requirement({"id": "EP-001", "title": "Sensor Firmware v1.0",
         "req_type": "epic", "parentId": th["uid"], "status": "in_progress", "estimate": 40,
-        "content": {"description": "All firmware required for initial production firmware release.", "rationale": ""}})
+        "content": {
+            "description": "All firmware required for initial production release: sensor drivers, Matter stack, OTA, power management, and factory test mode.",
+            "rationale": "Firmware is on the critical path. Hardware is fixed at MP; all remaining v1.0 scope is firmware and cloud.",
+        }})
     ep_cloud = store.create_requirement({"id": "EP-002", "title": "Cloud Integration",
         "req_type": "epic", "parentId": th["uid"], "status": "backlog", "estimate": 24,
-        "content": {"description": "MQTT ingestion, time-series storage, and device management API.", "rationale": ""}})
+        "content": {
+            "description": "MQTT ingestion pipeline, time-series storage (InfluxDB), device management API, and alert rule engine.",
+            "rationale": "Cloud connectivity is required for remote monitoring and fleet management. REST API enables third-party integrations.",
+        }})
     ep_app = store.create_requirement({"id": "EP-003", "title": "Mobile / Web Dashboard",
         "req_type": "epic", "parentId": th["uid"], "status": "backlog", "estimate": 32,
-        "content": {"description": "Real-time dashboard showing sensor readings with history and alerts.", "rationale": ""}})
+        "content": {
+            "description": "Real-time web dashboard and iOS/Android app showing temperature, humidity, pressure readings with 30-day history graphs and configurable alerts.",
+            "rationale": "User research (N=45) showed 78% of target users prefer a mobile app over third-party smart home apps for primary monitoring.",
+        }})
 
     # Stories and tasks -- firmware epic
-    us_boot = store.create_requirement({"id": "US-001", "title": "Sensor boots and reads all three sensors within 5 s",
+    us_boot = store.create_requirement({"id": "US-001", "title": "Sensor boots and publishes first readings within 5 s",
         "req_type": "story", "parentId": ep_fw["uid"], "status": "done", "estimate": 5,
         "assignee": "firmware.lead", "iteration": "Sprint-1",
-        "content": {"description": "As a device, I boot, initialise BME280, and publish first readings within 5 s of power-on.", "rationale": ""},
+        "content": {
+            "description": "As a device, I boot, initialise the BME280 over I2C, and publish temperature/humidity/pressure readings within 5 s of power-on so that the user sees live data immediately after installation.",
+            "rationale": "5 s is the threshold from user research at which waiting feels acceptable. Exceeding it increases support calls about 'device not working'.",
+        },
+        "acceptance_criteria": [
+            {"id": "AC-1", "text": "Power-on to first MQTT publish measured at ≤ 5 s on production hardware at 25 °C.", "uid": "ac-us001-1"},
+            {"id": "AC-2", "text": "All three sensor values (T, RH, P) present in the first published payload.", "uid": "ac-us001-2"},
+            {"id": "AC-3", "text": "Boot sequence completes correctly after a hard power cycle with no prior state.", "uid": "ac-us001-3"},
+        ],
         "relationships": [{"type": "satisfies", "target": {"uid": req("DR-BME-1") or req("SYS-SEN-1") or ""}}]})
+
     us_ota = store.create_requirement({"id": "US-002", "title": "OTA firmware update over Wi-Fi",
         "req_type": "story", "parentId": ep_fw["uid"], "status": "in_progress", "estimate": 8,
         "assignee": "firmware.lead", "iteration": "Sprint-2",
-        "content": {"description": "As a device owner, I receive and apply a signed firmware update over Wi-Fi without physical access.", "rationale": ""},
+        "content": {
+            "description": "As a device owner, I want the device to download and apply signed firmware updates over Wi-Fi without physical access so that security patches reach the fleet within the PSTI mandatory support window.",
+            "rationale": "PSTI Act 2022 requires security updates to be delivered for a defined minimum period. OTA is the only practical mechanism for a consumer device.",
+        },
+        "acceptance_criteria": [
+            {"id": "AC-1", "text": "Update package with invalid signature is rejected; device remains on previous firmware.", "uid": "ac-us002-1"},
+            {"id": "AC-2", "text": "Interrupted update (power loss at 50%) leaves device in a bootable state (rollback or recovery).", "uid": "ac-us002-2"},
+            {"id": "AC-3", "text": "Full update cycle completes within 3 minutes on a 2.4 GHz network with −65 dBm RSSI.", "uid": "ac-us002-3"},
+        ],
         "relationships": [{"type": "satisfies", "target": {"uid": req("SR-OTA-1") or req("SYS-COMMS-1") or ""}}]})
-    us_matter = store.create_requirement({"id": "US-003", "title": "Device pairs with Apple Home and Google Home via Matter",
+
+    us_matter = store.create_requirement({"id": "US-003", "title": "Device commissions via Matter QR code",
         "req_type": "story", "parentId": ep_fw["uid"], "status": "backlog", "estimate": 13,
         "assignee": "firmware.lead", "iteration": "Sprint-3",
-        "content": {"description": "As a user, I commission the device via QR code and it appears in my chosen smart home app.", "rationale": ""}})
+        "content": {
+            "description": "As a user, I scan the QR code on the device label with my iPhone or Android phone and the device appears in Apple Home, Google Home, or Amazon Alexa within 90 seconds, so I can start monitoring without a proprietary app.",
+            "rationale": "Matter is now supported by all major smart home platforms. A single commissioning flow replaces three separate integrations.",
+        },
+        "acceptance_criteria": [
+            {"id": "AC-1", "text": "QR code commissioning completes in Apple Home on iOS 16+ in ≤ 90 s on a 2.4 GHz network.", "uid": "ac-us003-1"},
+            {"id": "AC-2", "text": "QR code commissioning completes in Google Home on Android 12+ in ≤ 90 s.", "uid": "ac-us003-2"},
+            {"id": "AC-3", "text": "Device passes Matter certification test suite (mattertest 1.3 or later).", "uid": "ac-us003-3"},
+        ]})
 
-    tk_bme = store.create_requirement({"id": "TK-001", "title": "Integrate BME280 driver with DMA read",
+    tk_bme = store.create_requirement({"id": "TK-001", "title": "Implement BME280 I2C driver with DMA",
         "req_type": "task", "parentId": us_boot["uid"], "status": "done", "estimate": 2,
         "assignee": "firmware.lead", "iteration": "Sprint-1",
-        "content": {"description": "Implement I2C DMA read path for BME280 to avoid blocking the main loop.", "rationale": ""}})
-    tk_tls = store.create_requirement({"id": "TK-002", "title": "Configure TLS 1.3 for MQTT transport",
+        "content": {
+            "description": "Implement the I2C DMA read path for the BME280 sensor. Reads must be non-blocking to avoid delaying the main RTOS task. Use the existing HAL DMA API. Include compensation formula from BME280 datasheet §4.2.3.",
+            "rationale": "Blocking I2C reads at 400 kHz take ~200 µs per measurement cycle. DMA frees the CPU during the transfer and is required for <5 s boot time.",
+        }})
+
+    tk_tls = store.create_requirement({"id": "TK-002", "title": "Configure Mbed TLS 1.3 for MQTT",
         "req_type": "task", "parentId": us_ota["uid"], "status": "in_progress", "estimate": 3,
         "assignee": "firmware.lead", "iteration": "Sprint-2",
-        "content": {"description": "Configure Mbed TLS on the MCU for TLS 1.3 with server certificate verification.", "rationale": ""}})
+        "content": {
+            "description": "Configure Mbed TLS on the MCU for TLS 1.3 only (disable 1.2 fallback). Enable server certificate verification against the fleet CA bundle stored in secure flash. Cipher suite: TLS_AES_128_GCM_SHA256.",
+            "rationale": "TLS 1.2 has known downgrade vulnerabilities (POODLE, BEAST). MOD-SEC-001 requires TLS 1.2 minimum; TLS 1.3 is preferred where MCU supports it.",
+        }})
 
-    # Stories -- cloud epic
-    us_mqtt = store.create_requirement({"id": "US-004", "title": "Ingest sensor readings via MQTT",
+    us_mqtt = store.create_requirement({"id": "US-004", "title": "Cloud ingests readings via MQTT",
         "req_type": "story", "parentId": ep_cloud["uid"], "status": "backlog", "estimate": 5,
         "assignee": "systems.lead", "iteration": "Sprint-2",
-        "content": {"description": "As the cloud platform, I receive sensor readings from all registered devices via MQTT and write them to the time-series store.", "rationale": ""}})
-    us_api = store.create_requirement({"id": "US-005", "title": "REST API for device readings",
-        "req_type": "story", "parentId": ep_cloud["uid"], "status": "backlog", "estimate": 8,
-        "content": {"description": "As a developer, I query the last 24 h of readings for a device via a REST API.", "rationale": ""}})
+        "content": {
+            "description": "As the cloud platform, I receive temperature, humidity, and pressure readings from all registered devices via MQTT over TLS, validate the payload schema, and persist them to the time-series store so that the dashboard can query them.",
+            "rationale": "MQTT is the standard IoT messaging protocol. Persistent time-series storage is required for the history graphs in EP-003.",
+        },
+        "acceptance_criteria": [
+            {"id": "AC-1", "text": "1000 concurrent device connections sustained for 1 h with ≤ 0.1% message loss.", "uid": "ac-us004-1"},
+            {"id": "AC-2", "text": "Malformed payload is rejected with error log; valid device connection maintained.", "uid": "ac-us004-2"},
+        ]})
 
-    # Bug
-    bg = store.create_requirement({"id": "BG-001", "title": "Humidity reading drifts +3 % RH after 2 h",
+    us_api = store.create_requirement({"id": "US-005", "title": "REST API returns device readings",
+        "req_type": "story", "parentId": ep_cloud["uid"], "status": "backlog", "estimate": 8,
+        "content": {
+            "description": "As a developer, I call GET /devices/{id}/readings?from=2024-01-01&to=2024-01-02 and receive a JSON array of timestamped sensor readings so that I can build custom dashboards or export data.",
+            "rationale": "Third-party integrations (Home Assistant, Grafana) require an open API. Documented REST is the lowest barrier to adoption.",
+        },
+        "acceptance_criteria": [
+            {"id": "AC-1", "text": "GET /devices/{id}/readings returns readings within the requested window in ≤ 200 ms for a 24 h query.", "uid": "ac-us005-1"},
+            {"id": "AC-2", "text": "API returns 401 for unauthenticated requests and 403 for requests outside the caller's device scope.", "uid": "ac-us005-2"},
+        ]})
+
+    bg = store.create_requirement({"id": "BG-001", "title": "Humidity drifts +3 % RH after 2 h",
         "req_type": "bug", "parentId": ep_fw["uid"], "status": "in_progress", "priority": "high",
         "assignee": "firmware.lead", "iteration": "Sprint-2",
-        "content": {"description": "After 2 h of continuous operation, humidity readings are 3 % RH above reference. Root cause: self-heating from MCU not compensated.", "rationale": ""}})
+        "content": {
+            "description": "**Steps to reproduce:** Run device at 25 °C, 50 % RH. After 2 h continuous operation humidity reading is +3 % RH above reference (calibrated Vaisala HM70).\n\n**Root cause (identified):** MCU self-heating raises the BME280 local temperature by ~1.5 °C. BME280 humidity is temperature-compensated; if the local temp reads high, RH reads low — but we observe high, suggesting the compensation direction is inverted in firmware.\n\n**Fix:** Invert the self-heat correction sign in `bme280_compensate_humidity()`.",
+            "rationale": "SYS-SEN-3 requires RH accuracy ±3 % RH. A sustained +3 % drift at steady-state breaches this. Affects all production units after warm-up.",
+        }})
 
-    # Spike
-    sp = store.create_requirement({"id": "SP-001", "title": "Spike: evaluate Thread vs Wi-Fi for battery life",
+    sp = store.create_requirement({"id": "SP-001", "title": "Spike: Thread vs Wi-Fi for battery life",
         "req_type": "spike", "parentId": ep_fw["uid"], "status": "done", "estimate": 3,
-        "content": {"description": "Time-box: 3 points. Compare Thread and Wi-Fi current draw on the target MCU. Produce a measurement report.", "rationale": ""}})
+        "content": {
+            "description": "**Question:** Does Thread mesh networking extend battery life sufficiently over direct Wi-Fi to justify the added BOM cost (~$0.80/unit) and Matter Thread commissioning complexity?\n\n**Time-box:** 3 story points (1 sprint).\n\n**Output:** Measurement report with current profiles for both radios on target MCU at 1-minute and 5-minute sampling intervals. ADR to record decision.",
+            "rationale": "Thread is lower-power than Wi-Fi in sleep mode but requires a Thread Border Router in the home. Battery life target is 12 months on 2× AA. Current Wi-Fi prototype measures 8 months.",
+        },
+        "acceptance_criteria": [
+            {"id": "AC-1", "text": "Current consumption measured for both radios at 1 min and 5 min sample rates, documented in a shared report.", "uid": "ac-sp001-1"},
+            {"id": "AC-2", "text": "ADR created recording the decision and trade-offs before end of Sprint-2.", "uid": "ac-sp001-2"},
+        ]})
 
     agile_count = len(store.requirements) - r_count
 

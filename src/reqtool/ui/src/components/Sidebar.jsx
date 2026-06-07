@@ -180,6 +180,8 @@ function RequirementsPanel() {
   const [ctxMenu, setCtxMenu] = useState(null);
   const [histUid, setHistUid] = useState(null);
   const [histData, setHistData] = useState(null);
+  const [showModulePanel, setShowModulePanel] = useState(false);
+  const [availableModules, setAvailableModules] = useState([]);
 
   const load = useCallback(async () => {
     if (!activeProduct) return;
@@ -190,6 +192,12 @@ function RequirementsPanel() {
   }, [activeProduct, activeVariant]);
 
   useEffect(() => { load(); }, [load]);
+
+  const openModulePanel = async () => {
+    try { const mods = await api.modules.list(); setAvailableModules(Array.isArray(mods) ? mods : []); }
+    catch { setAvailableModules([]); }
+    setShowModulePanel(true);
+  };
 
   const filterNode = (node, q) => {
     const lq = q.toLowerCase();
@@ -202,11 +210,18 @@ function RequirementsPanel() {
 
   const createReq = async (parentId = null) => {
     try {
-      const req = await api.requirements.create({
-        title: 'New requirement', parentId,
-        content: { description: 'The system shall...', rationale: '', extended_description: '' },
-      });
+      const tmpl = state.pendingTemplate;
+      const base = {
+        title: tmpl ? `New ${tmpl.label}` : 'New requirement',
+        parentId,
+        content: tmpl?.fields?.content || { description: 'The system shall...', rationale: '', extended_description: '' },
+        ...(tmpl?.fields || {}),
+      };
+      // Remove 'content' from top-level spread since it's already set
+      delete base.fields;
+      const req = await api.requirements.create(base);
       dispatch({ type: 'SELECT', uid: req.uid, artefactType: 'requirement' });
+      if (tmpl) dispatch({ type: 'CLEAR_TEMPLATE' });
       await load(); return req;
     } catch (err) { toast(err.message, 'error'); return null; }
   };
@@ -229,19 +244,96 @@ function RequirementsPanel() {
     }
   };
 
-  if (!activeProduct) return <div className="sidebar-empty">Select a product above to view requirements.</div>;
-  if (loading) return <div className="sidebar-loading"><div className="spinner" /></div>;
-  if (error)   return <div className="sidebar-error">{error}</div>;
-  if (!tree.length) return (
+  if (!activeProduct) return (
     <div className="sidebar-empty">
-      <div>No requirements found.</div>
-      <button className="btn btn-secondary" style={{ marginTop: 8, fontSize: 11 }} onClick={() => createReq()}>+ New requirement</button>
+      <div style={{ marginBottom: 8 }}>Select a product from the dropdown above.</div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+        No products yet? Create one with <strong>+ Product</strong> in the top bar,
+        or run <code>req init demo</code> for a sample dataset.
+      </div>
     </div>
   );
-  if (searchQuery && !displayTree.length) return <div className="sidebar-empty">No matches for <em>{searchQuery}</em></div>;
+  if (loading) return <div className="sidebar-loading"><div className="spinner" /></div>;
+  if (error)   return <div className="sidebar-error">{error}</div>;
 
   return (
     <>
+      {/* Toolbar */}
+      <div className="tree-toolbar">
+        <button className="btn btn-ghost tree-toolbar-btn" onClick={() => createReq()} title="New requirement (right-click any node for Add child/sibling)">+ New</button>
+        <button className="btn btn-ghost tree-toolbar-btn" onClick={openModulePanel}
+          title="Include a shared requirement module in this product">⊕ Module</button>
+        <button className="btn btn-ghost tree-toolbar-btn" style={{ marginLeft: 'auto', fontSize: 13 }} onClick={load} title="Refresh tree">↺</button>
+      </div>
+      {state.pendingTemplate && (
+        <div className="tree-template-active">
+          <span>◫ {state.pendingTemplate.label}</span>
+          <button onClick={() => dispatch({ type: 'CLEAR_TEMPLATE' })} title="Cancel template">✕</button>
+        </div>
+      )}
+
+      {/* Module include panel */}
+      {showModulePanel && (
+        <div className="module-include-panel">
+          <div className="module-include-header">
+            <span>Include a requirement module</span>
+            <button className="btn btn-ghost" style={{ fontSize: 12, padding: '2px 6px' }}
+              onClick={() => setShowModulePanel(false)}>✕</button>
+          </div>
+          <div className="module-include-hint">
+            Modules are shared, versioned sets of requirements (e.g. a comms-security baseline)
+            that appear in the tree labelled <span className="tree-module-pill" style={{ display: 'inline' }}>mod</span> and
+            are managed independently of this product. Multiple products can include the same module.
+          </div>
+          {availableModules.length === 0 ? (
+            <div className="module-include-empty">
+              <div>No modules found in <code>modules/</code>.</div>
+              <div style={{ marginTop: 4, fontSize: 11 }}>
+                CLI: <code>req import &lt;module-id&gt; --product {activeProduct.id}</code>
+              </div>
+            </div>
+          ) : availableModules.map(mod => {
+            const alreadyIncluded = tree.some(n => n._is_module_group && n.module === mod.id);
+            return (
+              <div key={mod.id} className="module-include-item">
+                <div className="module-include-item-meta">
+                  <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{mod.id}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, marginLeft: 8 }}>{mod.title || mod.id}</span>
+                  {mod.version && <span style={{ fontSize: 11, color: 'var(--accent-blue)', marginLeft: 6 }}>v{mod.version}</span>}
+                </div>
+                {mod.description && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{mod.description}</div>}
+                <button
+                  className={`btn ${alreadyIncluded ? 'btn-secondary' : 'btn-primary'}`}
+                  style={{ fontSize: 11, padding: '3px 10px', marginTop: 6 }}
+                  disabled={alreadyIncluded}
+                  onClick={async () => {
+                    if (alreadyIncluded) return;
+                    try {
+                      await api.modules.include(activeProduct.id, mod.id);
+                      await load();
+                      toast(`Module '${mod.id}' included`, 'success');
+                    } catch {
+                      toast(`CLI: req import ${mod.id} --product ${activeProduct.id}`, 'info', 7000);
+                    }
+                    setShowModulePanel(false);
+                  }}
+                >
+                  {alreadyIncluded ? '✓ Already included' : '⊕ Include'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {!tree.length && !showModulePanel && (
+        <div className="sidebar-empty">
+          <div>No requirements yet.</div>
+          <button className="btn btn-secondary" style={{ marginTop: 8, fontSize: 11 }} onClick={() => createReq()}>+ New requirement</button>
+        </div>
+      )}
+      {searchQuery && !displayTree.length && <div className="sidebar-empty">No matches for <em>{searchQuery}</em></div>}
+
       <div className="tree-container" role="tree" onClick={() => setCtxMenu(null)}>
         {displayTree.map(node => (
           <TreeNode key={node.uid} node={node} forceOpen={!!searchQuery}
@@ -435,167 +527,6 @@ function ModulesPanel() {
 // ---------------------------------------------------------------------------
 // 2. Kanban panel -- column-per-state, grouped by person or team
 // ---------------------------------------------------------------------------
-const KANBAN_GROUPINGS = [
-  { id: 'assignee', label: 'By Person' },
-  { id: 'owner',    label: 'By Team'   },
-  { id: 'none',     label: 'All'       },
-];
-
-function KanbanCard({ card, isSelected, onClick }) {
-  const meta = TYPE_META[card.req_type] || {};
-  return (
-    <div className={`kanban-card ${isSelected ? 'kanban-card--selected' : ''}`}
-      style={{ borderLeft: `3px solid ${meta.colour || 'var(--border)'}` }}
-      onClick={onClick} title={card.title}>
-      <div className="kanban-card-header">
-        <span className="kanban-card-id mono">{card.id}</span>
-        {meta.icon && <span className="kanban-card-icon">{meta.icon}</span>}
-        {card.estimate != null && <span className="kanban-card-est">{card.estimate}</span>}
-      </div>
-      <div className="kanban-card-title">{card.title}</div>
-      <div className="kanban-card-meta">
-        {card.assignee  && <span className="kanban-pill">👤 {card.assignee}</span>}
-        {card.iteration && <span className="kanban-pill">🔁 {card.iteration}</span>}
-        {card.priority && card.priority !== 'medium' && (
-          <span className={`kanban-pill priority-${card.priority}`}>{card.priority}</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function KanbanPanel() {
-  const { state, dispatch, toast } = useApp();
-  const [board, setBoard]             = useState(null);
-  const [loading, setLoading]         = useState(false);
-  const [groupBy, setGroupBy]         = useState('assignee');
-  const [typeFilter, setTypeFilter]   = useState('');
-  const [iterFilter, setIterFilter]   = useState('');
-  const [personFilter, setPersonFilter] = useState('');
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = {};
-      if (typeFilter)   params.req_type  = typeFilter;
-      if (iterFilter)   params.iteration = iterFilter;
-      if (personFilter) params.assignee  = personFilter;
-      setBoard(await api.kanban.get(params));
-    } catch { setBoard(null); }
-    finally { setLoading(false); }
-  }, [typeFilter, iterFilter, personFilter]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const allCards = board ? Object.values(board.columns || {}).flat() : [];
-
-  // Build swimlane groups
-  const getGroups = () => {
-    if (!board || groupBy === 'none') return null; // null = no swimlanes
-    const groups = {};
-    for (const card of allCards) {
-      const key = groupBy === 'assignee'
-        ? (card.assignee || '(unassigned)')
-        : (card.owner    || '(no owner)');
-      if (!groups[key]) groups[key] = new Set();
-      groups[key].add(card.uid);
-    }
-    return groups; // group label -> Set of uids in that group
-  };
-
-  const groups   = getGroups();
-  const states   = board?.states || [];
-  const colCards = (stateId) => board?.columns?.[stateId] || [];
-
-  const createItem = async () => {
-    try {
-      const item = await api.requirements.create({ title: 'New story', req_type: typeFilter || 'story' });
-      dispatch({ type: 'SELECT', uid: item.uid, artefactType: 'requirement' });
-      await load(); toast(`Created ${item.id}`, 'success');
-    } catch (err) { toast(err.message, 'error'); }
-  };
-
-  return (
-    <div className="kanban-panel">
-      {/* Toolbar */}
-      <div className="kanban-toolbar">
-        <div className="kanban-grouping">
-          {KANBAN_GROUPINGS.map(g => (
-            <button key={g.id}
-              className={`kanban-group-btn ${groupBy === g.id ? 'kanban-group-btn--active' : ''}`}
-              onClick={() => setGroupBy(g.id)}>
-              {g.label}
-            </button>
-          ))}
-        </div>
-        <div className="kanban-filters">
-          <select className="kanban-select" value={typeFilter}
-            onChange={e => setTypeFilter(e.target.value)}>
-            <option value="">All types</option>
-            {AGILE_TYPES.map(t => (
-              <option key={t} value={t}>{TYPE_META[t]?.label || t}</option>
-            ))}
-          </select>
-          <input className="kanban-filter-input" placeholder="Iteration…"
-            value={iterFilter} onChange={e => setIterFilter(e.target.value)} />
-          <input className="kanban-filter-input" placeholder="Person…"
-            value={personFilter} onChange={e => setPersonFilter(e.target.value)} />
-          <button className="btn btn-ghost kanban-new-btn" onClick={createItem} title="New item">+</button>
-        </div>
-      </div>
-
-      {loading && <div className="sidebar-loading"><div className="spinner" /></div>}
-      {!loading && !board && <div className="sidebar-empty">Could not load board.</div>}
-
-      {!loading && board && (
-        <div className="kanban-body">
-          <div className="kanban-columns">
-            {states.map(stateId => (
-              <div key={stateId} className="kanban-col">
-                <div className="kanban-col-header">
-                  <span className="kanban-col-label">{stateId.replace(/_/g, '\u00A0')}</span>
-                  <span className="kanban-col-count">{colCards(stateId).length}</span>
-                </div>
-                <div className="kanban-col-body">
-                  {/* No swimlanes: render all cards for this state */}
-                  {!groups && colCards(stateId).map(card => (
-                    <KanbanCard key={card.uid} card={card}
-                      isSelected={state.selectedUid === card.uid}
-                      onClick={() => dispatch({ type: 'SELECT', uid: card.uid, artefactType: 'requirement' })} />
-                  ))}
-
-                  {/* Swimlanes: render one section per group */}
-                  {groups && Object.entries(groups).map(([groupLabel, uidSet]) => {
-                    const groupColCards = colCards(stateId).filter(c => uidSet.has(c.uid));
-                    return (
-                      <div key={groupLabel} className="kanban-swimlane">
-                        <div className="kanban-swimlane-label">{groupLabel}</div>
-                        {groupColCards.length === 0
-                          ? <div className="kanban-swimlane-empty" />
-                          : groupColCards.map(card => (
-                              <KanbanCard key={card.uid} card={card}
-                                isSelected={state.selectedUid === card.uid}
-                                onClick={() => dispatch({ type: 'SELECT', uid: card.uid, artefactType: 'requirement' })} />
-                            ))
-                        }
-                      </div>
-                    );
-                  })}
-
-                  {colCards(stateId).length === 0 && !groups && (
-                    <div className="kanban-col-empty" />
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Sidebar root
 // ---------------------------------------------------------------------------
 
@@ -617,17 +548,13 @@ export default function Sidebar() {
 
   const topSection = panel === 'tasks' ? 'tasks' : 'requirements';
 
-  const setTopSection = (id) => {
-    dispatch({ type: 'SET_PANEL', payload: id === 'tasks' ? 'tasks' : 'requirements' });
-  };
-
   return (
     <aside className="sidebar">
       <nav className="sidebar-sections">
         {TOP_SECTIONS.map(s => (
           <button key={s.id}
             className={`sidebar-section-tab ${topSection === s.id ? 'sidebar-section-tab--active' : ''}`}
-            onClick={() => setTopSection(s.id)}>
+            onClick={() => dispatch({ type: 'SET_PANEL', payload: s.id === 'tasks' ? 'tasks' : 'requirements' })}>
             {s.label}
           </button>
         ))}
@@ -645,12 +572,18 @@ export default function Sidebar() {
         </nav>
       )}
 
+      {/* Task Mgmt: sidebar shows filter/nav controls; board renders in <main> */}
+      {topSection === 'tasks' && (
+        <div className="sidebar-empty" style={{ padding: 16, fontSize: 12, color: 'var(--text-muted)' }}>
+          Use the filters in the board to narrow by type, iteration, or person.
+        </div>
+      )}
+
       <div className="sidebar-content">
         {topSection === 'requirements' && panel === 'requirements' && <RequirementsPanel />}
         {topSection === 'requirements' && panel === 'principles'   && <PrinciplesPanel />}
         {topSection === 'requirements' && panel === 'tbds'         && <TBDsPanel />}
         {topSection === 'requirements' && panel === 'modules'      && <ModulesPanel />}
-        {topSection === 'tasks'                                    && <KanbanPanel />}
       </div>
     </aside>
   );

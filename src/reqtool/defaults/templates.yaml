@@ -1,38 +1,50 @@
 # reqtool requirement templates
-# Loaded by: req init defaults
-# Edit this file to add project-specific templates.
-#
 # Each template pre-fills fields when creating a new requirement.
-# domain, req_type, verification_method, discipline, and tags are all
-# pre-populated. Any field valid on a requirement can be specified.
+# The more fields you fill in here, the more value the template provides.
+# Any field valid on a requirement can be specified.
+
+# ---------------------------------------------------------------------------
+# Systems engineering templates
+# ---------------------------------------------------------------------------
 
 - id: functional
   label: Functional Requirement
-  description: Standard capability the system shall provide.
+  icon: ⚙️
+  description: Capability the system shall provide. Pre-fills type, method, AC structure.
   fields:
     req_type: functional
     priority: medium
     verification_method: test
     content:
-      description: "The [system/component] shall [capability]."
-      rationale: ""
+      description: "The [system/component] shall [verb] [object] [qualifier]."
+      rationale: "This capability is required to support [user need or stakeholder goal]."
       extended_description: ""
+    acceptance_criteria:
+      - id: AC-1
+        text: "Given [precondition], when [action], then [observable outcome]."
 
 - id: performance
   label: Performance Requirement
-  description: Quantified constraint on system speed, throughput, or capacity.
+  icon: 📈
+  description: Quantified constraint on speed, throughput, capacity, or accuracy.
   fields:
     req_type: performance
     priority: high
     verification_method: test
     content:
-      description: "The [system/component] shall [metric] within [bound] under [conditions]."
-      rationale: ""
-      extended_description: ""
+      description: "The [system/component] shall [perform action] within [bound] under [conditions]."
+      rationale: "This bound is derived from [user need / market requirement / physical constraint]."
+      extended_description: "Measurement conditions: [describe test setup and environment]."
+    nfr:
+      latency_ms: 0
+    acceptance_criteria:
+      - id: AC-1
+        text: "Measured [metric] shall not exceed [bound] over [N] test runs under [conditions]."
 
 - id: security
   label: Security Requirement
-  description: Constraint protecting against threats or vulnerabilities.
+  icon: 🔒
+  description: Protection against threats. Pre-fills domain, tags, inspection method.
   fields:
     req_type: security
     domain: security
@@ -40,13 +52,19 @@
     verification_method: inspection
     tags: [security]
     content:
-      description: "The [system/component] shall [protection mechanism] to prevent [threat]."
-      rationale: ""
-      extended_description: ""
+      description: "The [system/component] shall [protection mechanism] to prevent [threat/attack vector]."
+      rationale: "Mitigates [threat] identified in threat model. Required for [standard/regulation] compliance."
+      extended_description: "Threat category: [STRIDE category]. Assets protected: [list]."
+    acceptance_criteria:
+      - id: AC-1
+        text: "Penetration test confirms [protection] cannot be bypassed via [attack vector]."
+      - id: AC-2
+        text: "Static analysis shows no [vulnerability class] in [component]."
 
 - id: safety
   label: Safety Requirement
-  description: Constraint preventing harm to people, property, or environment.
+  icon: ⚠️
+  description: Harm prevention. Pre-fills safety_related, critical priority, analysis method.
   fields:
     req_type: safety
     domain: safety
@@ -55,25 +73,35 @@
     verification_method: analysis
     tags: [safety]
     content:
-      description: "The [system/component] shall [protection] such that [hazard] cannot occur."
-      rationale: ""
-      extended_description: ""
+      description: "The [system/component] shall [protective action] such that [hazard] cannot occur."
+      rationale: "Hazard [H-NNN] from HARA: [hazard description]. Severity [S]: [description]."
+      extended_description: "HARA reference: [doc ID]. Risk: [unmitigated risk level] → [mitigated]."
+    acceptance_criteria:
+      - id: AC-1
+        text: "Formal analysis (FMEA/FTA) confirms hazard [H-NNN] is mitigated to acceptable risk."
+      - id: AC-2
+        text: "Test of [protective mechanism] confirms [observable safe behaviour] under [fault condition]."
 
 - id: interface
   label: Interface Requirement
-  description: Defines a boundary between this system and an external entity.
+  icon: 🔌
+  description: System/component boundary. Pre-fills inspection method and protocol structure.
   fields:
     req_type: interface
     priority: high
     verification_method: inspection
     content:
-      description: "The [system] shall [interface type] with [external entity] via [protocol/standard]."
-      rationale: ""
-      extended_description: ""
+      description: "The [system] shall interface with [external entity] via [protocol/standard] over [medium]."
+      rationale: "Required for interoperability with [external system]. Standard: [reference]."
+      extended_description: "Data format: [describe]. Error handling: [describe]. Version: [N]."
+    acceptance_criteria:
+      - id: AC-1
+        text: "Integration test with [external entity] confirms [data exchange] succeeds within [bounds]."
 
-- id: regulatory
+- id: compliance
   label: Regulatory / Compliance Requirement
-  description: Derived from a legal, standard, or contractual obligation.
+  icon: 📋
+  description: Legal or standard obligation. Pre-fills compliance domain, critical priority.
   fields:
     req_type: compliance
     domain: compliance
@@ -81,13 +109,34 @@
     verification_method: inspection
     tags: [regulatory]
     content:
-      description: "The [system/product] shall comply with [standard/regulation clause]."
-      rationale: "Required for market placement / legal compliance."
+      description: "The [system/product] shall comply with [standard name] [clause/section reference]."
+      rationale: "Required for [market access / legal compliance / certification]. Applicable from [date/region]."
+      extended_description: "Standard: [full title and edition]. Notified body: [if applicable]."
+    acceptance_criteria:
+      - id: AC-1
+        text: "Third-party audit or self-declaration confirms compliance with [clause]."
+
+- id: stakeholder-need
+  label: Stakeholder Need
+  icon: 👤
+  description: Top-level user or business intent, not a formal requirement.
+  fields:
+    req_type: stakeholder_need
+    priority: high
+    verification_method: demonstration
+    content:
+      description: "[User/stakeholder] needs to [achieve goal] so that [business value]."
+      rationale: "Derived from [interview/market research/regulation]. Represents [N] identified stakeholders."
       extended_description: ""
+
+# ---------------------------------------------------------------------------
+# Firmware / embedded templates
+# ---------------------------------------------------------------------------
 
 - id: firmware-derived
   label: Firmware Derived Requirement
-  description: Firmware implementation constraint derived from a system requirement.
+  icon: 💾
+  description: Firmware implementation constraint. Pre-fills FW discipline, domain, test method.
   fields:
     req_type: functional
     domain: firmware
@@ -96,12 +145,16 @@
     verification_method: test
     content:
       description: "The firmware shall [behaviour] when [condition]."
-      rationale: ""
-      extended_description: ""
+      rationale: "Derived from [parent requirement ID]: [parent title]."
+      extended_description: "Implementation note: [MCU peripheral / RTOS API / driver]. ISR safe: [yes/no]."
+    acceptance_criteria:
+      - id: AC-1
+        text: "Unit test confirms [behaviour] is exhibited within [N ms] of [condition]."
 
 - id: hardware-derived
   label: Hardware Derived Requirement
-  description: Hardware implementation constraint derived from a system requirement.
+  icon: 🔧
+  description: Hardware/circuit constraint. Pre-fills HW discipline, domain, inspection method.
   fields:
     req_type: functional
     domain: hardware
@@ -110,5 +163,97 @@
     verification_method: inspection
     content:
       description: "The [component/circuit] shall [characteristic] to support [function]."
-      rationale: ""
+      rationale: "Derived from [parent requirement ID]. Component selection constrained by [supply chain / cost]."
+      extended_description: "Schematic reference: [designator]. Datasheet: [part number]."
+    acceptance_criteria:
+      - id: AC-1
+        text: "PCB review confirms [characteristic] is met by [component/circuit design]."
+
+- id: ota-update
+  label: OTA Firmware Update
+  icon: 📡
+  description: Over-the-air update requirement. Pre-fills security tags, comms domain, all key ACs.
+  fields:
+    req_type: functional
+    domain: comms
+    discipline: FW
+    priority: critical
+    verification_method: test
+    tags: [security, ota]
+    content:
+      description: "The device shall download, verify, and apply firmware updates over [Wi-Fi/BLE/cellular] without physical access."
+      rationale: "OTA is required to deliver security patches within the PSTI minimum support period and to correct field defects."
+      extended_description: "Update mechanism: [A/B partition / single-bank]. Rollback: [describe]. Delta updates: [yes/no]."
+    acceptance_criteria:
+      - id: AC-1
+        text: "Update package signature is verified before applying. Invalid signatures are rejected."
+      - id: AC-2
+        text: "Interrupted update leaves device in bootable state (previous firmware or recovery image)."
+      - id: AC-3
+        text: "Update completes within [N minutes] on [minimum supported network conditions]."
+
+# ---------------------------------------------------------------------------
+# Agile planning templates
+# ---------------------------------------------------------------------------
+
+- id: user-story
+  label: User Story
+  icon: 📖
+  description: Unit of user value. Includes standard AC format and DoR checklist prompt.
+  fields:
+    req_type: story
+    priority: medium
+    content:
+      description: "As a [role], I want [goal] so that [benefit]."
+      rationale: "Delivers value to [persona] by enabling [outcome]. Maps to Epic [EP-NNN]."
       extended_description: ""
+    acceptance_criteria:
+      - id: AC-1
+        text: "Given [precondition], when [action], then [observable outcome]."
+      - id: AC-2
+        text: "Given [error condition], the system [handles gracefully]."
+
+- id: bug-report
+  label: Bug Report
+  icon: 🐛
+  description: Defect with steps to reproduce, expected, and actual. Pre-fills high priority.
+  fields:
+    req_type: bug
+    priority: high
+    content:
+      description: |
+        **Steps to reproduce:**
+        1. 
+        2. 
+        3. 
+
+        **Expected behaviour:**
+        
+
+        **Actual behaviour:**
+        
+
+        **Environment:** [version, OS, device]
+      rationale: "Defect found during [testing phase / field report]. Affects [user/system] by [impact]."
+
+- id: spike
+  label: Investigation Spike
+  icon: 🔬
+  description: Time-boxed research. Pre-fills spike type, output definition, and time-box AC.
+  fields:
+    req_type: spike
+    priority: medium
+    content:
+      description: |
+        **Question / hypothesis:**
+        
+
+        **Time-box:** [N] story points
+
+        **Output:** [decision document / prototype / ADR / measurement report]
+      rationale: "Uncertainty in [area] is blocking [story/epic]. This spike reduces risk before implementation."
+    acceptance_criteria:
+      - id: AC-1
+        text: "Output artifact produced and shared with team before end of sprint."
+      - id: AC-2
+        text: "Follow-on stories/tasks created based on findings."

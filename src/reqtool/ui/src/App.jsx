@@ -9,6 +9,8 @@ import { AppProvider, useApp } from './AppContext';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Editor from './components/Editor';
+import { KanbanPanel } from './components/Kanban';
+import { HelpPanel } from './components/Help';
 import { ValidationPanel, ExportPanel } from './components/Panels';
 import {
   CoveragePanel, BulkUpdatePanel, GlobalCommitModal, VocabulariesPanel,
@@ -88,7 +90,7 @@ function AppShell() {
     window.history.replaceState({}, '', url.toString());
   }, [state.selectedUid, state.selectedType]);
 
-  // ── Global Ctrl+K ────────────────────────────────────────────────────────
+  // ── Global Ctrl+K and ? ──────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
@@ -98,10 +100,14 @@ function AppShell() {
       if (e.key === 'Escape' && state._showCmdPalette) {
         toggle('_showCmdPalette', false);
       }
+      // ? key opens help (when not typing in an input)
+      if (e.key === '?' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) {
+        toggle('_showHelp', !state._showHelp);
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [state._showCmdPalette, toggle]);
+  }, [state._showCmdPalette, state._showHelp, toggle]);
 
   const handleGlobalCommitDone = () => {
     api.git.status().then(setGitStatus).catch(() => {});
@@ -121,16 +127,20 @@ function AppShell() {
         onTraceability={() => toggle('_showTraceability')}
         onCustomFields={() => toggle('_showCustomFields')}
         onWebhooks={() => toggle('_showWebhooks')}
+        onHelp={() => toggle('_showHelp')}
         onGlobalCommit={(status) => { setGitStatus(status); toggle('_showGlobalCommit'); }}
       />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Sidebar />
         <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <Editor />
+          {state.panel === 'tasks' ? <KanbanPanel /> : <Editor />}
         </main>
       </div>
 
       {/* Overlay panels */}
+      {state._showHelp         && <HelpPanel initialTab="about"
+        onClose={() => toggle('_showHelp', false)}
+        onApplyTemplate={t => { dispatch({ type: 'APPLY_TEMPLATE', payload: t }); toggle('_showHelp', false); }} />}
       {state._showValidation   && <ValidationPanel   onClose={() => toggle('_showValidation',   false)} />}
       {state._showExport       && <ExportPanel        onClose={() => toggle('_showExport',        false)} />}
       {state._showCoverage     && <CoveragePanel      onClose={() => toggle('_showCoverage',     false)} />}

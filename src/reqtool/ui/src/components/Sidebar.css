@@ -410,108 +410,116 @@
   top: 0;
 }
 
-/* ── Kanban panel ────────────────────────────────────────────────────────── */
-.kanban-panel { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-
-.kanban-toolbar {
+/* ── Requirements tree toolbar ───────────────────────────────────────────── */
+.tree-toolbar {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 4px;
-  padding: 6px 8px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
   flex-shrink: 0;
-  background: var(--bg-secondary);
 }
-.kanban-grouping { display: flex; gap: 2px; }
-.kanban-group-btn {
-  padding: 3px 8px; font-size: 11px; font-weight: 500;
-  background: none; border: 1px solid var(--border); border-radius: 4px;
-  color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+.tree-toolbar-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  border-radius: 4px;
 }
-.kanban-group-btn:hover { color: var(--text-primary); }
-.kanban-group-btn--active {
-  background: var(--accent-blue); border-color: var(--accent-blue);
-  color: #fff;
-}
-.kanban-filters { display: flex; gap: 4px; align-items: center; }
-.kanban-select {
-  flex: 1; padding: 3px 4px; font-size: 11px;
-  background: var(--bg-primary); border: 1px solid var(--border);
-  border-radius: 4px; color: var(--text-primary); min-width: 0;
-}
-.kanban-filter-input {
-  flex: 1; padding: 3px 6px; font-size: 11px;
-  background: var(--bg-primary); border: 1px solid var(--border);
-  border-radius: 4px; color: var(--text-primary); min-width: 0;
-}
-.kanban-filter-input:focus,
-.kanban-select:focus     { outline: none; border-color: var(--accent-blue); }
-.kanban-new-btn { padding: 2px 8px; font-size: 14px; font-weight: 700; }
+.tree-toolbar-btn:hover { background: var(--bg-hover); border-color: var(--border); color: var(--text-primary); }
 
-.kanban-body { flex: 1; overflow-x: auto; overflow-y: hidden; display: flex; }
-.kanban-columns {
-  display: flex;
-  gap: 0;
-  min-width: max-content;
-  height: 100%;
-}
-.kanban-col {
-  width: 180px;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.kanban-col:last-child { border-right: none; }
-.kanban-col-header {
+/* Active template badge */
+.tree-template-active {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 8px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-.kanban-col-label {
-  font-size: 10px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.05em; color: var(--text-muted);
-}
-.kanban-col-count {
-  font-size: 10px; font-weight: 600;
-  background: var(--bg-primary); border-radius: 8px;
-  padding: 0 5px; color: var(--text-muted);
-}
-.kanban-col-body  { flex: 1; overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 4px; }
-.kanban-col-empty { flex: 1; min-height: 60px; }
-
-/* Kanban card */
-.kanban-card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 6px 8px;
-  cursor: pointer;
-  transition: background 0.1s, box-shadow 0.1s;
+  padding: 5px 10px;
+  background: color-mix(in srgb, var(--accent-blue) 12%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-blue) 30%, transparent);
+  font-size: 11px;
+  color: var(--accent-blue);
   flex-shrink: 0;
 }
-.kanban-card:hover     { background: var(--bg-hover); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
-.kanban-card--selected { background: color-mix(in srgb, var(--accent-blue) 12%, var(--bg-secondary)); border-color: var(--accent-blue); }
-.kanban-card-header { display: flex; align-items: center; gap: 4px; margin-bottom: 3px; }
-.kanban-card-id     { font-size: 9px; color: var(--text-muted); flex: 1; }
-.kanban-card-icon   { font-size: 11px; }
-.kanban-card-est    { font-size: 9px; color: var(--accent-blue); background: color-mix(in srgb, var(--accent-blue) 12%, transparent); border-radius: 3px; padding: 0 3px; }
-.kanban-card-title  { font-size: 11px; line-height: 1.35; color: var(--text-primary); word-break: break-word; }
-.kanban-card-meta   { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 4px; }
-.kanban-pill        { font-size: 9px; color: var(--text-muted); background: var(--bg-primary); border-radius: 3px; padding: 1px 4px; }
-
-/* Swimlanes */
-.kanban-swimlane       { margin-bottom: 4px; }
-.kanban-swimlane-label {
-  font-size: 9px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.04em; color: var(--text-muted);
-  padding: 2px 2px 3px; border-bottom: 1px solid var(--border-subtle, var(--border));
-  margin-bottom: 3px;
+.tree-template-active button {
+  background: none;
+  border: none;
+  color: var(--accent-blue);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+  opacity: 0.7;
 }
-.kanban-swimlane-empty { height: 24px; }
+.tree-template-active button:hover { opacity: 1; }
+
+/* ── Module include panel ────────────────────────────────────────────────── */
+.module-include-panel {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+.module-include-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+}
+.module-include-hint {
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+}
+.module-include-empty {
+  padding: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.module-include-item {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle, var(--border));
+}
+.module-include-item:last-child { border-bottom: none; }
+.module-include-cli-hint {
+  padding: 8px 12px;
+  font-size: 10px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+}
+.module-include-cli-hint code { color: var(--accent-blue); }
+
+/* ── Module group node -- much more visually distinct ────────────────────── */
+.tree-node--module-group {
+  background: color-mix(in srgb, var(--accent-purple) 8%, var(--bg-surface)) !important;
+  border-top: 1px solid color-mix(in srgb, var(--accent-purple) 25%, transparent);
+  margin-top: 4px;
+}
+.tree-node--module-group .tree-node-id {
+  color: var(--accent-purple) !important;
+  font-weight: 600;
+}
+.tree-node--module-group .tree-node-title { color: var(--text-primary); font-weight: 600; }
+.tree-module-pill {
+  font-size: 9px;
+  background: color-mix(in srgb, var(--accent-purple) 20%, transparent);
+  color: var(--accent-purple);
+  border: 1px solid color-mix(in srgb, var(--accent-purple) 35%, transparent);
+  border-radius: 3px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+/* Children of module nodes get a left border to show they're module-owned */
+.tree-node--module-group + .tree-children .tree-node,
+.tree-children .tree-node[style*="3px solid"] {
+  /* Already has domain colour left border */
+}

@@ -3,7 +3,7 @@
  * All field sections from spec §10.4.
  */
 
-import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 
 // CodeMirror is loaded lazily so it never blocks initial render or tests.
 // The plain textarea is always rendered first; CodeMirror replaces it once loaded.
@@ -894,17 +894,24 @@ function RequirementEditor({ uid }) {
 
   const nfrKeys = enums?.nfr_keys || [];
 
+  const [activeTab, setActiveTab] = React.useState('content');
+  const tabs = [
+    { id: 'content',        label: 'Content'        },
+    { id: 'classification', label: 'Classification'  },
+    { id: 'relations',      label: 'Relations'       },
+    { id: 'governance',     label: 'Governance'      },
+  ];
+
   return (
     <div className="editor">
+      {/* Breadcrumb */}
       {breadcrumb.length > 0 && (
         <div className="editor-breadcrumb">
           {breadcrumb.map((crumb, i) => (
             <span key={crumb.uid}>
               {i > 0 && <span className="breadcrumb-sep"> › </span>}
-              <button
-                className="breadcrumb-item"
-                onClick={() => dispatch({ type: 'SELECT', uid: crumb.uid, artefactType: 'requirement' })}
-              >
+              <button className="breadcrumb-item"
+                onClick={() => dispatch({ type: 'SELECT', uid: crumb.uid, artefactType: 'requirement' })}>
                 {crumb.id}
               </button>
             </span>
@@ -913,17 +920,14 @@ function RequirementEditor({ uid }) {
           <span className="breadcrumb-current">{draft.id}</span>
         </div>
       )}
+
+      {/* Header */}
       <div className="editor-header">
         <div className="editor-header-left">
           <div className="copy-uid-wrap">
             <span className="editor-id mono">{draft.id}</span>
-            <button
-              className="copy-uid-btn"
-              title="Copy UID to clipboard"
-              onClick={() => {
-                navigator.clipboard.writeText(uid).then(() => toast('UID copied', 'success', 1500));
-              }}
-            >⎘</button>
+            <button className="copy-uid-btn" title="Copy UID"
+              onClick={() => navigator.clipboard.writeText(uid).then(() => toast('UID copied', 'success', 1500))}>⎘</button>
           </div>
           <span className="editor-version mono text-muted">v{draft.version}</span>
           <DomainBadge domain={draft.domain} />
@@ -932,12 +936,9 @@ function RequirementEditor({ uid }) {
           {isDirty && <span className="editor-dirty-badge">unsaved</span>}
         </div>
         <div className="editor-header-right">
-          <button
-            className="btn btn-ghost"
-            title="Open in new tab"
+          <button className="btn btn-ghost" title="Open in new tab"
             onClick={() => window.open(`${window.location.pathname}?uid=${uid}&type=requirement`, '_blank')}
-            style={{ fontSize: 13, padding: '4px 8px' }}
-          >⧉</button>
+            style={{ fontSize: 13, padding: '4px 8px' }}>⧉</button>
           <button className="btn btn-secondary" onClick={handleSave} disabled={!isDirty || saving}>
             {saving ? <span className="spinner" /> : 'Save'}
           </button>
@@ -947,474 +948,313 @@ function RequirementEditor({ uid }) {
         </div>
       </div>
 
+      {/* Tab bar */}
+      <div className="editor-tabs">
+        {tabs.map(t => (
+          <button key={t.id}
+            className={`editor-tab ${activeTab === t.id ? 'editor-tab--active' : ''}`}
+            onClick={() => setActiveTab(t.id)}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Validation summary -- always visible */}
+      {validationIssues && <div className="editor-validation-bar"><ValidationSummary issues={validationIssues} /></div>}
+
+      {/* Tab panels */}
       <div className="editor-body">
-        {validationIssues && <ValidationSummary issues={validationIssues} />}
-        {/* Identity */}
-        <Section title="Identity">
-          <div className="field-row">
-            <Field label="ID"><input value={draft.id ?? ''} onChange={e => patch('id', e.target.value)} /></Field>
-            <Field label="Parent requirement">
-              <ParentPicker value={draft.parentId} onChange={v => patch('parentId', v)} excludeUid={uid} />
-            </Field>
-          </div>
-          <Field label="Title"><input value={draft.title ?? ''} onChange={e => patch('title', e.target.value)} /></Field>
-        </Section>
 
-        {/* Content */}
-        <Section title="Content">
-          <Field label="Description (shall statement)">
-            <MarkdownEditor value={draft.content?.description} onChange={v => patchContent('description', v)} rows={6} />
-          </Field>
-          <Field label="Rationale">
-            <MarkdownEditor value={draft.content?.rationale} onChange={v => patchContent('rationale', v)} rows={4} />
-          </Field>
-          <Field label="Extended Description">
-            <MarkdownEditor value={draft.content?.extended_description} onChange={v => patchContent('extended_description', v)} rows={4} />
-          </Field>
-        </Section>
-
-        {/* Acceptance Criteria */}
-        <Section title="Acceptance Criteria">
-          <ACEditor acs={draft.acceptance_criteria ?? []} onChange={v => patch('acceptance_criteria', v)} enums={enums} />
-        </Section>
-
-        {/* Classification */}
-        <Section title="Classification">
-          <div className="field-row">
-            <Field label="Status"><EnumSelect value={draft.status} options={enums?.status || []} onChange={v => patch('status', v)} nullable={false} /></Field>
-            <Field label="Priority"><EnumSelect value={draft.priority} options={enums?.priority || []} onChange={v => patch('priority', v)} nullable={false} /></Field>
-          </div>
-          <div className="field-row">
-            <Field label="Type"><EnumSelect value={draft.req_type} options={enums?.req_type || []} onChange={v => patch('req_type', v)} nullable={false} /></Field>
-            <Field label="Domain">
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <EnumSelect value={draft.domain} options={enums?.domain || []} onChange={v => patch('domain', v)} />
-                <DomainBadge domain={draft.domain} />
+        {/* ── Content ── */}
+        {activeTab === 'content' && (
+          <>
+            <Section title="Identity">
+              <div className="field-row">
+                <Field label="ID"><input value={draft.id ?? ''} onChange={e => patch('id', e.target.value)} /></Field>
+                <Field label="Parent requirement">
+                  <ParentPicker value={draft.parentId} onChange={v => patch('parentId', v)} excludeUid={uid} />
+                </Field>
               </div>
-            </Field>
-          </div>
-          <div className="field-row">
-            <Field label="Feature"><EnumSelect value={draft.feature} options={enums?.feature || []} onChange={v => patch('feature', v)} /></Field>
-            <Field label="Discipline"><EnumSelect value={draft.discipline} options={enums?.discipline || []} onChange={v => patch('discipline', v)} /></Field>
-          </div>
-          <div className="field-row">
-            <Field label="Risk"><EnumSelect value={draft.risk} options={enums?.risk_level || []} onChange={v => patch('risk', v)} /></Field>
-            <Field label="Component"><EnumSelect value={draft.component} options={enums?.component || []} onChange={v => patch('component', v)} /></Field>
-          </div>
-        </Section>
+              <Field label="Title"><input value={draft.title ?? ''} onChange={e => patch('title', e.target.value)} /></Field>
+            </Section>
 
-        {/* Relationships -- open by default */}
-        <Section title="Relationships" defaultOpen={true}>
-          <RelationshipsEditor
-            rels={draft.relationships ?? []}
-            onChange={v => patch('relationships', v)}
-            enums={enums}
-            excludeUid={uid}
-          />
-        </Section>
+            <Section title="Description">
+              <Field label="Shall statement">
+                <MarkdownEditor value={draft.content?.description} onChange={v => patchContent('description', v)} rows={7} />
+              </Field>
+              <Field label="Rationale">
+                <MarkdownEditor value={draft.content?.rationale} onChange={v => patchContent('rationale', v)} rows={4} />
+              </Field>
+              <Field label="Extended description" hint="optional">
+                <MarkdownEditor value={draft.content?.extended_description} onChange={v => patchContent('extended_description', v)} rows={3} />
+              </Field>
+            </Section>
 
-        {/* External Links -- open by default */}
-        <Section title="External Links" defaultOpen={true}>
-          <LinksEditor links={draft.links ?? []} onChange={v => patch('links', v)} enums={enums} />
-        </Section>
+            <Section title="Acceptance Criteria">
+              <ACEditor acs={draft.acceptance_criteria ?? []} onChange={v => patch('acceptance_criteria', v)} enums={enums} />
+            </Section>
 
-        {/* Ownership */}
-        <Section title="Ownership" defaultOpen={false}>
-          <Field label="Owner" hint="from people list">
-            <ControlledListEditor
-              items={draft.owner ? [draft.owner] : []}
-              onChange={v => patch('owner', v[v.length - 1] || null)}
-              vocabulary={enums?.owner || []}
-              placeholder="Select owner..."
-              allowFreeText={true}
-            />
-          </Field>
-          <Field label="Allocated To" hint="teams from vocabulary">
-            <ControlledListEditor
-              items={draft.allocated_to ?? []}
-              onChange={v => patch('allocated_to', v)}
-              vocabulary={enums?.team || []}
-              placeholder="Select team..."
-            />
-          </Field>
-          <Field label="Tags" hint="from vocabulary">
-            <ControlledListEditor
-              items={draft.tags ?? []}
-              onChange={v => patch('tags', v)}
-              vocabulary={enums?.tags || []}
-              placeholder="Select tag..."
-            />
-          </Field>
-        </Section>
-
-        {/* Attributes */}
-        <Section title="Attributes" defaultOpen={false}>
-          <AttributesEditor attrs={draft.attributes ?? {}} onChange={v => patch('attributes', v)} />
-        </Section>
-
-        {/* Custom Fields -- schema-driven */}
-        {enums?._customFieldSchema?.length > 0 && (
-          <Section title="Custom Fields" defaultOpen={true}>
-            <CustomFieldsValueEditor
-              schema={enums._customFieldSchema}
-              values={draft.custom_fields ?? {}}
-              onChange={v => patch('custom_fields', v)}
-            />
-          </Section>
+            {/* DoR / DoD inline in content tab */}
+            {(draft.dor_checklist?.length > 0 || draft.dod_checklist?.length > 0) && (
+              <Section title="Ready / Done Checklists">
+                <div className="field-row">
+                  {draft.dor_checklist?.length > 0 && (
+                    <Field label="Definition of Ready">
+                      {draft.dor_checklist.map((item, i) => (
+                        <label key={i} className="checklist-item">
+                          <input type="checkbox" checked={item.checked}
+                            onChange={e => {
+                              const updated = draft.dor_checklist.map((it, j) => j === i ? { ...it, checked: e.target.checked } : it);
+                              patch('dor_checklist', updated);
+                            }} />
+                          <span>{item.item}</span>
+                        </label>
+                      ))}
+                    </Field>
+                  )}
+                  {draft.dod_checklist?.length > 0 && (
+                    <Field label="Definition of Done">
+                      {draft.dod_checklist.map((item, i) => (
+                        <label key={i} className="checklist-item">
+                          <input type="checkbox" checked={item.checked}
+                            onChange={e => {
+                              const updated = draft.dod_checklist.map((it, j) => j === i ? { ...it, checked: e.target.checked } : it);
+                              patch('dod_checklist', updated);
+                            }} />
+                          <span>{item.item}</span>
+                        </label>
+                      ))}
+                    </Field>
+                  )}
+                </div>
+              </Section>
+            )}
+          </>
         )}
 
-        {/* NFR */}
-        <Section title="NFR Constraints" defaultOpen={false}>
-          <NfrEditor nfr={draft.nfr ?? {}} nfrKeys={nfrKeys} onChange={v => patch('nfr', v)} />
-        </Section>
+        {/* ── Classification ── */}
+        {activeTab === 'classification' && (
+          <>
+            <Section title="Status &amp; Priority">
+              <div className="field-row">
+                <Field label="Status"><EnumSelect value={draft.status} options={enums?.status || []} onChange={v => patch('status', v)} nullable={false} /></Field>
+                <Field label="Priority"><EnumSelect value={draft.priority} options={enums?.priority || []} onChange={v => patch('priority', v)} nullable={false} /></Field>
+              </div>
+              <div className="field-row">
+                <Field label="Type"><EnumSelect value={draft.req_type} options={enums?.req_type || []} onChange={v => patch('req_type', v)} nullable={false} /></Field>
+                <Field label="Domain">
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <EnumSelect value={draft.domain} options={enums?.domain || []} onChange={v => patch('domain', v)} />
+                    <DomainBadge domain={draft.domain} />
+                  </div>
+                </Field>
+              </div>
+              <div className="field-row">
+                <Field label="Risk"><EnumSelect value={draft.risk} options={enums?.risk_level || []} onChange={v => patch('risk', v)} /></Field>
+                <Field label="Component"><EnumSelect value={draft.component} options={enums?.component || []} onChange={v => patch('component', v)} /></Field>
+              </div>
+            </Section>
 
-        {/* Constraints & Assumptions */}
-        <Section title="Constraints & Assumptions" defaultOpen={false}>
-          <Field label="Constraints">
-            <StringListEditor items={draft.constraints ?? []} onChange={v => patch('constraints', v)} placeholder="Add constraint..." />
-          </Field>
-          <Field label="Assumptions">
-            <StringListEditor items={draft.assumptions ?? []} onChange={v => patch('assumptions', v)} placeholder="Add assumption..." />
-          </Field>
-        </Section>
+            <Section title="Ownership &amp; Assignment">
+              <div className="field-row">
+                <Field label="Owner" hint="accountable person">
+                  <ControlledListEditor items={draft.owner ? [draft.owner] : []}
+                    onChange={v => patch('owner', v[v.length - 1] || null)}
+                    vocabulary={enums?.owner || []} placeholder="Select owner..." allowFreeText={true} />
+                </Field>
+                <Field label="Assignee" hint="doing the work">
+                  <input value={draft.assignee ?? ''} placeholder="e.g. alice"
+                    onChange={e => patch('assignee', e.target.value || null)} />
+                </Field>
+              </div>
+              <div className="field-row">
+                <Field label="Allocated Teams" hint="from vocabulary">
+                  <ControlledListEditor items={draft.allocated_to ?? []} onChange={v => patch('allocated_to', v)}
+                    vocabulary={enums?.team || []} placeholder="Select team..." />
+                </Field>
+                <Field label="Tags">
+                  <ControlledListEditor items={draft.tags ?? []} onChange={v => patch('tags', v)}
+                    vocabulary={enums?.tags || []} placeholder="Select tag..." />
+                </Field>
+              </div>
+            </Section>
 
-        {/* Safety */}
-        <Section title="Safety" defaultOpen={false}>
-          <div className="field-row">
-            <Field label="Safety Related">
-              <label className="toggle-label">
-                <input type="checkbox" checked={draft.safety_related ?? false} onChange={e => patch('safety_related', e.target.checked)} />
-                <span style={{ marginLeft: 6 }}>Safety related</span>
-              </label>
-            </Field>
-            <Field label="Safety Classification" hint="from vocabulary">
-              <ControlledListEditor
-                items={draft.safety_classification ? [draft.safety_classification] : []}
-                onChange={v => patch('safety_classification', v[v.length - 1] || null)}
-                vocabulary={enums?.safety_class || []}
-                placeholder="e.g. SIL-2, ASIL-B..."
-                allowFreeText={true}
-              />
-            </Field>
-          </div>
-        </Section>
+            <Section title="Planning">
+              <div className="field-row">
+                <Field label="Iteration"><input value={draft.iteration ?? ''} placeholder="Sprint-3, PI-2…"
+                  onChange={e => patch('iteration', e.target.value || null)} /></Field>
+                <Field label={`Estimate (${enums?.estimate_unit || 'pts'})`}>
+                  <input type="number" min="0" step="0.5" value={draft.estimate ?? ''}
+                    onChange={e => patch('estimate', e.target.value ? parseFloat(e.target.value) : null)} />
+                </Field>
+              </div>
+              <div className="field-row">
+                <Field label="Feature"><EnumSelect value={draft.feature} options={enums?.feature || []} onChange={v => patch('feature', v)} /></Field>
+                <Field label="Discipline"><EnumSelect value={draft.discipline} options={enums?.discipline || []} onChange={v => patch('discipline', v)} /></Field>
+              </div>
+            </Section>
 
-        {/* Verification */}
-        <Section title="Verification" defaultOpen={false}>
-          <div className="field-row">
-            <Field label="Method"><EnumSelect value={draft.verification_method} options={enums?.verification_method || []} onChange={v => patch('verification_method', v)} nullable={false} /></Field>
-            <Field label="Status"><EnumSelect value={draft.verification?.status} options={enums?.verification_status || []} onChange={v => patchBlock('verification', 'status', v)} /></Field>
-          </div>
-          <div className="field-row">
-            <Field label="Verified Date">
-              <input type="date" value={draft.verification?.verified_date?.slice(0, 10) ?? ''}
-                onChange={e => patchBlock('verification', 'verified_date', e.target.value || null)} />
-            </Field>
-          </div>
-          <Field label="Note">
-            <textarea value={draft.verification?.note ?? ''} rows={2}
-              onChange={e => patchBlock('verification', 'note', e.target.value)} />
-          </Field>
-        </Section>
+            <Section title="Safety" defaultOpen={false}>
+              <div className="field-row">
+                <Field label="Safety Related">
+                  <label className="toggle-label">
+                    <input type="checkbox" checked={draft.safety_related ?? false} onChange={e => patch('safety_related', e.target.checked)} />
+                    <span style={{ marginLeft: 6 }}>Safety related</span>
+                  </label>
+                </Field>
+                <Field label="Safety Classification" hint="from vocabulary">
+                  <ControlledListEditor items={draft.safety_classification ? [draft.safety_classification] : []}
+                    onChange={v => patch('safety_classification', v[v.length - 1] || null)}
+                    vocabulary={enums?.safety_class || []} placeholder="e.g. SIL-2…" allowFreeText={true} />
+                </Field>
+              </div>
+            </Section>
+          </>
+        )}
 
-        {/* Approval */}
-        <Section title="Approval" defaultOpen={false}>
-          <div className="field-row">
-            <Field label="Status"><EnumSelect value={draft.approval?.status} options={enums?.approval_status || []} onChange={v => patchBlock('approval', 'status', v)} /></Field>
-            <Field label="Approved By" hint="from people list">
-              <ControlledListEditor
-                items={draft.approval?.approved_by ? [draft.approval.approved_by] : []}
-                onChange={v => patchBlock('approval', 'approved_by', v[v.length - 1] || null)}
-                vocabulary={enums?.owner || []}
-                placeholder="Select person..."
-                allowFreeText={true}
-              />
-            </Field>
-          </div>
-          <div className="field-row">
-            <Field label="Approved Date">
-              <input type="date" value={draft.approval?.approved_date?.slice(0, 10) ?? ''}
-                onChange={e => patchBlock('approval', 'approved_date', e.target.value || null)} />
-            </Field>
-          </div>
-        </Section>
+        {/* ── Relations ── */}
+        {activeTab === 'relations' && (
+          <>
+            <Section title="Relationships">
+              <RelationshipsEditor rels={draft.relationships ?? []} onChange={v => patch('relationships', v)}
+                enums={enums} excludeUid={uid} />
+            </Section>
+            <Section title="External Links">
+              <LinksEditor links={draft.links ?? []} onChange={v => patch('links', v)} enums={enums} />
+            </Section>
+            <Section title="Constraints &amp; Assumptions" defaultOpen={false}>
+              <Field label="Constraints">
+                <StringListEditor items={draft.constraints ?? []} onChange={v => patch('constraints', v)} placeholder="Add constraint…" />
+              </Field>
+              <Field label="Assumptions">
+                <StringListEditor items={draft.assumptions ?? []} onChange={v => patch('assumptions', v)} placeholder="Add assumption…" />
+              </Field>
+            </Section>
+            <Section title="NFR Constraints" defaultOpen={false}>
+              <NfrEditor nfr={draft.nfr ?? {}} nfrKeys={nfrKeys} onChange={v => patch('nfr', v)} />
+            </Section>
+            {enums?._customFieldSchema?.length > 0 && (
+              <Section title="Custom Fields">
+                <CustomFieldsValueEditor schema={enums._customFieldSchema}
+                  values={draft.custom_fields ?? {}} onChange={v => patch('custom_fields', v)} />
+              </Section>
+            )}
+            <Section title="Attributes" defaultOpen={false}>
+              <AttributesEditor attrs={draft.attributes ?? {}} onChange={v => patch('attributes', v)} />
+            </Section>
+          </>
+        )}
 
-        {/* Review */}
-        <Section title="Review" defaultOpen={false}>
-          <div className="field-row">
-            <Field label="Last Reviewed">
-              <input type="date" value={draft.review?.last_reviewed?.slice(0, 10) ?? ''}
-                onChange={e => patchBlock('review', 'last_reviewed', e.target.value || null)} />
-            </Field>
-          </div>
-          <Field label="Reviewers" hint="from people list">
-            <ControlledListEditor
-              items={draft.review?.reviewers ?? []}
-              onChange={v => patchBlock('review', 'reviewers', v)}
-              vocabulary={enums?.owner || []}
-              placeholder="Select reviewer..."
-              allowFreeText={true}
-            />
-          </Field>
-          <Field label="Review Note">
-            <textarea value={draft.review?.note ?? ''} rows={2}
-              onChange={e => patchBlock('review', 'note', e.target.value)} />
-          </Field>
-        </Section>
+        {/* ── Governance ── */}
+        {activeTab === 'governance' && (
+          <>
+            <Section title="Verification">
+              <div className="field-row">
+                <Field label="Method"><EnumSelect value={draft.verification_method} options={enums?.verification_method || []} onChange={v => patch('verification_method', v)} nullable={false} /></Field>
+                <Field label="Status"><EnumSelect value={draft.verification?.status} options={enums?.verification_status || []} onChange={v => patchBlock('verification', 'status', v)} /></Field>
+              </div>
+              <div className="field-row">
+                <Field label="Verified Date">
+                  <input type="date" value={draft.verification?.verified_date?.slice(0, 10) ?? ''}
+                    onChange={e => patchBlock('verification', 'verified_date', e.target.value || null)} />
+                </Field>
+              </div>
+              <Field label="Note">
+                <textarea value={draft.verification?.note ?? ''} rows={2}
+                  onChange={e => patchBlock('verification', 'note', e.target.value)} />
+              </Field>
+            </Section>
 
-        {/* Implementation */}
-        <Section title="Implementation" defaultOpen={false}>
-          <div className="field-row">
-            <Field label="Status"><EnumSelect value={draft.implementation?.status} options={enums?.implementation_status || []} onChange={v => patchBlock('implementation', 'status', v)} /></Field>
-            <Field label="Branch">
-              <input value={draft.implementation?.branch ?? ''} placeholder="feature/..."
-                onChange={e => patchBlock('implementation', 'branch', e.target.value || null)} />
-            </Field>
-          </div>
-        </Section>
+            <Section title="Approval">
+              <div className="field-row">
+                <Field label="Status"><EnumSelect value={draft.approval?.status} options={enums?.approval_status || []} onChange={v => patchBlock('approval', 'status', v)} /></Field>
+                <Field label="Approved By">
+                  <ControlledListEditor items={draft.approval?.approved_by ? [draft.approval.approved_by] : []}
+                    onChange={v => patchBlock('approval', 'approved_by', v[v.length - 1] || null)}
+                    vocabulary={enums?.owner || []} placeholder="Select person..." allowFreeText={true} />
+                </Field>
+              </div>
+              <div className="field-row">
+                <Field label="Approved Date">
+                  <input type="date" value={draft.approval?.approved_date?.slice(0, 10) ?? ''}
+                    onChange={e => patchBlock('approval', 'approved_date', e.target.value || null)} />
+                </Field>
+              </div>
+            </Section>
 
-        {/* History */}
-        <Section title="History" defaultOpen={false}>
-          <button className="btn btn-secondary" style={{ marginBottom: 8 }}
-            onClick={async () => { if (!history) setHistory(await api.requirements.history(uid)); }}>
-            Load history
-          </button>
-          {history && (
-            <div className="history-list">
-              {history.in_file?.map((h, i) => (
-                <div key={i} className="history-item">
-                  <span className="mono text-secondary" style={{ fontSize: 11 }}>v{h.version}</span>
-                  <span className="history-date">{h.date?.slice(0, 10)}</span>
-                  <span className="history-who">{h.modified_by}</span>
-                  <span className="history-summary">{h.summary}</span>
-                  {h.commit_sha && <span className="mono text-muted" style={{ fontSize: 10 }}>{h.commit_sha}</span>}
-                  {h.change_ref && <span className="badge">{h.change_ref}</span>}
+            <Section title="Review" defaultOpen={false}>
+              <div className="field-row">
+                <Field label="Last Reviewed">
+                  <input type="date" value={draft.review?.last_reviewed?.slice(0, 10) ?? ''}
+                    onChange={e => patchBlock('review', 'last_reviewed', e.target.value || null)} />
+                </Field>
+              </div>
+              <Field label="Reviewers">
+                <ControlledListEditor items={draft.review?.reviewers ?? []}
+                  onChange={v => patchBlock('review', 'reviewers', v)}
+                  vocabulary={enums?.owner || []} placeholder="Select reviewer..." allowFreeText={true} />
+              </Field>
+              <Field label="Review Note">
+                <textarea value={draft.review?.note ?? ''} rows={2}
+                  onChange={e => patchBlock('review', 'note', e.target.value)} />
+              </Field>
+            </Section>
+
+            <Section title="Implementation" defaultOpen={false}>
+              <div className="field-row">
+                <Field label="Status"><EnumSelect value={draft.implementation?.status} options={enums?.implementation_status || []} onChange={v => patchBlock('implementation', 'status', v)} /></Field>
+                <Field label="Branch">
+                  <input value={draft.implementation?.branch ?? ''} placeholder="feature/..."
+                    onChange={e => patchBlock('implementation', 'branch', e.target.value || null)} />
+                </Field>
+              </div>
+            </Section>
+
+            <Section title="History" defaultOpen={false}>
+              <button className="btn btn-secondary" style={{ marginBottom: 8 }}
+                onClick={async () => { if (!history) setHistory(await api.requirements.history(uid)); }}>
+                Load history
+              </button>
+              {history && (
+                <div className="history-list">
+                  {history.in_file?.map((h, i) => (
+                    <div key={i} className="hist-row">
+                      <span className="mono text-muted" style={{ fontSize: 10 }}>v{h.version}</span>
+                      <span className="text-secondary" style={{ fontSize: 11 }}>{h.date?.slice(0, 10)}</span>
+                      <span style={{ fontSize: 12 }}>{h.summary}</span>
+                      {h.commit_sha && <span className="mono text-muted" style={{ fontSize: 10 }}>{h.commit_sha}</span>}
+                    </div>
+                  ))}
+                  {history.git?.map((g, i) => (
+                    <div key={`g${i}`} className="hist-row" style={{ borderTop: i === 0 ? '1px solid var(--border)' : undefined }}>
+                      <span className="mono" style={{ fontSize: 10, color: 'var(--accent-blue)' }}>{g.sha?.slice(0, 7)}</span>
+                      <span className="text-secondary" style={{ fontSize: 11 }}>{g.date?.slice(0, 10)}</span>
+                      <span style={{ fontSize: 12 }}>{g.subject}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </Section>
+              )}
+            </Section>
 
-        {/* Attachments */}
-        <Section title="Attachments" defaultOpen={false}>
-          <AttachmentsSection uid={uid} />
-        </Section>
+            <Section title="Attachments" defaultOpen={false}>
+              <AttachmentsSection uid={uid} />
+            </Section>
 
-        {/* Discussion */}
-        <Section title="Discussion" defaultOpen={false}>
-          <DiscussionSection uid={uid} currentUser={state.enums?._current_user || 'user'} />
-        </Section>
-      </div>
+            <Section title="Discussion" defaultOpen={false}>
+              <CommentsSection uid={uid} />
+            </Section>
+          </>
+        )}
+
+      </div>{/* end editor-body */}
 
       {showCommit && (
-        <CommitModal uid={uid} onCommit={handleCommit} onClose={() => setShowCommit(false)}
-          changes={isDirty ? 'Unsaved changes will be saved automatically.' : 'No local changes.'} />
+        <CommitModal
+          onClose={() => setShowCommit(false)}
+          onCommit={handleCommit}
+          saving={saving}
+        />
       )}
-    </div>
-  );
-}
-// Principle editor
-// ---------------------------------------------------------------------------
-function PrincipleEditor({ uid }) {
-  const { state, toast } = useApp();
-  const { enums } = state;
-  const [draft, setDraft] = useState(null);
-  const [req, setReq] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [showCommit, setShowCommit] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    api.principles.get(uid).then(d => { setDraft(d); setReq(d); }).catch(err => toast(err.message, 'error')).finally(() => setLoading(false));
-  }, [uid]);
-
-  const patch = (field, value) => setDraft(d => ({ ...d, [field]: value }));
-  const patchContent = (field, value) => setDraft(d => ({ ...d, content: { ...d.content, [field]: value } }));
-  const patchBlock = (block, field, value) => setDraft(d => ({ ...d, [block]: { ...d[block], [field]: value } }));
-
-  const handleSave = async () => {
-    try { const u = await api.principles.update(uid, draft); setReq(u); setDraft(u); toast('Saved', 'success'); }
-    catch (err) { toast(err.message, 'error'); }
-  };
-  const handleCommit = async (message, increment, changeRef) => {
-    try {
-      if (JSON.stringify(draft) !== JSON.stringify(req)) await api.principles.update(uid, draft);
-      const r = await api.principles.commit(uid, { message, increment, change_ref: changeRef });
-      toast(`Committed: ${r.commit_sha?.slice(0, 7)}`, 'success');
-      setShowCommit(false);
-      dispatch({ type: 'COMMITTED' });
-      const u = await api.principles.get(uid); setReq(u); setDraft(u);
-    } catch (err) { toast(err.message, 'error'); }
-  };
-
-  if (loading) return <div className="editor-loading"><div className="spinner" /></div>;
-  if (!draft) return null;
-  const isDirty = JSON.stringify(draft) !== JSON.stringify(req);
-
-  return (
-    <div className="editor">
-      <div className="editor-header">
-        <div className="editor-header-left">
-          <span className="editor-id mono">{draft.id}</span>
-          <span className="editor-version mono text-muted">v{draft.version}</span>
-          {isDirty && <span className="editor-dirty-badge">unsaved</span>}
-        </div>
-        <div className="editor-header-right">
-          <button className="btn btn-secondary" onClick={handleSave} disabled={!isDirty}>Save</button>
-          <button className="btn btn-primary" onClick={() => setShowCommit(true)}>Save &amp; Commit</button>
-        </div>
-      </div>
-      <div className="editor-body">
-        <Section title="Identity">
-          <div className="field-row">
-            <Field label="ID"><input value={draft.id ?? ''} onChange={e => patch('id', e.target.value)} /></Field>
-            <Field label="Domain"><EnumSelect value={draft.domain} options={enums?.domain || []} onChange={v => patch('domain', v)} /></Field>
-          </div>
-          <Field label="Title"><input value={draft.title ?? ''} onChange={e => patch('title', e.target.value)} /></Field>
-        </Section>
-        <Section title="Content">
-          <Field label="Principle Statement">
-            <MarkdownEditor value={draft.content?.description} onChange={v => patchContent('description', v)} rows={4} />
-          </Field>
-          <Field label="Rationale">
-            <MarkdownEditor value={draft.content?.rationale} onChange={v => patchContent('rationale', v)} rows={3} />
-          </Field>
-          <Field label="Implications">
-            <MarkdownEditor value={draft.content?.implications} onChange={v => patchContent('implications', v)} rows={3} />
-          </Field>
-          <Field label="Exceptions">
-            <textarea value={draft.content?.exceptions ?? ''} rows={2} onChange={e => patchContent('exceptions', e.target.value)} />
-          </Field>
-        </Section>
-        <Section title="Links" defaultOpen={false}>
-          <LinksEditor links={draft.links ?? []} onChange={v => patch('links', v)} enums={enums} />
-        </Section>
-        <Section title="Ownership & Status" defaultOpen={false}>
-          <div className="field-row">
-            <Field label="Owner"><input value={draft.owner ?? ''} onChange={e => patch('owner', e.target.value)} /></Field>
-            <Field label="Approval Status"><EnumSelect value={draft.approval?.status} options={enums?.approval_status || []} onChange={v => patchBlock('approval', 'status', v)} /></Field>
-          </div>
-          <div className="field-row">
-            <Field label="Approved By"><input value={draft.approval?.approved_by ?? ''} onChange={e => patchBlock('approval', 'approved_by', e.target.value || null)} /></Field>
-          </div>
-          <Field label="Tags" hint="from vocabulary"><ControlledListEditor items={draft.tags ?? []} onChange={v => patch('tags', v)} vocabulary={enums?.tags || []} placeholder="Select tag..." /></Field>
-        </Section>
-
-        <Section title="Attachments" defaultOpen={false}>
-          <AttachmentsSection uid={uid} />
-        </Section>
-        <Section title="Discussion" defaultOpen={false}>
-          <DiscussionSection uid={uid} currentUser={state.enums?._current_user || 'user'} />
-        </Section>
-      </div>
-      {showCommit && <CommitModal uid={uid} onCommit={handleCommit} onClose={() => setShowCommit(false)} />}
-    </div>
-  );
-}
-function TBDEditor({ uid }) {
-  const { state, toast } = useApp();
-  const { enums } = state;
-  const [draft, setDraft] = useState(null);
-  const [req, setReq] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [showCommit, setShowCommit] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    api.tbds.get(uid).then(d => { setDraft(d); setReq(d); }).catch(err => toast(err.message, 'error')).finally(() => setLoading(false));
-  }, [uid]);
-
-  const patch = (field, value) => setDraft(d => ({ ...d, [field]: value }));
-  const patchContent = (field, value) => setDraft(d => ({ ...d, content: { ...d.content, [field]: value } }));
-
-  const handleSave = async () => {
-    try { const u = await api.tbds.update(uid, draft); setReq(u); setDraft(u); toast('Saved', 'success'); }
-    catch (err) { toast(err.message, 'error'); }
-  };
-  const handleCommit = async (message, increment, changeRef) => {
-    try {
-      if (JSON.stringify(draft) !== JSON.stringify(req)) await api.tbds.update(uid, draft);
-      const r = await api.tbds.commit(uid, { message, increment, change_ref: changeRef });
-      toast(`Committed: ${r.commit_sha?.slice(0, 7)}`, 'success');
-      setShowCommit(false);
-      dispatch({ type: 'COMMITTED' });
-      const u = await api.tbds.get(uid); setReq(u); setDraft(u);
-    } catch (err) { toast(err.message, 'error'); }
-  };
-  const handleResolve = async () => {
-    const resolution = prompt('Resolution description:');
-    if (!resolution) return;
-    try {
-      await api.tbds.resolve(uid, { resolution, resolved_by: 'user' });
-      const u = await api.tbds.get(uid); setReq(u); setDraft(u);
-      toast('TBD resolved', 'success');
-    } catch (err) { toast(err.message, 'error'); }
-  };
-
-  if (loading) return <div className="editor-loading"><div className="spinner" /></div>;
-  if (!draft) return null;
-  const isDirty = JSON.stringify(draft) !== JSON.stringify(req);
-
-  return (
-    <div className="editor">
-      <div className="editor-header">
-        <div className="editor-header-left">
-          <span className="editor-id mono">{draft.id}</span>
-          <span className={`badge badge-${draft.status}`}>{draft.status}</span>
-          {isDirty && <span className="editor-dirty-badge">unsaved</span>}
-        </div>
-        <div className="editor-header-right">
-          {draft.status === 'open' && <button className="btn btn-secondary" onClick={handleResolve}>Resolve</button>}
-          <button className="btn btn-secondary" onClick={handleSave} disabled={!isDirty}>Save</button>
-          <button className="btn btn-primary" onClick={() => setShowCommit(true)}>Save &amp; Commit</button>
-        </div>
-      </div>
-      <div className="editor-body">
-        <Section title="Identity">
-          <div className="field-row">
-            <Field label="ID"><input value={draft.id ?? ''} onChange={e => patch('id', e.target.value)} /></Field>
-            <Field label="Status"><EnumSelect value={draft.status} options={enums?.tbd_status || []} onChange={v => patch('status', v)} nullable={false} /></Field>
-          </div>
-          <Field label="Title"><input value={draft.title ?? ''} onChange={e => patch('title', e.target.value)} /></Field>
-        </Section>
-        <Section title="Content">
-          <Field label="Description"><MarkdownEditor value={draft.content?.description} onChange={v => patchContent('description', v)} rows={4} /></Field>
-          <Field label="Impact"><MarkdownEditor value={draft.content?.impact} onChange={v => patchContent('impact', v)} rows={3} /></Field>
-          <Field label="Resolution Criteria"><MarkdownEditor value={draft.content?.resolution_criteria} onChange={v => patchContent('resolution_criteria', v)} rows={3} /></Field>
-          {(draft.content?.resolution || draft.status === 'resolved') && (
-            <Field label="Resolution"><textarea value={draft.content?.resolution ?? ''} rows={2} onChange={e => patchContent('resolution', e.target.value)} /></Field>
-          )}
-        </Section>
-        <Section title="Ownership" defaultOpen={false}>
-          <div className="field-row">
-            <Field label="Owner"><input value={draft.owner ?? ''} onChange={e => patch('owner', e.target.value || null)} /></Field>
-            <Field label="Due"><input value={draft.due ?? ''} onChange={e => patch('due', e.target.value || null)} /></Field>
-          </div>
-          <div className="field-row">
-            <Field label="Priority"><EnumSelect value={draft.priority} options={enums?.priority || []} onChange={v => patch('priority', v)} /></Field>
-          </div>
-          <Field label="Tags" hint="from vocabulary"><ControlledListEditor items={draft.tags ?? []} onChange={v => patch('tags', v)} vocabulary={enums?.tags || []} placeholder="Select tag..." /></Field>
-        </Section>
-        <Section title="Links" defaultOpen={false}>
-          <LinksEditor links={draft.links ?? []} onChange={v => patch('links', v)} enums={enums} />
-        </Section>
-        {draft.affected_requirements?.length > 0 && (
-          <Section title="Affected Requirements" defaultOpen={false}>
-            <div className="history-list">
-              {draft.affected_requirements.map(u => (
-                <div key={u} className="history-item mono text-secondary" style={{ fontSize: 11 }}>{u}</div>
-              ))}
-            </div>
-          </Section>
-        )}
-        <Section title="Attachments" defaultOpen={false}>
-          <AttachmentsSection uid={uid} />
-        </Section>
-        <Section title="Discussion" defaultOpen={false}>
-          <DiscussionSection uid={uid} currentUser={state.enums?._current_user || 'user'} />
-        </Section>
-      </div>
-      {showCommit && <CommitModal uid={uid} onCommit={handleCommit} onClose={() => setShowCommit(false)} />}
     </div>
   );
 }
@@ -1423,10 +1263,76 @@ function TBDEditor({ uid }) {
 // Empty state
 // ---------------------------------------------------------------------------
 function EditorEmpty() {
+  const { state, dispatch } = useApp();
+  const templates = (state.templates || []).slice(0, 4);
+
+  const AGILE_QUICK = [
+    { icon: '📖', label: 'User Story',    req_type: 'story',    desc: 'As a [user], I want…' },
+    { icon: '✅', label: 'Task',           req_type: 'task',     desc: 'Technical work item' },
+    { icon: '🐛', label: 'Bug',            req_type: 'bug',      desc: 'Defect report' },
+    { icon: '📦', label: 'Epic',           req_type: 'epic',     desc: 'Significant capability' },
+  ];
+
+  const createQuick = async (req_type) => {
+    try {
+      const req = await api.requirements.create({ title: `New ${req_type}`, req_type });
+      dispatch({ type: 'SELECT', uid: req.uid, artefactType: 'requirement' });
+    } catch {}
+  };
+
   return (
-    <div className="editor-empty">
-      <div className="editor-empty-icon">◈</div>
-      <div className="editor-empty-text">Select an item from the tree to view or edit it.</div>
+    <div className="editor-onboarding">
+      <div className="editor-onboarding-hero">
+        <div className="editor-onboarding-icon">◈</div>
+        <div className="editor-onboarding-title">Select an item to edit</div>
+        <div className="editor-onboarding-sub">
+          Or create something new. Press <kbd>?</kbd> for help and templates.
+        </div>
+      </div>
+
+      <div className="editor-onboarding-cols">
+        {/* Quick create */}
+        <div className="editor-onboarding-card">
+          <div className="editor-onboarding-card-title">Quick create</div>
+          <div className="editor-onboarding-quick">
+            {AGILE_QUICK.map(q => (
+              <button key={q.req_type} className="editor-quick-btn"
+                onClick={() => createQuick(q.req_type)}>
+                <span className="editor-quick-icon">{q.icon}</span>
+                <span className="editor-quick-label">{q.label}</span>
+                <span className="editor-quick-desc">{q.desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Templates */}
+        {templates.length > 0 && (
+          <div className="editor-onboarding-card">
+            <div className="editor-onboarding-card-title">From template</div>
+            <div className="editor-onboarding-quick">
+              {templates.map(t => (
+                <button key={t.id} className="editor-quick-btn"
+                  onClick={() => dispatch({ type: 'APPLY_TEMPLATE', payload: t })}>
+                  <span className="editor-quick-icon">◫</span>
+                  <span className="editor-quick-label">{t.label}</span>
+                  <span className="editor-quick-desc">{t.description || ''}</span>
+                </button>
+              ))}
+            </div>
+            <button className="editor-onboarding-more"
+              onClick={() => dispatch({ type: 'TOGGLE_PANEL', key: '_showHelp', value: true })}>
+              View all templates →
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="editor-onboarding-tips">
+        <div className="editor-onboarding-tip"><kbd>Ctrl+K</kbd> Global search</div>
+        <div className="editor-onboarding-tip"><kbd>?</kbd> Help &amp; About</div>
+        <div className="editor-onboarding-tip"><kbd>Ctrl+S</kbd> Save</div>
+      </div>
     </div>
   );
 }

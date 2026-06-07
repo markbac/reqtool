@@ -1,0 +1,359 @@
+/* ── Help / About overlay ────────────────────────────────────────────────── */
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+
+.help-panel {
+  width: min(820px, 94vw);
+  max-height: 88vh;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+}
+
+.help-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+
+.help-panel-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.help-panel-tab {
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+}
+.help-panel-tab:hover { color: var(--text-primary); }
+.help-panel-tab--active { color: var(--text-primary); border-bottom-color: var(--accent-blue); }
+
+.help-panel-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ── About tab ───────────────────────────────────────────────────────────── */
+.help-about {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.help-about-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.help-brand-icon {
+  font-size: 36px;
+  color: var(--accent-blue);
+  line-height: 1;
+}
+.help-brand-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.help-brand-tagline {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.help-section h3 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+.help-section p {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.help-steps {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.help-steps li {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-primary);
+}
+.help-steps strong { color: var(--text-primary); }
+
+.help-shortcuts {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.help-shortcuts td {
+  padding: 5px 12px 5px 0;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+.help-shortcuts td:first-child { width: 120px; }
+
+kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-primary);
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.help-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.help-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.help-card-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.help-card-types span {
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+.help-card-workflow {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.help-footer {
+  display: flex;
+  gap: 16px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.help-footer a {
+  font-size: 12px;
+  color: var(--accent-blue);
+}
+
+/* ── Help topics tab ─────────────────────────────────────────────────────── */
+.help-topics {
+  display: flex;
+  height: 100%;
+  min-height: 400px;
+}
+
+.help-topic-nav {
+  width: 150px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 12px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.help-topic-btn {
+  padding: 7px 16px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+.help-topic-btn:hover { color: var(--text-primary); }
+.help-topic-btn--active {
+  color: var(--text-primary);
+  border-left-color: var(--accent-blue);
+  background: color-mix(in srgb, var(--accent-blue) 8%, transparent);
+}
+
+.help-topic-content {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.help-topic-section { margin-bottom: 20px; }
+.help-topic-heading {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.help-topic-body {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+.help-topic-body p { margin-bottom: 8px; }
+.help-topic-body h4 { font-size: 13px; font-weight: 600; margin: 12px 0 6px; color: var(--text-primary); }
+.help-topic-body li { margin-left: 20px; margin-bottom: 4px; }
+.help-topic-body code { font-family: var(--font-mono); font-size: 11px; background: var(--bg-elevated); padding: 1px 5px; border-radius: 3px; color: var(--accent-blue); }
+.help-topic-body strong { font-weight: 600; color: var(--text-primary); }
+
+.help-loading { color: var(--text-muted); font-size: 13px; padding: 20px; }
+.help-empty   { color: var(--text-muted); font-size: 13px; }
+
+/* ── Templates tab ───────────────────────────────────────────────────────── */
+.help-templates {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.help-templates-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border-radius: 6px;
+}
+.help-templates-hint code { font-family: var(--font-mono); font-size: 11px; color: var(--accent-blue); }
+.help-templates-hint strong { color: var(--text-primary); }
+
+.help-template-group { display: flex; flex-direction: column; gap: 6px; }
+.help-template-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.help-template-item {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.help-template-item:hover { background: var(--bg-hover); }
+.help-template-item--selected { border-color: var(--accent-blue); }
+
+.help-template-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.help-template-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.help-template-meta { flex: 1; }
+.help-template-label { font-size: 13px; font-weight: 600; color: var(--text-primary); display: block; margin-bottom: 2px; }
+.help-template-desc  { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+.help-template-use   { align-self: flex-start; }
+
+.help-template-preview {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.help-template-field-row {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+
+/* ── Field help tooltip ──────────────────────────────────────────────────── */
+.field-help-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  cursor: help;
+  margin-left: 4px;
+  position: relative;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.field-help-trigger:hover { color: var(--text-primary); border-color: var(--accent-blue); }
+
+.field-help-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 260px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-primary);
+  text-transform: none;
+  letter-spacing: 0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  z-index: 300;
+  pointer-events: none;
+  white-space: normal;
+}

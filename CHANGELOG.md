@@ -4,6 +4,119 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.3.14] -- 2025-06-07
+
+### Fixed
+
+- **`APPLY_TEMPLATE` was never handled in the reducer** -- the action was dispatched but
+  dropped silently. `pendingTemplate` state added to `AppContext`. When `+ New` is clicked
+  in the sidebar with a pending template, the new requirement is created with all template
+  fields pre-filled (type, priority, domain, discipline, tags, verification_method,
+  description, rationale, and acceptance_criteria). A blue banner in the sidebar shows the
+  active template name with a cancel button.
+
+- **Demo agile items had empty rationale and no ACs** -- all 13 agile items (theme, epics,
+  stories, tasks, bug, spike) now have realistic rationale text and acceptance criteria with
+  the full Given/When/Then structure. The bug has a root-cause analysis and fix description.
+  The spike has a hypothesis, time-box, and output definition.
+
+### Changed
+
+- **Templates substantially improved**: all 12 templates now pre-fill description, rationale,
+  ACs, domain, discipline, tags, verification_method, and relevant NFR keys. Safety template
+  includes HARA reference structure. Bug template includes steps/expected/actual structure.
+  Spike template includes hypothesis/time-box/output format.
+
+- **Module group node** is now visually distinct: purple accent, bold title, `MOD` pill badge
+  with border, and a top separator line -- clearly different from product requirements.
+
+- **Requirements panel toolbar**: `+ New`, `⊕ Module`, and `↺ Refresh` buttons always visible.
+
+- **`⊕ Module` include panel**: shows all modules in `modules/` with version, description,
+  and an Include button. Already-included modules show `✓ Already included`. Falls back to
+  `req import <id> --product <id>` CLI hint if the API endpoint is not available.
+
+- **`api.modules.include(productId, moduleId)`** added to `api.js`.
+
+
+## [0.3.13] -- 2025-06-07
+
+### Added
+
+- **HelpPanel** (`?` button, or press `?` key): three-tab overlay:
+  - **About** -- what reqtool is, quick-start guide (6 steps), keyboard shortcuts, vocabulary
+    cards showing both agile and systems types with their workflows, links to API docs.
+  - **Help** -- contextual help loaded from `GET /help` with topic navigation (Concepts,
+    Fields, Workflow, Relationships, Estimates, DoR/DoD, Validation, Git & Baselines, Export).
+  - **Templates** -- browse all requirement templates (agile quick-types + systems engineering
+    templates from `.reqtool/templates.yaml`) and click "Use template" to apply one.
+
+- **Onboarding empty state**: when no requirement is selected, the main panel shows a
+  quick-create grid (Story, Task, Bug, Epic) and a from-template grid, plus keyboard shortcut
+  reminders. Replaces the previous "Select an item from the tree".
+
+- **Field help tooltips** (`FieldHelp` component): hovering the `?` badge next to a field
+  label shows a one-line explanation for ID, Status, Priority, Type, Domain, Owner, Assignee,
+  Iteration, Estimate, Rationale, and Relationships.
+
+- **`?` keyboard shortcut** opens the HelpPanel from anywhere (when not focused on an input).
+
+### Changed
+
+- **Header decluttered**: reduced from 8 visible buttons to 3 primary (Validate, Export,
+  Metrics) plus overflow. Import moved to overflow. Templates removed from overflow (now in
+  HelpPanel). `?` help button added prominently at the right of the header.
+
+- **`api.help.get(topic)`** added to `api.js`.
+
+
+## [0.3.12] -- 2025-06-07
+
+### Fixed
+
+- **CI validation smoke-test**: removed `--errors-only` flag that was never implemented.
+  `req validate` already exits 0 on warnings and 1 only on hard errors.
+
+### Changed
+
+- **Requirement editor replaced with four-tab layout**:
+  - **Content** -- Identity (ID, parent, title), Description (shall statement), Rationale,
+    Extended description, Acceptance Criteria, DoR/DoD checklists. Everything a reviewer
+    needs on one screen.
+  - **Classification** -- Status/Priority, Type/Domain/Risk/Component, Owner/Assignee/Teams/Tags,
+    Iteration/Estimate/Feature/Discipline, Safety.
+  - **Relations** -- Relationships, External Links, Constraints & Assumptions, NFR, Custom
+    Fields, Attributes.
+  - **Governance** -- Verification, Approval, Review, Implementation, History, Attachments,
+    Discussion.
+  The previous single-column scroll with 15+ collapsible sections is replaced by a fixed
+  header + tab bar + scrollable tab panel.
+
+- **DoR/DoD checklists** now appear inline in the Content tab with checkbox controls.
+
+- **Assignee and Iteration/Estimate** promoted to first-class fields in the Classification
+  tab (previously buried or missing).
+
+
+## [0.3.11] -- 2025-06-07
+
+### Fixed
+
+- **Kanban board was inside the 300px sidebar** -- the entire board is now rendered in
+  `<main>` (full remaining window width) when Task Mgmt is active. `KanbanPanel` extracted
+  to `src/components/Kanban.jsx` with its own `Kanban.css`. Sidebar shows only navigation
+  tabs and the requirement tree/lists.
+
+- **Text readability in editor**: CodeMirror content explicitly set to `var(--text-primary)`;
+  fallback textarea gets `var(--bg-elevated)` background and mono font; field label contrast
+  improved; section body background and padding unified.
+
+- **Sidebar widened** from 300px to 340px to reduce tree item truncation.
+
+- **Badge variants added** for all workflow states (backlog, ready, in_progress, in_review,
+  done, active, reviewed).
+
+
 ## [0.3.10] -- 2025-06-07
 
 ### Fixed

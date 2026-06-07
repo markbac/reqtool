@@ -197,16 +197,7 @@ jobs:
           git config user.email "ci@reqtool"
           git config user.name  "reqtool CI"
           req init demo --repo .
-          # req validate exits 1 on warnings too; use --errors-only to treat warnings as advisory
-          req validate --repo . --errors-only || true
-          # Verify there are no hard errors (unknown req_type etc.)
-          result=$(req validate --repo . 2>&1)
-          if echo "$result" | grep -q "^Errors"; then
-            echo "Validation errors found:"
-            echo "$result"
-            exit 1
-          fi
-          echo "Validation passed (warnings are advisory)."
+          req validate --repo .
 
   # ---------------------------------------------------------------------------
   # Hash verification: req verify passes on a freshly initialised repo

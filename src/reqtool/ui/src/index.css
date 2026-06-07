@@ -87,7 +87,7 @@
 
 /* ── Shared tokens (theme-independent) ───────────────────────────────────── */
 :root {
-  --sidebar-width: 300px;
+  --sidebar-width: 340px;
   --header-height: 48px;
 
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;

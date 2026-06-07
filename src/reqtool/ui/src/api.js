@@ -107,13 +107,17 @@ export const api = {
     add:    (body) => post('/webhooks', body),
     delete: (idx)  => del(`/webhooks/${idx}`),
   },
+  help: {
+    get: (topic) => get(topic ? `/help?topic=${topic}` : '/help'),
+  },
   kanban: {
     get: (params = {}) => get('/kanban?' + new URLSearchParams(params)),
   },
   modules: {
-    list:   ()     => get('/modules'),
-    get:    (id)   => get(`/modules/${id}`),
-    verify: (id)   => get(`/modules/${id}/verify`),
+    list:    ()                   => get('/modules'),
+    get:     (id)                 => get(`/modules/${id}`),
+    verify:  (id)                 => get(`/modules/${id}/verify`),
+    include: (productId, moduleId) => post(`/modules/${moduleId}/import`, { product_id: productId }),
   },
   hierarchy: {
     get:     ()         => get('/hierarchy'),

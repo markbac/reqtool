@@ -17,6 +17,8 @@ const initialState = {
   _showBaselines: false, _showMetrics: false, _showImport: false,
   _showWorkflow: false, _showTemplates: false, _showTraceability: false,
   _showCmdPalette: false, _showCustomFields: false, _showWebhooks: false,
+  _showHelp: false,
+  pendingTemplate: null,
   _lastCommit: 0,
   theme: 'dark',
   toasts: [],
@@ -43,6 +45,8 @@ function reducer(state, action) {
     case 'SET_THEME':     return { ...state, theme: action.payload };
     case 'SET_SEARCH':    return { ...state, searchQuery: action.payload };
     case 'COMMITTED':     return { ...state, _lastCommit: Date.now() };
+    case 'APPLY_TEMPLATE':return { ...state, pendingTemplate: action.payload };
+    case 'CLEAR_TEMPLATE':return { ...state, pendingTemplate: null };
     case 'TOGGLE_PANEL':  return { ...state, [action.key]: action.value };
     case 'TOAST_ADD':     return { ...state, toasts: [...state.toasts, action.payload] };
     case 'TOAST_REMOVE':  return { ...state, toasts: state.toasts.filter(t => t.id !== action.id) };
