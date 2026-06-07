@@ -1,0 +1,100 @@
+# reqtool default enums
+# Loaded by: req init defaults
+# Edit this file to change what gets pre-populated for new repositories.
+# All lists are examples -- remove, rename or add entries to match your organisation.
+
+# Requirement domain / area classification.
+# Drives left-border colour in the tree and domain-split Markdown exports.
+domain:
+  - business
+  - system
+  - firmware
+  - hardware
+  - software
+  - security
+  - safety
+  - comms
+  - data
+  - ux
+  - compliance
+  - manufacture
+  - identity
+
+# Engineering discipline. Used to allocate derived requirements to delivery teams.
+discipline:
+  - FW
+  - HW
+  - Sys
+  - SW
+  - Mfg
+  - ID
+  - QA
+  - Sec
+
+# Component allocation. Used to allocate requirements to system elements.
+component: []
+
+# Feature / workstream grouping.
+feature: []
+
+# Engineering teams. Used in Allocated To on requirements.
+team:
+  - firmware
+  - hardware
+  - systems
+  - software
+  - security
+  - product
+  - qa
+  - manufacture
+
+# People list. Shared by Owner, Approved By, and Reviewers.
+# Use short identifiers: first.last, role names, or login handles.
+owner: []
+
+# Safety integrity levels. Used on safety-related requirements.
+# Uncomment the relevant standard for your domain.
+safety_class:
+  - SIL-1
+  - SIL-2
+  - SIL-3
+  - SIL-4
+  # - ASIL-A
+  # - ASIL-B
+  # - ASIL-C
+  # - ASIL-D
+  # - Cat-1
+  # - Cat-2
+  # - Cat-3
+
+# Labels for requirements, principles and TBDs.
+tags:
+  - critical-path
+  - security
+  - regulatory
+  - nfr
+  - ota
+  - deferred
+
+# Non-functional requirement metric keys.
+# Unregistered keys produce a validation warning.
+nfr_keys:
+  - latency_ms
+  - throughput_kbps
+  - sampling_rate_hz
+  - accuracy_degc
+  - accuracy_rh_pct
+  - accuracy_hpa
+  - power_mw
+  - battery_life_hours
+  - startup_time_ms
+  - setup_time_minutes
+  - range_m
+  - mtbf_hours
+  - mass_g
+  - ip_rating
+
+# ID prefix → domain mapping.
+# Used to suggest IDs when creating new requirements.
+# Example: SEN → sensing means new requirements get IDs like SEN-001
+id_domain: {}

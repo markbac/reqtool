@@ -1,0 +1,499 @@
+# reqtool default principles
+# Loaded by: req init defaults
+# Edit this file to change what gets pre-populated for new repositories.
+#
+# Each principle has:
+#   id          - unique identifier (P-<CATEGORY>-<SLUG>)
+#   title       - short name
+#   domain      - category group (business | architecture | security | firmware |
+#                                  comms | data | process | safety)
+#   description - the normative statement (shall / will)
+#   rationale   - why this principle exists
+#   implications - what it means in practice (optional)
+#   exceptions  - when the principle can be waived and how (optional)
+
+# ── Business ──────────────────────────────────────────────────────────────────
+- id: P-BUS-CUSTOMER-FIRST
+  title: Customer Outcome Over Technical Elegance
+  domain: business
+  description: >
+    Every technical decision shall be evaluated against the customer outcome it enables.
+    Technical elegance that does not improve quality, reliability, or time-to-value for
+    the customer requires explicit justification.
+  rationale: >
+    Products exist to deliver value to customers. Engineering effort spent on internally
+    satisfying solutions that do not improve the customer experience is waste.
+  implications: >
+    Design reviews shall include a customer-impact statement. Gold-plating and
+    over-engineering shall be called out in code review.
+  exceptions: >
+    Foundational infrastructure work (security hardening, testability improvements)
+    may justify short-term customer-invisible effort when the long-term risk reduction
+    is documented.
+
+- id: P-BUS-EXPLICIT-TRADEOFFS
+  title: Explicit Tradeoffs
+  domain: business
+  description: >
+    When a decision involves a meaningful tradeoff between cost, schedule, quality,
+    scope, or risk, the tradeoff shall be made explicit and recorded before commitment.
+    Implicit tradeoffs are not permitted.
+  rationale: >
+    Implicit tradeoffs lead to misaligned expectations, revisited decisions, and
+    untracked technical debt. Making them explicit forces the right people to be
+    involved in the decision.
+  implications: >
+    Use ADRs for architectural tradeoffs. Use change control for scope/schedule
+    tradeoffs. Use risk registers for risk/cost tradeoffs.
+  exceptions: ""
+
+- id: P-BUS-DEFER-COMMITMENT
+  title: Defer Irreversible Commitment
+  domain: business
+  description: >
+    Decisions that are difficult or costly to reverse shall be deferred until the
+    last responsible moment. Early commitment shall be avoided where the cost of
+    being wrong exceeds the cost of waiting.
+  rationale: >
+    Premature commitment locks in assumptions that may not hold. Deferring
+    decisions preserves options and reduces rework when requirements change.
+  implications: >
+    Avoid specifying fixed interfaces, protocols, or component choices before
+    requirements are stable. Use abstractions and adapters to delay binding.
+  exceptions: >
+    Long-lead procurement (tooling, certification, silicon) may require early
+    commitment. These shall be flagged as constraints and tracked as TBDs.
+
+# ── Architecture ──────────────────────────────────────────────────────────────
+- id: P-ARCH-ADR
+  title: Record Architecture Decisions
+  domain: architecture
+  description: >
+    All significant architecture decisions shall be recorded as Architecture Decision
+    Records (ADRs) before implementation begins. Deviations from standing principles
+    require an ADR. ADRs shall be stored in version control alongside the code.
+  rationale: >
+    ADRs create a durable record of why decisions were made, preventing repeated
+    debates and enabling future teams to understand the constraints that shaped
+    the system. Decisions without rationale are frequently re-litigated.
+  implications: >
+    Teams shall agree on what constitutes a significant decision. A working
+    definition: any decision that would take more than a sprint to reverse.
+  exceptions: ""
+
+- id: P-ARCH-SINGLE-RESPONSIBILITY
+  title: Single Responsibility
+  domain: architecture
+  description: >
+    Each module, service, driver, or component shall have one clearly defined
+    responsibility. Components with mixed concerns require justification.
+  rationale: >
+    Focused components are easier to test, replace, and reason about in isolation.
+    Mixed-concern components create hidden coupling and make change risky.
+  implications: >
+    The responsibility of every component shall be statable in one sentence.
+    If it cannot, the design shall be revisited.
+  exceptions: ""
+
+- id: P-ARCH-EXPLICIT-INTERFACES
+  title: Explicit Interfaces
+  domain: architecture
+  description: >
+    All inter-component interfaces shall be explicitly defined and documented before
+    implementation. Implicit assumptions about component behaviour are prohibited.
+  rationale: >
+    Explicit interfaces enable independent development, testing, and replacement
+    of components. Implicit coupling creates fragile systems that resist change.
+  implications: >
+    Interfaces shall be defined in a language-neutral form (IDL, OpenAPI, header
+    files, or equivalent) before both sides are implemented.
+  exceptions: ""
+
+- id: P-ARCH-FAIL-SAFE
+  title: Fail Safe by Default
+  domain: architecture
+  description: >
+    All systems shall default to the safest available state on unexpected failure,
+    loss of power, or loss of communications. Permissive fallback behaviour requires
+    explicit justification and safety assessment.
+  rationale: >
+    Fail-safe defaults limit the blast radius of faults and are required by most
+    safety standards. Systems that fail open create safety and security risks.
+  implications: >
+    Safe state shall be defined for every subsystem at design time. Power-on state
+    shall be the safe state unless there is a specific requirement otherwise.
+  exceptions: ""
+
+- id: P-ARCH-DEPENDENCY-DIRECTION
+  title: Dependencies Flow Inward
+  domain: architecture
+  description: >
+    Dependencies between architectural layers shall flow inward toward the domain
+    core. Outer layers (infrastructure, drivers, UI) shall depend on inner layers
+    (domain logic, interfaces). Inner layers shall not depend on outer layers.
+  rationale: >
+    Inward-flowing dependencies allow business logic to be tested and deployed
+    independently of infrastructure. Outward dependencies create untestable,
+    tightly-coupled systems.
+  implications: >
+    Hardware abstraction layers, protocol adapters, and UI components shall be
+    implemented as plugins or adapters that the domain core does not reference directly.
+  exceptions: ""
+
+# ── Security ──────────────────────────────────────────────────────────────────
+- id: P-SEC-UNIQUE-CREDS
+  title: Unique Per-Device Credentials
+  domain: security
+  description: >
+    No credential, key, certificate, or token shall be identical across more than
+    one unit. Universal default credentials are prohibited in production.
+  rationale: >
+    Universal defaults are the most common IoT vulnerability class. They are
+    explicitly prohibited by UK PSTI Act 2022 and ETSI EN 303 645.
+  implications: >
+    Credential provisioning shall occur at manufacture as a production step.
+    Test credentials shall never appear in production firmware.
+  exceptions: ""
+
+- id: P-SEC-PKI
+  title: Company PKI for Device Identity
+  domain: security
+  description: >
+    All networked devices shall carry an X.509 certificate signed by the company
+    root CA at manufacture. Self-signed certificates are not permitted in production.
+  rationale: >
+    Company PKI enables fleet-wide certificate management, revocation, and
+    authenticated device identity without relying on pre-shared secrets.
+  implications: >
+    Manufacturing requires integration with the company CA signing service.
+    DAC certificates for Matter products shall use the company intermediate CA.
+  exceptions: >
+    Development and lab builds may use self-signed certificates provided they
+    are clearly marked and cannot be deployed to production.
+
+- id: P-SEC-NO-SECRETS-IN-CODE
+  title: No Secrets in Source Code
+  domain: security
+  description: >
+    Credentials, keys, certificates, tokens, and passwords shall never appear in
+    source code or version control. All secrets shall be injected at build time via
+    a secrets management system or provisioned at manufacture.
+  rationale: >
+    Secrets in code are exposed in repositories, build logs, binary extractions,
+    and wherever the source is shared. They cannot be rotated without a code change.
+  implications: >
+    CI pipelines shall scan for hardcoded secrets. Pre-commit hooks shall be
+    configured to block credential patterns.
+  exceptions: ""
+
+- id: P-SEC-OTA
+  title: OTA Firmware Update Mandatory
+  domain: security
+  description: >
+    All networked products shall support authenticated OTA firmware updates.
+    Products without OTA capability require an ADR and Product Security sign-off.
+  rationale: >
+    OTA is the mechanism by which security vulnerabilities are patched post-deployment.
+    UK PSTI Act 2022 requires a stated minimum security update support period.
+  implications: >
+    OTA update logic shall be implemented and tested before first shipment.
+    Update packages shall be authenticated before installation.
+  exceptions: ""
+
+- id: P-SEC-TLS
+  title: TLS 1.2 Minimum
+  domain: security
+  description: >
+    All communications carrying credentials, personal data, or device telemetry
+    shall use TLS 1.2 minimum. TLS 1.0 and 1.1 are prohibited.
+    Plaintext equivalents (HTTP, MQTT without TLS) shall be disabled by default.
+  rationale: >
+    TLS 1.0 and 1.1 contain known vulnerabilities. TLS 1.2 is the minimum
+    acceptable standard for any product shipping after 2020.
+  implications: >
+    TLS configuration shall be reviewed at design time. Certificate validation
+    shall not be disabled even in test builds.
+  exceptions: >
+    LAN-only debug interfaces with no external exposure may use unencrypted
+    transports provided this is documented and the interface is disabled in
+    production firmware.
+
+# ── Firmware ──────────────────────────────────────────────────────────────────
+- id: P-FW-WATCHDOG
+  title: Hardware Watchdog Always Active
+  domain: firmware
+  description: >
+    All firmware shall enable the hardware watchdog before the first application
+    task runs. The watchdog shall never be disabled in production builds.
+    All tasks shall participate in watchdog servicing.
+  rationale: >
+    The hardware watchdog is the last-resort recovery mechanism. Disabling it
+    in production removes the only guaranteed recovery path from software lockup.
+  implications: >
+    Watchdog timeout shall be set conservatively (≤ 30 s is a common default).
+    Tasks that cannot service the watchdog within the timeout are a design error.
+  exceptions: ""
+
+- id: P-FW-SEMVER
+  title: Semantic Versioning for Firmware
+  domain: firmware
+  description: >
+    All firmware shall use MAJOR.MINOR.PATCH semantic versioning. The version
+    shall be embedded in the binary, accessible at runtime via every diagnostic
+    interface, and match the build artefact filename.
+  rationale: >
+    Consistent versioning enables automated compatibility checks, support triage,
+    rollback decisions, and OTA update gating.
+  implications: >
+    MAJOR increments for breaking changes to interfaces or behaviour.
+    MINOR for backwards-compatible additions. PATCH for bug fixes only.
+  exceptions: ""
+
+- id: P-FW-FAIL-KNOWN-STATE
+  title: Fail to Known State
+  domain: firmware
+  description: >
+    On assertion failure, watchdog expiry, stack overflow, or unhandled exception,
+    firmware shall log the fault context and reset to a known safe state.
+    Attempting to continue from an unknown state is prohibited.
+  rationale: >
+    An unknown system state is worse than a reset. Partial execution from a corrupted
+    state can cause data loss, safety hazards, and hard-to-reproduce field failures.
+  implications: >
+    Fault handlers shall write a minimal crash record to persistent storage before
+    resetting. The record shall include at minimum: reset reason, timestamp, and
+    firmware version.
+  exceptions: ""
+
+- id: P-FW-NO-BUSY-WAIT
+  title: No Unconstrained Busy-Wait
+  domain: firmware
+  description: >
+    Polling loops without a timeout or yield are prohibited. All waits for external
+    events shall have a defined timeout and a defined action on timeout expiry.
+  rationale: >
+    Unconstrained busy-wait prevents RTOS scheduling, starves other tasks,
+    and creates an unserviced watchdog that leads to spurious resets.
+  implications: >
+    All peripheral polling shall use event flags, semaphores, or queues with
+    timeouts. The timeout handling path shall be tested explicitly.
+  exceptions: ""
+
+- id: P-FW-PERSISTENT-CONFIG
+  title: Configuration Survives Reset
+  domain: firmware
+  description: >
+    All user configuration shall survive power loss, clean reboot, and firmware
+    update. Factory reset shall be the only mechanism that erases user configuration.
+  rationale: >
+    Losing configuration on reset is a significant user experience failure and
+    a common source of support calls.
+  implications: >
+    Configuration shall be stored in dedicated non-volatile storage separate from
+    firmware. Update procedures shall not erase configuration partitions.
+  exceptions: >
+    Configuration that is inherently tied to a specific firmware version
+    (e.g. hardware calibration data format) may be re-provisioned on major upgrades
+    provided the user is notified.
+
+# ── Comms ──────────────────────────────────────────────────────────────────────
+- id: P-COMMS-MQTT
+  title: MQTT as Standard IoT Messaging
+  domain: comms
+  description: >
+    All IoT products shall use MQTT 3.1.1 or MQTT 5.0 for device-to-cloud and
+    device-to-platform messaging. Alternative messaging protocols require an ADR.
+  rationale: >
+    A consistent messaging protocol across the product fleet simplifies platform
+    integration, monitoring tooling, and support procedures.
+  implications: >
+    MQTT broker connectivity shall be tested as part of integration tests.
+    QoS levels shall be explicitly selected based on delivery requirements.
+  exceptions: ""
+
+- id: P-COMMS-JSON
+  title: JSON as Standard Payload Format
+  domain: comms
+  description: >
+    All IoT message payloads shall use JSON. Binary or proprietary payload formats
+    require an ADR with justification of the performance benefit.
+  rationale: >
+    JSON is human-readable, universally supported, and requires no schema
+    negotiation for basic integration and debugging.
+  implications: >
+    JSON schema shall be defined and versioned for all published topics.
+    Breaking schema changes shall increment the topic version.
+  exceptions: >
+    Constrained devices where JSON encoding overhead is demonstrably prohibitive
+    (e.g. duty-cycle-limited LoRaWAN payloads) may use CBOR or a binary format
+    with a published schema and an ADR.
+
+- id: P-COMMS-NTP
+  title: NTP for Device Timekeeping
+  domain: comms
+  description: >
+    All networked devices shall synchronise time via NTP within 60 seconds of
+    establishing network connectivity. Default server: pool.ntp.org.
+    A user-configurable override shall be provided.
+  rationale: >
+    Consistent timestamps across the fleet are required for log correlation,
+    audit trails, certificate validity, and scheduled operations.
+  implications: >
+    The time_synced state shall be exposed via the device status interface.
+    Log entries shall not be trusted before time sync is confirmed.
+  exceptions: ""
+
+- id: P-COMMS-REST-LOCAL
+  title: REST for Local Device APIs
+  domain: comms
+  description: >
+    Local device APIs (web interface, device management) shall use RESTful HTTPS
+    with JSON request and response bodies. Custom binary or proprietary protocols
+    require an ADR.
+  rationale: >
+    REST over HTTPS is universally accessible without specialist libraries,
+    trivially testable with standard tools, and familiar to all engineering disciplines.
+  implications: >
+    OpenAPI specifications shall be published for all local device APIs.
+    API versioning shall follow semver.
+  exceptions: ""
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+- id: P-DATA-IMMUTABLE-LOGS
+  title: Immutable Diagnostic Logs
+  domain: data
+  description: >
+    Diagnostic and audit logs shall be append-only. Log entries shall not be
+    modifiable or deletable by normal application operation. Rotation shall
+    preserve the most recent N entries without rewriting earlier entries.
+  rationale: >
+    Tamper-evident logs are required for post-incident analysis and may be
+    required as evidence in regulatory investigations.
+  implications: >
+    Log storage shall be separate from mutable application data.
+    Log integrity shall be verified as part of diagnostic procedures.
+  exceptions: ""
+
+- id: P-DATA-SCHEMA-VERSIONED
+  title: Data Schemas Are Versioned
+  domain: data
+  description: >
+    All persistent data formats and message payload schemas shall carry a version
+    field. Code that reads stored data shall handle all versions it may encounter
+    in the field.
+  rationale: >
+    Unversioned schemas make it impossible to evolve stored data formats without
+    breaking compatibility with devices already deployed.
+  implications: >
+    Schema versions shall be incremented on any breaking change.
+    Migration logic shall be implemented and tested for each version transition.
+  exceptions: ""
+
+- id: P-DATA-MINIMAL-COLLECTION
+  title: Minimal Data Collection
+  domain: data
+  description: >
+    Products shall collect and transmit only the data required to deliver the
+    agreed product function. Collection of data beyond functional necessity
+    requires explicit justification and a privacy impact assessment.
+  rationale: >
+    Data minimisation is a requirement of UK GDPR. Collecting unnecessary data
+    creates liability without value and increases the impact of a breach.
+  implications: >
+    Data collected, retained, and transmitted shall be enumerated at design time.
+    Retention periods shall be defined for all stored data.
+  exceptions: ""
+
+# ── Process ──────────────────────────────────────────────────────────────────
+- id: P-PROC-CI
+  title: Continuous Integration
+  domain: process
+  description: >
+    All production code shall be built, tested, and statically analysed on every
+    commit via a CI pipeline. Merges to mainline branches shall require a passing
+    CI run. Manual builds are not permitted as the basis for releases.
+  rationale: >
+    CI ensures that integration problems are discovered immediately after they are
+    introduced, not days later when they are expensive to trace.
+  implications: >
+    CI pipelines shall include: build, unit tests, integration tests, static analysis,
+    and dependency vulnerability scan as a minimum.
+  exceptions: ""
+
+- id: P-PROC-TEST-BEFORE-MERGE
+  title: Tests Before Merge
+  domain: process
+  description: >
+    Code shall not be merged to a mainline branch without automated tests that
+    cover the new or changed behaviour. Merges that reduce test coverage require
+    explicit approval from the technical lead.
+  rationale: >
+    Untested code is a liability. Each merge without tests increases the cost of
+    future change and reduces confidence in the test suite.
+  implications: >
+    Test coverage shall be tracked and reported. Coverage targets shall be defined
+    per codebase and enforced in CI.
+  exceptions: >
+    Purely additive documentation changes and configuration file updates are exempt.
+
+- id: P-PROC-DEFINITION-OF-DONE
+  title: Explicit Definition of Done
+  domain: process
+  description: >
+    Every team shall maintain a written Definition of Done that specifies the
+    conditions a work item must meet before it is considered complete.
+    Done means done: no follow-up tasks, no known defects, no documentation debt.
+  rationale: >
+    Without an explicit Definition of Done, work items accumulate hidden debt
+    that surfaces at integration or release as expensive rework.
+  implications: >
+    The DoD shall include: implemented, tested (unit + integration), reviewed,
+    documented, and verified against the acceptance criteria.
+  exceptions: ""
+
+- id: P-PROC-BLAMELESS-POSTMORTEM
+  title: Blameless Post-Mortems
+  domain: process
+  description: >
+    All significant production incidents, escaped defects, and near-misses shall
+    trigger a blameless post-mortem within five working days. The output shall
+    include root causes, contributing factors, and time-bound corrective actions.
+  rationale: >
+    Blame-based incident response suppresses honest reporting and prevents the
+    systemic fixes that eliminate classes of failure. Blameless post-mortems
+    treat failures as system-level learning opportunities.
+  implications: >
+    Post-mortem reports shall be stored and reviewed periodically for recurring
+    themes. Corrective actions shall be tracked to completion.
+  exceptions: ""
+
+# ── Safety ────────────────────────────────────────────────────────────────────
+- id: P-SAF-HAZARD-ANALYSIS
+  title: Hazard Analysis Before Design
+  domain: safety
+  description: >
+    A hazard analysis (HAZOP, FMEA, or equivalent) shall be completed before
+    the architecture of any safety-relevant subsystem is finalised. Safety
+    requirements shall be derived from identified hazards, not added retrospectively.
+  rationale: >
+    Retrospective safety analysis produces requirements that the design may already
+    violate. Prospective analysis shapes the architecture before it is fixed.
+  implications: >
+    The hazard analysis shall be version-controlled alongside the requirements.
+    Changes to the design shall trigger a review of the hazard analysis.
+  exceptions: ""
+
+- id: P-SAF-INDEPENDENCE
+  title: Safety Functions Are Independent
+  domain: safety
+  description: >
+    Functions that provide a safety guarantee shall be implemented independently
+    of the functions whose failure they are designed to detect or mitigate.
+    A shared failure mode between a hazard and its mitigation is a design defect.
+  rationale: >
+    A watchdog that runs in the same RTOS task it monitors, or a current limiter
+    on the same die as the device it protects, provides no real independence.
+  implications: >
+    Safety function independence shall be demonstrated in the system architecture.
+    Common cause failures shall be explicitly analysed.
+  exceptions: ""

@@ -1,0 +1,114 @@
+# reqtool requirement templates
+# Loaded by: req init defaults
+# Edit this file to add project-specific templates.
+#
+# Each template pre-fills fields when creating a new requirement.
+# domain, req_type, verification_method, discipline, and tags are all
+# pre-populated. Any field valid on a requirement can be specified.
+
+- id: functional
+  label: Functional Requirement
+  description: Standard capability the system shall provide.
+  fields:
+    req_type: functional
+    priority: medium
+    verification_method: test
+    content:
+      description: "The [system/component] shall [capability]."
+      rationale: ""
+      extended_description: ""
+
+- id: performance
+  label: Performance Requirement
+  description: Quantified constraint on system speed, throughput, or capacity.
+  fields:
+    req_type: performance
+    priority: high
+    verification_method: test
+    content:
+      description: "The [system/component] shall [metric] within [bound] under [conditions]."
+      rationale: ""
+      extended_description: ""
+
+- id: security
+  label: Security Requirement
+  description: Constraint protecting against threats or vulnerabilities.
+  fields:
+    req_type: security
+    domain: security
+    priority: high
+    verification_method: inspection
+    tags: [security]
+    content:
+      description: "The [system/component] shall [protection mechanism] to prevent [threat]."
+      rationale: ""
+      extended_description: ""
+
+- id: safety
+  label: Safety Requirement
+  description: Constraint preventing harm to people, property, or environment.
+  fields:
+    req_type: safety
+    domain: safety
+    priority: critical
+    safety_related: true
+    verification_method: analysis
+    tags: [safety]
+    content:
+      description: "The [system/component] shall [protection] such that [hazard] cannot occur."
+      rationale: ""
+      extended_description: ""
+
+- id: interface
+  label: Interface Requirement
+  description: Defines a boundary between this system and an external entity.
+  fields:
+    req_type: interface
+    priority: high
+    verification_method: inspection
+    content:
+      description: "The [system] shall [interface type] with [external entity] via [protocol/standard]."
+      rationale: ""
+      extended_description: ""
+
+- id: regulatory
+  label: Regulatory / Compliance Requirement
+  description: Derived from a legal, standard, or contractual obligation.
+  fields:
+    req_type: compliance
+    domain: compliance
+    priority: critical
+    verification_method: inspection
+    tags: [regulatory]
+    content:
+      description: "The [system/product] shall comply with [standard/regulation clause]."
+      rationale: "Required for market placement / legal compliance."
+      extended_description: ""
+
+- id: firmware-derived
+  label: Firmware Derived Requirement
+  description: Firmware implementation constraint derived from a system requirement.
+  fields:
+    req_type: functional
+    domain: firmware
+    discipline: FW
+    priority: medium
+    verification_method: test
+    content:
+      description: "The firmware shall [behaviour] when [condition]."
+      rationale: ""
+      extended_description: ""
+
+- id: hardware-derived
+  label: Hardware Derived Requirement
+  description: Hardware implementation constraint derived from a system requirement.
+  fields:
+    req_type: functional
+    domain: hardware
+    discipline: HW
+    priority: medium
+    verification_method: inspection
+    content:
+      description: "The [component/circuit] shall [characteristic] to support [function]."
+      rationale: ""
+      extended_description: ""

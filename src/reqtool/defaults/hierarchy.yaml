@@ -1,0 +1,469 @@
+# reqtool hierarchy configuration
+# This file is the single source of truth for:
+#   - valid item types and their display metadata
+#   - parent/child hierarchy rules
+#   - per-type workflow definitions
+#   - Definition of Ready (DoR) and Definition of Done (DoD) checklists
+#   - cross-layer relationship rules
+#
+# Edit this file to customise types, workflows, and governance for your project.
+
+# ---------------------------------------------------------------------------
+# Item types
+# ---------------------------------------------------------------------------
+types:
+  # Agile planning hierarchy
+  theme:
+    label: Theme
+    icon: "🎯"
+    color: "#6e40c9"
+    description: Highest strategic grouping; a programme, product vision, or multi-year outcome.
+    workflow: lightweight
+    id_prefix: TH
+
+  initiative:
+    label: Initiative
+    icon: "🚀"
+    color: "#1f6feb"
+    description: Large body of work within a theme, spanning multiple quarters.
+    workflow: lightweight
+    id_prefix: IN
+
+  epic:
+    label: Epic
+    icon: "📦"
+    color: "#388bfd"
+    description: Significant user-facing capability within an initiative.
+    workflow: sprint
+    id_prefix: EP
+
+  feature:
+    label: Feature
+    icon: "✨"
+    color: "#56d364"
+    description: Discrete piece of functionality within an epic.
+    workflow: sprint
+    id_prefix: FT
+
+  story:
+    label: Story
+    icon: "📖"
+    color: "#79c0ff"
+    description: Unit of user value within a feature.
+    workflow: sprint
+    id_prefix: US
+
+  task:
+    label: Task
+    icon: "✅"
+    color: "#d2a8ff"
+    description: Concrete unit of technical work within a story or feature.
+    workflow: sprint
+    id_prefix: TK
+
+  bug:
+    label: Bug
+    icon: "🐛"
+    color: "#ff7b72"
+    description: A defect, linked to what it affects.
+    workflow: sprint
+    id_prefix: BG
+
+  spike:
+    label: Spike
+    icon: "🔬"
+    color: "#ffa657"
+    description: Time-boxed investigation within an epic or feature.
+    workflow: sprint
+    id_prefix: SP
+
+  stakeholder_need:
+    label: Stakeholder Need
+    icon: "👤"
+    color: "#e3b341"
+    description: Top-level systems intent, not a formal requirement.
+    workflow: lightweight
+    id_prefix: SN
+
+  # Systems engineering types (existing, unchanged)
+  functional:
+    label: Functional
+    icon: "⚙️"
+    color: "#388bfd"
+    description: A capability the system shall provide.
+    workflow: formal
+    id_prefix: FR
+
+  performance:
+    label: Performance
+    icon: "📈"
+    color: "#56d364"
+    description: Quantified constraint on speed, throughput, or capacity.
+    workflow: formal
+    id_prefix: PR
+
+  security:
+    label: Security
+    icon: "🔒"
+    color: "#ff7b72"
+    description: Protection against threats or vulnerabilities.
+    workflow: formal
+    id_prefix: SR
+
+  safety:
+    label: Safety
+    icon: "⚠️"
+    color: "#ffa657"
+    description: Constraint preventing harm to people, property, or environment.
+    workflow: safety_formal
+    id_prefix: SAF
+
+  interface:
+    label: Interface
+    icon: "🔌"
+    color: "#79c0ff"
+    description: Boundary between this system and an external entity.
+    workflow: formal
+    id_prefix: IR
+
+  compliance:
+    label: Compliance
+    icon: "📋"
+    color: "#e3b341"
+    description: Derived from a legal, standard, or contractual obligation.
+    workflow: formal
+    id_prefix: CR
+
+  constraint:
+    label: Constraint
+    icon: "🚧"
+    color: "#8b949e"
+    description: A restriction on design or implementation.
+    workflow: formal
+    id_prefix: CON
+
+  operational:
+    label: Operational
+    icon: "🏭"
+    color: "#d2a8ff"
+    description: Constraint on operation, maintenance, or deployment.
+    workflow: formal
+    id_prefix: OR
+
+  physical:
+    label: Physical
+    icon: "📐"
+    color: "#6e40c9"
+    description: Physical size, weight, environment, or packaging constraint.
+    workflow: formal
+    id_prefix: PHR
+
+# ---------------------------------------------------------------------------
+# Hierarchy rules (parent type → allowed child types)
+# ---------------------------------------------------------------------------
+hierarchy:
+  theme:
+    allowed_children: [initiative]
+  initiative:
+    allowed_children: [epic]
+  epic:
+    allowed_children: [feature, story, task, bug, spike]
+  feature:
+    allowed_children: [story, task, bug, spike]
+  story:
+    allowed_children: [task, bug]
+  task:
+    allowed_children: []
+  bug:
+    allowed_children: []
+  spike:
+    allowed_children: []
+  stakeholder_need:
+    allowed_children: [functional, performance, security, safety, interface, compliance, constraint, operational, physical, stakeholder_need]
+  # Systems types can nest within themselves
+  functional:
+    allowed_children: [functional, performance, interface, constraint]
+  performance:
+    allowed_children: [performance]
+  security:
+    allowed_children: [security, functional]
+  safety:
+    allowed_children: [safety, functional]
+  interface:
+    allowed_children: [interface, functional]
+  compliance:
+    allowed_children: [compliance, functional]
+  constraint:
+    allowed_children: [constraint]
+  operational:
+    allowed_children: [operational, functional]
+  physical:
+    allowed_children: [physical]
+
+# ---------------------------------------------------------------------------
+# Workflow definitions
+# ---------------------------------------------------------------------------
+workflows:
+  lightweight:
+    initial: draft
+    states:
+      - id: draft
+        label: Draft
+        colour: "#8b949e"
+        terminal: false
+      - id: active
+        label: Active
+        colour: "#1f6feb"
+        terminal: false
+      - id: done
+        label: Done
+        colour: "#238636"
+        terminal: true
+      - id: cancelled
+        label: Cancelled
+        colour: "#da3633"
+        terminal: true
+    transitions:
+      draft: [active]
+      active: [done, cancelled, draft]
+      done: [active]
+      cancelled: []
+
+  sprint:
+    initial: backlog
+    states:
+      - id: backlog
+        label: Backlog
+        colour: "#8b949e"
+        terminal: false
+      - id: ready
+        label: Ready
+        colour: "#e3b341"
+        terminal: false
+      - id: in_progress
+        label: In Progress
+        colour: "#1f6feb"
+        terminal: false
+      - id: in_review
+        label: In Review
+        colour: "#d29922"
+        terminal: false
+      - id: done
+        label: Done
+        colour: "#238636"
+        terminal: true
+      - id: cancelled
+        label: Cancelled
+        colour: "#da3633"
+        terminal: true
+    transitions:
+      backlog: [ready, in_progress]
+      ready: [in_progress, backlog]
+      in_progress: [in_review, done, backlog]
+      in_review: [done, in_progress]
+      done: []
+      cancelled: []
+
+  formal:
+    initial: draft
+    states:
+      - id: draft
+        label: Draft
+        colour: "#8b949e"
+        terminal: false
+      - id: in_review
+        label: In Review
+        colour: "#d29922"
+        terminal: false
+      - id: reviewed
+        label: Reviewed
+        colour: "#1f6feb"
+        terminal: false
+      - id: approved
+        label: Approved
+        colour: "#238636"
+        terminal: false
+      - id: deprecated
+        label: Deprecated
+        colour: "#da3633"
+        terminal: true
+    transitions:
+      draft: [in_review, approved]
+      in_review: [reviewed, draft]
+      reviewed: [approved, in_review]
+      approved: [deprecated, in_review]
+      deprecated: []
+
+  safety_formal:
+    initial: draft
+    guards:
+      approved:
+        requires_fields: [content.description, content.rationale, acceptance_criteria, safety_classification]
+        requires_ac: true
+        message: "Safety requirements must have description, rationale, ACs, and safety_classification before approval."
+    states:
+      - id: draft
+        label: Draft
+        colour: "#8b949e"
+        terminal: false
+      - id: in_review
+        label: In Review
+        colour: "#d29922"
+        terminal: false
+      - id: reviewed
+        label: Reviewed
+        colour: "#1f6feb"
+        terminal: false
+      - id: approved
+        label: Approved
+        colour: "#238636"
+        terminal: false
+      - id: deprecated
+        label: Deprecated
+        colour: "#da3633"
+        terminal: true
+    transitions:
+      draft: [in_review]
+      in_review: [reviewed, draft]
+      reviewed: [approved, in_review]
+      approved: [deprecated]
+      deprecated: []
+
+# ---------------------------------------------------------------------------
+# Definition of Ready (DoR) templates per type
+# ---------------------------------------------------------------------------
+dor:
+  story:
+    - item: Title clearly describes user value
+    - item: Acceptance criteria defined
+    - item: Estimate provided
+    - item: Dependencies identified
+    - item: Fits within a single sprint
+
+  task:
+    - item: Linked to a parent story or feature
+    - item: Technical approach agreed
+    - item: Estimate provided
+
+  bug:
+    - item: Steps to reproduce documented
+    - item: Expected vs actual behaviour described
+    - item: Affected version/environment noted
+    - item: Severity and priority set
+
+  spike:
+    - item: Question or hypothesis clearly stated
+    - item: Time-box agreed
+    - item: Output format defined (doc, prototype, decision)
+
+  epic:
+    - item: Problem statement defined
+    - item: Acceptance criteria at epic level
+    - item: Dependencies on other epics identified
+    - item: Rough estimate or t-shirt sizing agreed
+
+# ---------------------------------------------------------------------------
+# Definition of Done (DoD) templates per type
+# ---------------------------------------------------------------------------
+dod:
+  story:
+    - item: All acceptance criteria met
+    - item: Code reviewed and merged
+    - item: Unit tests passing
+    - item: Documentation updated if required
+    - item: Product Owner accepted
+
+  task:
+    - item: Implementation complete
+    - item: Code reviewed
+    - item: Tests pass
+
+  bug:
+    - item: Root cause identified
+    - item: Fix implemented and reviewed
+    - item: Regression test added
+    - item: Affected requirements re-verified
+
+  spike:
+    - item: Question answered or hypothesis validated
+    - item: Output artifact produced
+    - item: Findings shared with team
+    - item: Follow-on stories/tasks created if applicable
+
+  epic:
+    - item: All child stories done
+    - item: Integration tests passing
+    - item: Product Owner sign-off
+
+  safety:
+    - item: Verification evidence recorded
+    - item: Safety classification confirmed
+    - item: Independent review completed
+    - item: Approval obtained from safety authority
+
+  functional:
+    - item: Acceptance criteria met
+    - item: Verification method executed
+    - item: Verification evidence recorded
+
+# ---------------------------------------------------------------------------
+# Cross-layer relationship rules
+# ---------------------------------------------------------------------------
+cross_layer_rules:
+  - source_types: [story, task, feature, epic]
+    target_types: [functional, performance, security, safety, interface, compliance, constraint, operational, physical]
+    allowed_rel_types: [satisfies, implements, traces_to]
+    note: "Agile items link to systems requirements via explicit relationship types."
+
+  - source_types: [functional, performance, security, safety, interface, compliance, constraint, operational, physical]
+    target_types: [stakeholder_need]
+    allowed_rel_types: [derived_from, traces_to, satisfies]
+    note: "Systems requirements trace to stakeholder needs."
+
+  - source_types: [functional]
+    target_types: [functional, performance, interface]
+    allowed_rel_types: [derived_from, depends_on, conflicts_with, supersedes]
+    note: "Systems requirements can relate within the systems layer."
+
+# ---------------------------------------------------------------------------
+# Relationship types (shipped in enums.yaml, editable there)
+# Reference: users add/remove from enums.yaml relationship_types
+# ---------------------------------------------------------------------------
+default_relationship_types:
+  - id: relates_to
+    label: Relates To
+    directional: false
+    description: Generic non-directional association.
+  - id: depends_on
+    label: Depends On
+    directional: true
+    description: This item cannot proceed until the target is complete.
+  - id: depended_by
+    label: Depended By
+    directional: true
+    computed: true
+    description: Computed inverse of depends_on; shown read-only.
+  - id: satisfies
+    label: Satisfies
+    directional: true
+    description: Agile item satisfies a systems requirement.
+  - id: implements
+    label: Implements
+    directional: true
+    description: Agile item implements a requirement.
+  - id: traces_to
+    label: Traces To
+    directional: true
+    description: General traceability link.
+  - id: derived_from
+    label: Derived From
+    directional: true
+    description: This item was derived from the target.
+  - id: conflicts_with
+    label: Conflicts With
+    directional: false
+    description: This item is in tension with the target.
+  - id: supersedes
+    label: Supersedes
+    directional: true
+    description: This item replaces the target.

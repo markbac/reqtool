@@ -1,0 +1,303 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs for the same branch/PR so a fast-follow commit
+# doesn't queue behind a slow one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Fast checks: import, lint, type hints
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint & import check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package (no test extras)
+        run: pip install -e "."
+
+      - name: Verify all modules import cleanly
+        run: |
+          python -c "from reqtool.models   import HierarchyConfig, Requirement, ChecklistItem"
+          python -c "from reqtool.store    import Store"
+          python -c "from reqtool.api      import create_app"
+          python -c "from reqtool.cli      import cli"
+          python -c "from reqtool.exports  import export_csv, export_jsx"
+          python -c "from reqtool.validation import validate_all"
+
+      - name: Check hierarchy.yaml and help.yaml ship with the package
+        run: |
+          python - <<'EOF'
+          from pathlib import Path
+          defaults = Path("src/reqtool/defaults")
+          for name in ("hierarchy.yaml", "help.yaml", "enums.yaml",
+                       "workflow.yaml", "templates.yaml", "principles.yaml"):
+              assert (defaults / name).exists(), f"Missing default: {name}"
+          print("All defaults present.")
+          EOF
+
+  # ---------------------------------------------------------------------------
+  # Test matrix: Python 3.11, 3.12, 3.13
+  # Three parallel jobs, each running a distinct subset to keep each job
+  # under ~3 minutes.
+  # ---------------------------------------------------------------------------
+  test-core:
+    name: "Tests / core (py${{ matrix.python-version }})"
+    needs: lint
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package + test extras
+        run: pip install -e ".[test]"
+
+      - name: Run core tests (store, validation, CLI)
+        run: |
+          pytest \
+            tests/test_store.py \
+            tests/test_validation.py \
+            tests/test_cli.py \
+            --timeout=30 \
+            -v \
+            --tb=short \
+            --junit-xml=junit-core-${{ matrix.python-version }}.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-core-py${{ matrix.python-version }}
+          path: junit-core-${{ matrix.python-version }}.xml
+
+  test-features:
+    name: "Tests / v0.3.0 features (py${{ matrix.python-version }})"
+    needs: lint
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package + test extras
+        run: pip install -e ".[test]"
+
+      - name: Run feature tests
+        run: |
+          pytest \
+            tests/test_features_v03.py \
+            --timeout=30 \
+            -v \
+            --tb=short \
+            --junit-xml=junit-features-${{ matrix.python-version }}.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-features-py${{ matrix.python-version }}
+          path: junit-features-${{ matrix.python-version }}.xml
+
+  test-api:
+    name: "Tests / API & regression (py${{ matrix.python-version }})"
+    needs: lint
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package + test extras
+        run: pip install -e ".[test]"
+
+      - name: Run API and regression tests
+        # test_api.py starts a watchdog Observer per TestClient; give each
+        # test a generous timeout.  The overall job timeout keeps things sane.
+        run: |
+          pytest \
+            tests/test_api.py \
+            tests/test_regression.py \
+            --timeout=60 \
+            -v \
+            --tb=short \
+            --junit-xml=junit-api-${{ matrix.python-version }}.xml
+        timeout-minutes: 15
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-api-py${{ matrix.python-version }}
+          path: junit-api-${{ matrix.python-version }}.xml
+
+  # ---------------------------------------------------------------------------
+  # Validation smoke-test: req validate runs cleanly on the demo dataset
+  # ---------------------------------------------------------------------------
+  validate-demo:
+    name: Validation smoke-test
+    needs: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package
+        run: pip install -e "."
+
+      - name: Initialise demo repository and run req validate
+        run: |
+          mkdir demo-repo && cd demo-repo
+          git init -q
+          git config user.email "ci@reqtool"
+          git config user.name  "reqtool CI"
+          req init demo --repo .
+          req validate --repo .
+
+  # ---------------------------------------------------------------------------
+  # Hash verification: req verify passes on a freshly initialised repo
+  # ---------------------------------------------------------------------------
+  verify-hashes:
+    name: Hash verification
+    needs: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package
+        run: pip install -e "."
+
+      - name: req verify passes on a clean repo
+        run: |
+          mkdir verify-repo && cd verify-repo
+          git init -q
+          git config user.email "ci@reqtool"
+          git config user.name  "reqtool CI"
+          req init defaults --repo . --id verify-test --title "Verify Test"
+          req verify --repo .
+
+  # ---------------------------------------------------------------------------
+  # UI: verify committed dist is up to date with source
+  # ---------------------------------------------------------------------------
+  ui-build:
+    name: UI build check
+    needs: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: src/reqtool/ui/package-lock.json
+
+      - name: Install UI dependencies
+        working-directory: src/reqtool/ui
+        run: npm install --legacy-peer-deps
+
+      - name: Build UI
+        working-directory: src/reqtool/ui
+        run: npm run build
+
+      - name: Run UI tests
+        working-directory: src/reqtool/ui
+        run: npm test
+
+      - name: Check committed dist is not stale
+        run: |
+          if git diff --name-only | grep -q "src/reqtool/ui/dist"; then
+            echo "ERROR: src/reqtool/ui/dist is stale -- rebuild and commit:"
+            echo "  cd src/reqtool/ui && npm install && npm run build"
+            git diff --name-only
+            exit 1
+          fi
+          echo "ui/dist is up to date."
+
+  # ---------------------------------------------------------------------------
+  # Build: confirm the wheel builds and installs cleanly
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build wheel
+    needs: [test-core, test-features, test-api, ui-build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Build wheel
+        run: |
+          pip install build
+          python -m build --wheel --outdir dist/
+
+      - name: Install from wheel and smoke-test
+        run: |
+          pip install dist/*.whl
+          python -c "import reqtool; print('reqtool', reqtool.__version__)"
+          req --help
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: reqtool-wheel
+          path: dist/*.whl
+          retention-days: 14

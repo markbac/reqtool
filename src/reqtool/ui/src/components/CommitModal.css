@@ -1,0 +1,122 @@
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  width: 480px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  animation: slideUp 0.15s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+}
+
+.modal-close {
+  background: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.modal-close:hover { color: var(--text-primary); }
+
+.modal-changes {
+  padding: 8px 16px;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.modal-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* Increment radio group */
+.increment-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.increment-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.increment-option:last-child { border-bottom: none; }
+.increment-option:hover { background: var(--bg-hover); }
+.increment-option.active { background: rgba(31,111,235,.1); }
+
+.increment-option input[type="radio"] {
+  width: auto;
+  accent-color: var(--accent-blue);
+}
+
+.increment-label {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--accent-blue);
+  width: 48px;
+  flex-shrink: 0;
+}
+
+.increment-desc {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.field-label-optional {
+  font-weight: 400;
+  text-transform: none;
+  color: var(--text-muted);
+}

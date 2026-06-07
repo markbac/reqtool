@@ -1,0 +1,222 @@
+/* =========================================
+   Tools.css -- Coverage, Bulk, Global Commit
+   ========================================= */
+
+.side-panel--wide { width: 560px; }
+
+/* Coverage panel */
+.cov-headline {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+.cov-section-title {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.cov-bar-stack {
+  display: flex;
+  height: 12px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  margin-bottom: 8px;
+}
+.cov-bar-seg { height: 100%; transition: width 0.3s ease; }
+.cov-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.cov-legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-secondary); }
+.cov-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+.cov-gap-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: var(--font-size-sm);
+}
+.cov-gap-label { width: 170px; flex-shrink: 0; color: var(--text-secondary); }
+.cov-gap-bar-wrap { flex: 1; height: 6px; background: var(--bg-elevated); border-radius: 3px; overflow: hidden; }
+.cov-gap-bar { height: 100%; border-radius: 3px; min-width: 1px; transition: width 0.3s ease; }
+.cov-gap-count { width: 60px; text-align: right; flex-shrink: 0; font-size: 11px; }
+.text-warn { color: var(--accent-orange); }
+
+/* Bulk update */
+.bulk-fields {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.bulk-fields .field-group { margin: 0; }
+.bulk-fields select,
+.bulk-fields input { height: 28px; font-size: 11px; }
+
+.bulk-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 320px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+.bulk-list-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  position: sticky;
+  top: 0;
+}
+.bulk-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+.bulk-row:hover { background: var(--bg-hover); }
+.bulk-row--selected { background: rgba(31,111,235,.08); }
+.bulk-row input[type="checkbox"] { cursor: pointer; }
+
+/* Global commit modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  display: flex;
+  flex-direction: column;
+  animation: slideInDown 0.15s ease;
+}
+@keyframes slideInDown {
+  from { transform: translateY(-12px); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title { font-weight: 600; font-size: var(--font-size-md); }
+.modal-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.modal-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+}
+.staged-file-list {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+.staged-file {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding: 1px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Vocabularies panel ──────────────────────────────────────────────────── */
+.vocab-nav {
+  width: 140px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+}
+.vocab-nav-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 14px;
+  font-size: var(--font-size-sm);
+  background: none;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+}
+.vocab-nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+.vocab-nav-item.active {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border-left-color: var(--accent-blue);
+}
+.vocab-count {
+  font-size: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 10px;
+  color: var(--text-muted);
+}
+
+.vocab-editor {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vocab-editor-header { display: flex; flex-direction: column; gap: 2px; }
+.vocab-editor-title { font-size: var(--font-size-md); font-weight: 600; }
+.vocab-editor-hint { font-size: 11px; color: var(--text-muted); }
+
+.vocab-list { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.vocab-empty { font-size: var(--font-size-sm); color: var(--text-muted); padding: 8px 0; }
+
+.vocab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+}
+.vocab-item:hover .vocab-item-actions { opacity: 1; }
+.vocab-item-label { flex: 1; font-size: var(--font-size-sm); }
+.vocab-item-input { flex: 1; height: 26px; font-size: var(--font-size-sm); padding: 2px 6px; }
+.vocab-item-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.1s; }
+.vocab-item-btn { padding: 2px 5px; font-size: 12px; }
+
+.vocab-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+.vocab-add-input { flex: 1; height: 30px; }

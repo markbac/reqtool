@@ -1,0 +1,161 @@
+# reqtool help content
+# Displayed in the UI help panel (? button) and inline field tooltips.
+# Values are Markdown-formatted.
+
+concepts:
+  overview: |
+    **reqtool** stores requirements, principles, and TBDs as individual YAML files in a git repository.
+    Every artefact has a UID, a semantic version, a content hash, and a history of changes.
+    The tool handles hashing, versioning, validation, and export automatically.
+
+  types: |
+    ## Item Types
+
+    **Agile planning hierarchy** (top to bottom):
+    - **Theme** -- highest strategic grouping; a programme, product vision, or multi-year outcome
+    - **Initiative** -- large body of work within a theme, spanning multiple quarters
+    - **Epic** -- significant user-facing capability within an initiative
+    - **Feature** -- discrete piece of functionality within an epic
+    - **Story** -- unit of user value within a feature
+    - **Task** -- concrete unit of technical work within a story or feature
+    - **Bug** -- a defect, linked to what it affects
+    - **Spike** -- time-boxed investigation within an epic or feature
+
+    **Systems engineering types** (for formal requirements):
+    - **Stakeholder Need** -- top-level systems intent, not a formal requirement
+    - **Functional** -- a capability the system shall provide
+    - **Performance** -- quantified constraint on speed, throughput, or capacity
+    - **Security**, **Safety**, **Interface**, **Compliance**, **Constraint**, **Operational**, **Physical**
+
+    Cross-layer: agile items link to systems requirements via explicit relationship types (satisfies, implements, traces_to).
+
+  hierarchy: |
+    ## Hierarchy
+
+    Items are structured as a tree using `parentId`.
+    The allowed parent/child combinations are enforced by `hierarchy.yaml`.
+
+    Agile: theme → initiative → epic → feature → story / task / bug / spike
+
+    Systems: stakeholder_need → any systems type → derived systems types
+
+    Agile items link to systems requirements via relationships, not parent/child.
+
+fields:
+  uid: Unique identifier assigned at creation. Immutable. Used in relationships and API calls.
+  id: Human-readable identifier (e.g. US-001, FR-042). Unique within the repository.
+  title: Short one-line summary of the artefact.
+  status: Current workflow state. Valid transitions are defined in `hierarchy.yaml`.
+  priority: Relative importance -- critical, high, medium, or low.
+  req_type: Requirement sub-type (functional, performance, safety, etc.).
+  owner: Person accountable for this artefact. Drawn from the `owner` enum in `enums.yaml`.
+  assignee: Person doing the work. Distinct from owner (who is accountable).
+  iteration: Named iteration reference (sprint name, PI, milestone). Plain string.
+  estimate: |
+    Numeric effort estimate. Units are configured at repo level via `estimate_unit` in `enums.yaml`
+    (e.g. points, days, hours). Child estimates roll up automatically to the parent.
+  dor_checklist: |
+    **Definition of Ready** -- pre-conditions checked before work begins.
+    Template is defined per type in `hierarchy.yaml`.
+    All items should be checked before moving to In Progress.
+  dod_checklist: |
+    **Definition of Done** -- completion criteria that must be met before marking as Done.
+    Template is defined per type in `hierarchy.yaml`.
+    All items must be checked before closing the item.
+
+workflow:
+  overview: |
+    Each item type has its own workflow defined in `hierarchy.yaml`.
+
+    **Lightweight** (theme, initiative, stakeholder_need): draft → active → done / cancelled
+
+    **Sprint** (epic, feature, story, task, bug, spike): backlog → ready → in_progress → in_review → done
+
+    **Formal** (functional, performance, interface, etc.): draft → in_review → reviewed → approved → deprecated
+
+    **Safety formal** (safety requirements): same as formal but with transition guards requiring
+    description, rationale, acceptance criteria, and safety_classification before approval.
+
+  guards: |
+    **Workflow guards** are pre-conditions enforced at transition time.
+    If a guard fails, the transition is blocked with an error message.
+
+    Example: a safety requirement cannot be approved without ACs and `safety_classification`.
+
+    Guards are configured per state in the `workflows` section of `hierarchy.yaml`.
+
+relationships:
+  overview: |
+    Relationships link items across and within layers.
+
+    The primary structural relationship is **parent/child** via `parentId`.
+    Additional relationships are explicit typed links in the `relationships` array.
+
+  types: |
+    **Built-in relationship types:**
+    - `relates_to` -- generic non-directional association
+    - `depends_on` -- this item cannot proceed until the target is complete
+    - `depended_by` -- computed inverse of depends_on; shown read-only
+    - `satisfies` -- agile item satisfies a systems requirement
+    - `implements` -- agile item implements a requirement
+    - `traces_to` -- general traceability link
+    - `derived_from` -- this item was derived from the target
+    - `conflicts_with` -- this item is in tension with the target
+    - `supersedes` -- this item replaces the target
+
+    Cross-layer rules in `hierarchy.yaml` define which relationship types are valid between
+    which source and target types. Violations produce a validation **warning**, not a hard error.
+
+estimates:
+  overview: |
+    The `estimate` field holds a numeric effort estimate.
+    Units (points, days, hours) are configured at repo level via `estimate_unit` in `enums.yaml`.
+
+    **Rollup:** `estimate_rollup` is a read-only computed field showing the sum of all
+    direct children's estimates. It is shown in the editor as non-editable.
+
+dor_dod:
+  overview: |
+    **Definition of Ready (DoR)** is a checklist of pre-conditions that must be satisfied
+    before work on an item begins. Templates are defined per type in `hierarchy.yaml`.
+
+    **Definition of Done (DoD)** is a checklist of completion criteria that must be met
+    before an item is marked as Done. Templates are also defined per type in `hierarchy.yaml`.
+
+    Both checklists are stored as `{item, checked}` pairs on each artefact.
+    Unchecked DoR items produce a validation warning when an item transitions to In Progress.
+    Unchecked DoD items produce a validation warning when an item transitions to Done.
+
+validation:
+  overview: |
+    The validation suite checks every artefact on every save and can be run offline with `req validate`.
+
+  warnings: |
+    **Common warnings and how to resolve them:**
+    - `missing_owner` -- set the `owner` field to a person from `enums.yaml`
+    - `missing_ac` -- add at least one acceptance criterion
+    - `missing_rationale` -- fill in `content.rationale`
+    - `hash_mismatch` -- file was edited outside reqtool; run `req verify` to diagnose
+    - `unknown_relationship_target` -- the target UID in a relationship does not exist
+    - `cross_layer_violation` -- a relationship type is not permitted between these types
+    - `dor_incomplete` -- DoR items not checked before transition to In Progress
+    - `dod_incomplete` -- DoD items not checked before transition to Done
+
+git_baselines:
+  overview: |
+    reqtool uses git for history, branching, and baselines.
+
+    **Baselines** are annotated git tags with the prefix `baseline/`.
+    Create one with `req baseline create <name>` or via the UI.
+
+    **Diff** against a baseline with `req diff --since baseline/<name>`.
+
+    **Verify** content hashes against committed files with `req verify`.
+
+export:
+  overview: |
+    Export your requirements in three formats:
+    - **CSV** -- spreadsheet-friendly, with field selection
+    - **Markdown** -- MkDocs-flavoured, with optional domain split
+    - **JSX/React** -- embed a requirements viewer in a React app
+

@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reqtool"
+version = "0.3.8"
+description = "Git-backed YAML requirements management tool for engineering programmes."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+authors = [
+    { name = "Mark Bacon" },
+]
+keywords = ["requirements", "systems-engineering", "agile", "git", "yaml"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Documentation",
+]
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2.7",
+    "ruamel.yaml>=0.18",
+    "gitpython>=3.1",
+    "watchdog>=4.0",
+    "jinja2>=3.1",
+    "click>=8.1",
+    "httpx>=0.27",
+    "markdown>=3.5",
+    "websockets>=12.0",
+]
+
+[project.scripts]
+req = "reqtool.cli:cli"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0",
+    "pytest-timeout>=2.3",
+    "httpx>=0.27",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+reqtool = [
+    "defaults/*.yaml",
+    "ui/dist/index.html",
+    "ui/dist/assets/*",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+timeout = 30
+addopts = "-v --tb=short"
+# Subsets for faster local runs:
+#   pytest tests/test_store.py tests/test_validation.py tests/test_cli.py   (~20s)
+#   pytest tests/test_features_v03.py                                        (~30s)
+#   pytest tests/test_api.py tests/test_regression.py                        (~2 min)

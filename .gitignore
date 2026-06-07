@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+junit-*.xml
+
+# Type checkers
+.mypy_cache/
+.pyright/
+
+# Node / UI
+node_modules/
+src/reqtool/ui/.vite/
+# ui/dist is intentionally committed so `pip install` includes the built UI.
+# Rebuild it with: cd src/reqtool/ui && npm install && npm run build
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# reqtool outputs (if you run the server from the repo root)
+exports/
+attachments/
+comments/
+
+# reqtool repo data (if you use this repo itself as a requirements repo)
+requirements/
+principles/
+tbds/
+modules/
+products/
+.reqtool/
+
+# Backup files created by tooling
+*.bak

@@ -1,0 +1,2029 @@
+openapi: 3.1.0
+info:
+  title: reqtool
+  description: Git-backed YAML requirements management tool. Requirements, principles, and TBDs live as individual YAML 
+    files; the API handles hashing, versioning, validation, and export.
+  contact:
+    name: reqtool
+  license:
+    name: MIT
+  version: 0.1.0
+paths:
+  /requirements:
+    get:
+      summary: List Requirements
+      operationId: list_requirements_requirements_get
+      parameters:
+      - name: product
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Product
+      - name: domain
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Domain
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: priority
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Priority
+      - name: req_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Req Type
+      - name: owner
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+      - name: tag
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tag
+      - name: deleted
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Deleted
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - requirements
+      summary: Create Requirement
+      operationId: create_requirement_requirements_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequirementRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/tree:
+    get:
+      summary: Requirements Tree
+      operationId: requirements_tree_requirements_tree_get
+      parameters:
+      - name: product
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Product
+      - name: variant
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Variant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}:
+    get:
+      summary: Get Requirement
+      operationId: get_requirement_requirements__uid__get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - requirements
+      summary: Update Requirement
+      operationId: update_requirement_requirements__uid__put
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRequirementRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      summary: Delete Requirement
+      operationId: delete_requirement_requirements__uid__delete
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/bulk:
+    post:
+      summary: Bulk Update Requirements
+      description: Update a set of fields across multiple requirements at once.
+      operationId: bulk_update_requirements_requirements_bulk_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkUpdateRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/clone:
+    post:
+      summary: Clone Requirement
+      description: Duplicate a requirement, clearing history and resetting version.
+      operationId: clone_requirement_requirements__uid__clone_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      - name: new_id
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: New Id
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/commit:
+    post:
+      summary: Commit Requirement
+      operationId: commit_requirement_requirements__uid__commit_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/approve:
+    post:
+      summary: Approve Requirement
+      operationId: approve_requirement_requirements__uid__approve_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApproveRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/history:
+    get:
+      summary: Requirement History
+      operationId: requirement_history_requirements__uid__history_get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/relationships:
+    get:
+      summary: Requirement Relationships
+      operationId: requirement_relationships_requirements__uid__relationships_get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/ac:
+    post:
+      tags:
+      - requirements
+      summary: Add Ac
+      operationId: add_ac_requirements__uid__ac_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddACRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/ac/{ac_uid}:
+    put:
+      tags:
+      - requirements
+      summary: Update Ac
+      operationId: update_ac_requirements__uid__ac__ac_uid__put
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      - name: ac_uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ac Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateACRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      summary: Delete Ac
+      operationId: delete_ac_requirements__uid__ac__ac_uid__delete
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      - name: ac_uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ac Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /principles:
+    get:
+      summary: List Principles
+      operationId: list_principles_principles_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - principles
+      summary: Create Principle
+      operationId: create_principle_principles_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePrincipleRequest'
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /principles/{uid}:
+    get:
+      summary: Get Principle
+      operationId: get_principle_principles__uid__get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - principles
+      summary: Update Principle
+      operationId: update_principle_principles__uid__put
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePrincipleRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      summary: Delete Principle
+      operationId: delete_principle_principles__uid__delete
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /principles/{uid}/commit:
+    post:
+      summary: Commit Principle
+      operationId: commit_principle_principles__uid__commit_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /tbds:
+    get:
+      summary: List Tbds
+      operationId: list_tbds_tbds_get
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: priority
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Priority
+      - name: owner
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - tbds
+      summary: Create Tbd
+      operationId: create_tbd_tbds_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTBDRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /tbds/{uid}:
+    get:
+      summary: Get Tbd
+      operationId: get_tbd_tbds__uid__get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - tbds
+      summary: Update Tbd
+      operationId: update_tbd_tbds__uid__put
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTBDRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      summary: Delete Tbd
+      operationId: delete_tbd_tbds__uid__delete
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /tbds/{uid}/commit:
+    post:
+      summary: Commit Tbd
+      operationId: commit_tbd_tbds__uid__commit_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /tbds/{uid}/resolve:
+    post:
+      summary: Resolve Tbd
+      operationId: resolve_tbd_tbds__uid__resolve_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /modules:
+    get:
+      summary: List Modules
+      operationId: list_modules_modules_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /modules/{module_id}:
+    get:
+      summary: Get Module
+      operationId: get_module_modules__module_id__get
+      parameters:
+      - name: module_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /modules/{module_id}/import:
+    post:
+      summary: Import Module
+      operationId: import_module_modules__module_id__import_post
+      parameters:
+      - name: module_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module Id
+      - name: product_id
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Product Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /modules/{module_id}/verify:
+    get:
+      summary: Verify Module
+      operationId: verify_module_modules__module_id__verify_get
+      parameters:
+      - name: module_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module Id
+      - name: product_id
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Product Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /products:
+    get:
+      summary: List Products
+      operationId: list_products_products_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /products/{product_id}:
+    get:
+      summary: Get Product
+      operationId: get_product_products__product_id__get
+      parameters:
+      - name: product_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Product Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /products/{product_id}/tree:
+    get:
+      summary: Product Tree
+      operationId: product_tree_products__product_id__tree_get
+      parameters:
+      - name: product_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Product Id
+      - name: variant
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Variant
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /products/{product_id}/matrix:
+    get:
+      summary: Product Matrix
+      description: 'Allocation matrix: requirements x teams.'
+      operationId: product_matrix_products__product_id__matrix_get
+      parameters:
+      - name: product_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Product Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /config:
+    get:
+      tags:
+      - meta
+      summary: Get Config
+      operationId: get_config_config_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /version:
+    get:
+      tags:
+      - meta
+      summary: Get Version
+      description: Return tool version, schema version, and repo ID.
+      operationId: get_version_version_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /search:
+    get:
+      tags:
+      - meta
+      summary: Search Uids
+      description: Search requirements and principles by ID or title fragment.
+      operationId: search_uids_search_get
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Q
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          default: 20
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /enums:
+    get:
+      summary: Get Enums
+      operationId: get_enums_enums_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /enums/core:
+    get:
+      summary: Get Core Enums
+      operationId: get_core_enums_enums_core_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /enums/repo:
+    get:
+      summary: Get Repo Enums
+      operationId: get_repo_enums_enums_repo_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    put:
+      tags:
+      - enums
+      summary: Update Repo Enums
+      operationId: update_repo_enums_enums_repo_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /export/jsx:
+    post:
+      tags:
+      - export
+      summary: Export Jsx Endpoint
+      operationId: export_jsx_endpoint_export_jsx_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /export/markdown:
+    post:
+      tags:
+      - export
+      summary: Export Markdown Endpoint
+      operationId: export_markdown_endpoint_export_markdown_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportMarkdownRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /export/csv:
+    post:
+      tags:
+      - export
+      summary: Export Csv Endpoint
+      operationId: export_csv_endpoint_export_csv_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportCSVRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /validate:
+    get:
+      summary: Run Validation
+      operationId: run_validation_validate_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /validate/{uid}:
+    get:
+      summary: Validate Artefact
+      operationId: validate_artefact_validate__uid__get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /git/status:
+    get:
+      summary: Get Git Status
+      operationId: get_git_status_git_status_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /git/commit:
+    post:
+      summary: Batch Commit
+      operationId: batch_commit_git_commit_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /git/log/{uid}:
+    get:
+      summary: Get Git Log
+      operationId: get_git_log_git_log__uid__get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    AddACRequest:
+      properties:
+        id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Id
+        text:
+          type: string
+          title: Text
+        links:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Links
+      type: object
+      required:
+      - text
+      title: AddACRequest
+    ApproveRequest:
+      properties:
+        approved_by:
+          type: string
+          title: Approved By
+      type: object
+      required:
+      - approved_by
+      title: ApproveRequest
+    BulkUpdateRequest:
+      properties:
+        uids:
+          items:
+            type: string
+          type: array
+          title: Uids
+        fields:
+          additionalProperties: true
+          type: object
+          title: Fields
+        summary:
+          type: string
+          title: Summary
+          default: Bulk update
+        increment:
+          type: string
+          enum:
+          - patch
+          - minor
+          - major
+          title: Increment
+          default: patch
+      type: object
+      required:
+      - uids
+      - fields
+      title: BulkUpdateRequest
+    CommitRequest:
+      properties:
+        message:
+          type: string
+          title: Message
+        increment:
+          type: string
+          enum:
+          - patch
+          - minor
+          - major
+          title: Increment
+          default: patch
+        change_ref:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Change Ref
+        uids:
+          items:
+            type: string
+          type: array
+          title: Uids
+      type: object
+      required:
+      - message
+      title: CommitRequest
+    CreatePrincipleRequest:
+      properties:
+        id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Id
+        title:
+          type: string
+          title: Title
+        content:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Content
+        domain:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Domain
+        owner:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+        tags:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Tags
+        links:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Links
+        approval:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Approval
+      type: object
+      required:
+      - title
+      title: CreatePrincipleRequest
+    CreateRequirementRequest:
+      properties:
+        id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Id
+        parentId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parentid
+        title:
+          type: string
+          title: Title
+        content:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Content
+        acceptance_criteria:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Acceptance Criteria
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        priority:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Priority
+        req_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Req Type
+        domain:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Domain
+        feature:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Feature
+        owner:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+        component:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Component
+        allocated_to:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Allocated To
+        tags:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Tags
+        attributes:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Attributes
+        nfr:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Nfr
+        constraints:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Constraints
+        assumptions:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Assumptions
+        relationships:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Relationships
+        links:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Links
+        risk:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Risk
+        safety_related:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Safety Related
+        safety_classification:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Safety Classification
+        verification_method:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Verification Method
+        verification:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Verification
+        approval:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Approval
+        review:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Review
+        implementation:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Implementation
+      type: object
+      required:
+      - title
+      title: CreateRequirementRequest
+      description: Body for POST /requirements. All fields are optional except title.
+    CreateTBDRequest:
+      properties:
+        id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Id
+        title:
+          type: string
+          title: Title
+        content:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Content
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        priority:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Priority
+        owner:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+        due:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Due
+        tags:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Tags
+        links:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Links
+      type: object
+      required:
+      - title
+      title: CreateTBDRequest
+    ExportCSVRequest:
+      properties:
+        product:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Product
+        variant:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Variant
+        fields:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Fields
+      type: object
+      title: ExportCSVRequest
+    ExportMarkdownRequest:
+      properties:
+        product:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Product
+        variant:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Variant
+        split_by:
+          anyOf:
+          - type: string
+            enum:
+            - domain
+            - product
+            - none
+          - type: 'null'
+          title: Split By
+      type: object
+      title: ExportMarkdownRequest
+    ExportRequest:
+      properties:
+        product:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Product
+        variant:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Variant
+      type: object
+      title: ExportRequest
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ResolveRequest:
+      properties:
+        resolution:
+          type: string
+          title: Resolution
+        resolved_by:
+          type: string
+          title: Resolved By
+      type: object
+      required:
+      - resolution
+      - resolved_by
+      title: ResolveRequest
+    UpdateACRequest:
+      properties:
+        id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Id
+        text:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Text
+        links:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Links
+      type: object
+      title: UpdateACRequest
+    UpdatePrincipleRequest:
+      properties:
+        id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Id
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        content:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Content
+        domain:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Domain
+        owner:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+        tags:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Tags
+        links:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Links
+        approval:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Approval
+      type: object
+      title: UpdatePrincipleRequest
+    UpdateRequirementRequest:
+      properties:
+        id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Id
+        parentId:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Parentid
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        content:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Content
+        acceptance_criteria:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Acceptance Criteria
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        priority:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Priority
+        req_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Req Type
+        domain:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Domain
+        feature:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Feature
+        owner:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+        component:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Component
+        allocated_to:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Allocated To
+        tags:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Tags
+        attributes:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Attributes
+        nfr:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Nfr
+        constraints:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Constraints
+        assumptions:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Assumptions
+        relationships:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Relationships
+        links:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Links
+        risk:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Risk
+        safety_related:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Safety Related
+        safety_classification:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Safety Classification
+        verification_method:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Verification Method
+        verification:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Verification
+        approval:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Approval
+        review:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Review
+        implementation:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Implementation
+      type: object
+      title: UpdateRequirementRequest
+      description: Body for PUT /requirements/{uid}. All fields are optional.
+    UpdateTBDRequest:
+      properties:
+        id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Id
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        content:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Content
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        priority:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Priority
+        owner:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+        due:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Due
+        tags:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Tags
+        links:
+          anyOf:
+          - items:
+              additionalProperties: true
+              type: object
+            type: array
+          - type: 'null'
+          title: Links
+      type: object
+      title: UpdateTBDRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

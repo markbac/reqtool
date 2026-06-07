@@ -1,0 +1,51 @@
+# reqtool default workflow configuration
+# Loaded by: req init defaults
+# Edit this file to customise the status workflow for your project.
+#
+# states:    list of valid status values with display metadata
+# transitions: which states each state can move to
+# initial:   the state new requirements start in
+# terminal:  states from which no further transitions are expected
+#
+# The 'approved' state is special: it triggers AC-required validation.
+# If you rename it, update validation.require_ac_for_approved in config.yaml.
+
+initial: draft
+
+states:
+  - id: draft
+    label: Draft
+    colour: "#8b949e"
+    description: Work in progress. Not yet ready for review.
+    terminal: false
+
+  - id: in_review
+    label: In Review
+    colour: "#d29922"
+    description: Submitted for review. Awaiting reviewer sign-off.
+    terminal: false
+
+  - id: reviewed
+    label: Reviewed
+    colour: "#1f6feb"
+    description: Review complete. Awaiting formal approval.
+    terminal: false
+
+  - id: approved
+    label: Approved
+    colour: "#238636"
+    description: Formally approved. Acceptance criteria required.
+    terminal: false
+
+  - id: deprecated
+    label: Deprecated
+    colour: "#da3633"
+    description: No longer applicable. Retained for traceability.
+    terminal: true
+
+transitions:
+  draft:       [in_review, approved]
+  in_review:   [reviewed, draft]
+  reviewed:    [approved, in_review]
+  approved:    [deprecated, in_review]
+  deprecated:  []
