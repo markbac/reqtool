@@ -4,6 +4,199 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.3.20] -- 2025-06-08
+
+### UX improvements
+
+- **Editor tabs renamed** from opaque jargon to plain English:
+  - "Classification" → "Classification & Ownership"
+  - "Relations" → "Relationships & Links"
+  - "Governance" → "Approval, Review & History"
+  Tab bar scrolls horizontally on narrow screens.
+
+- **Removed cryptic ⧉ open-in-tab button** from editor header. The URL already
+  updates as you navigate, so browser bookmarking/sharing already works.
+
+- **Unsaved changes badge** now animates (pulsing border), is bolder, and reads
+  "● Unsaved changes" instead of just "unsaved".
+
+- **Save button** shows "Saved ✓" when there is nothing to save, rather than a
+  greyed-out "Save". Tooltip explains Ctrl+S shortcut when dirty.
+
+- **Save & Commit button** has a tooltip explaining what a commit does.
+
+- **Workflow widget** now shows "Move to:" label before the transition buttons,
+  so users understand what clicking them does.
+
+- **Copy UID button** now reads "copy" instead of the cryptic "⎘" symbol, styled
+  as a small bordered button.
+
+- **Kanban empty columns** now show a dashed drop zone reading "Drop a card here
+  to move it to [state]". The "Drag cards between columns" hint bar was removed
+  (the column states explain themselves).
+
+- **No-product empty state** in the sidebar is now much more helpful: shows the
+  ◈ icon, bold "No product selected" heading, explains where the dropdown is,
+  and shows the two CLI commands needed to get started from scratch.
+
+- **Module group node click** no longer silently fails. Clicking a module group
+  node shows a read-only info panel explaining what modules are and how to edit
+  them, rather than trying (and failing) to load it as a requirement.
+
+- **Header search** placeholder changed from the confusing "Filter tree...
+  (Ctrl+K for global search)" to "Filter tree…" with a visible `Ctrl+K` kbd
+  badge in the search box.
+
+- **Discussion section** empty state changed from "No comments yet." to "No
+  comments yet. Add the first one below."
+
+
+## [0.3.19] -- 2025-06-07
+
+### Fixed
+
+- **Requirements tree crash**: `useState(false)` for `expandAll` was declared inside the JSX
+  return block of `RequirementsPanel` -- a Rules of Hooks violation. Every click on
+  the expand-all toggle crashed with React error #310. Moved to the top of the function
+  alongside all other state declarations.
+
+- **Comments always posted as "user"**: `CommentsSection` accepts a `currentUser` prop but
+  the call site in the editor passed nothing, so all comments were attributed to the literal
+  string `'user'`. Now passes `enums._current_user` from state (set when the user enters
+  their name in the header `👤` widget).
+
+- **Quick-create silently fails without a product**: the EditorEmpty quick-create buttons
+  called the API without checking whether a product is selected. The backend requires a
+  product context. Now shows a toast "Select a product first" if none is active.
+
+- **Missing `.module-include-item-meta` CSS**: the module inclusion panel used this class for
+  the ID/title/version row but it was never defined. Added to Sidebar.css.
+
+### Added / Improved
+
+- **Task Mgmt sidebar panel**: the sidebar was showing only a static hint when in Task Mgmt
+  view. Now shows a live sprint snapshot (total / in-progress / done / critical backlog
+  counts pulled from the kanban API) and quick-create buttons for Story, Task, Bug, Spike.
+  Refreshes after each commit.
+
+- **Removed unused `useRef` import** from Kanban.jsx.
+
+
+## [0.3.18] -- 2025-06-07
+
+### Fixed
+
+- **Clicking a principle or TBD crashed with "PrincipleEditor is not defined"**: both
+  `PrincipleEditor` and `TBDEditor` were referenced in the `Editor` dispatcher but never
+  written. Full implementations added covering all fields of each artefact type.
+
+### Added
+
+- **`PrincipleEditor`**: full editor with Identity (ID, title, domain, owner, tags),
+  Content (statement, rationale, implications, exceptions), Approval section, Save / Delete /
+  Save & Commit header buttons, Ctrl+S shortcut, unsaved-changes badge.
+
+- **`TBDEditor`**: full editor with Identity (title, status, priority, owner, due date),
+  Content (description, impact, resolution criteria, resolution), Affected Requirements
+  (search and link requirements to a TBD, click through to navigate to them), ✓ Resolve
+  button in header, Save / Delete / Save & Commit header buttons.
+
+- Both editors show a status/type badge in the header and a pre-filled commit message.
+
+
+## [0.3.17] -- 2025-06-07
+
+### Fixed
+
+- **Workflow widget shows wrong transitions for agile items**: stories/tasks/bugs were showing
+  the formal workflow (draft→in_review→approved) instead of the sprint workflow
+  (backlog→ready→in_progress→done). The widget now uses the sprint state machine for all
+  agile types (theme, initiative, epic, feature, story, task, bug, spike) and the formal
+  workflow for all systems types. Both state machines are defined in-component so they work
+  without any server configuration.
+
+- **History section required a button click to load**: history now auto-loads when the
+  Governance tab is opened and clears when switching to a different requirement.
+
+- **CommitModal shows blank message box**: pre-filled with `Update <ID>: <title>`. Added
+  Escape key handler to close the modal.
+
+- **Kanban slide-in editor panel had no keyboard close**: pressing Escape while in Task Mgmt
+  with a card selected now closes the editor panel.
+
+### Added
+
+- **Delete button in editor header**: visible red Delete button with confirmation dialog,
+  instead of requiring right-click on the tree node.
+
+- **Content tab sections are non-collapsible**: Identity, Description, and Acceptance
+  Criteria are always visible -- no accidentally collapsed primary content.
+
+- **Static section variant** (`<Section static>`): removes the collapse chevron and click
+  target for sections that should always be open.
+
+
+## [0.3.16] -- 2025-06-07
+
+### Fixed
+
+- **`CommentsSection` undefined**: `Editor.jsx` imported `DiscussionSection` but referenced
+  `CommentsSection`. Aliased the import: `import { DiscussionSection as CommentsSection }`.
+
+- **`activeTab` resetting on every selection**: tab state now resets to `content` only when
+  navigating to a *different* requirement (`uid` changes), not on every re-render. Switching
+  tabs then saving no longer jumps back to Content.
+
+### Added / Improved
+
+- **Relationship items are clickable**: clicking a relationship in the Relations tab navigates
+  to the referenced requirement, selecting it in the tree and loading it in the editor.
+
+- **Validation errors/warnings are clickable**: each item in the Validation panel now
+  navigates to the failing requirement (select + close panel) when clicked, with a `→` hint.
+  Field name shown below the message.
+
+- **TBD resolve button**: open and in-progress TBDs now have a `✓ Resolve` button inline in
+  the TBDs panel. Calls `POST /tbds/{uid}/resolve`.
+
+- **Expand all / Collapse all** button (⊞/⊟) in the requirements tree toolbar.
+
+- **Principles search**: filter box at the top of the Principles panel.
+
+- **Validation smoke-test**: `req init demo` now generates `_product.lock` so the lock-file
+  error is gone. Advisory warnings disabled in demo config.
+
+
+## [0.3.15] -- 2025-06-07
+
+### Fixed
+
+- **Blank screen when clicking a requirement** (React error #310): `useState('content')` for
+  the editor tab was declared after a conditional `return` inside `RequirementEditor` -- a
+  Rules of Hooks violation. The hook is now declared unconditionally at the top of the
+  component with the other state.
+
+- **Clicking a kanban card did nothing**: `App.jsx` replaced the board with the editor when
+  a task was selected. Now a slide-in editor panel (520px, fixed right) animates in over the
+  board when a card is clicked, without removing the board from view. Clicking ✕ or pressing
+  Esc deselects and closes the panel.
+
+- **Validation smoke-test: 432 warnings + 1 error**: the lock file was never generated by
+  `req init demo`. The demo now calls `store.import_module()` after writing the module
+  manifest, generating `_product.lock` correctly. The two noisy advisory warnings
+  (`require_owner`, `warn_on_missing_test_ref`) are disabled in the demo repo's config since
+  the demo is a starting point and intentionally has no owners or test-case links.
+
+### Added
+
+- **Drag and drop on kanban board**: cards are draggable between columns. Dropping a card
+  in a new column calls `POST /requirements/{uid}/transition` with the target state. The
+  board updates optimistically (instant visual feedback) and reverts on error. Columns
+  highlight in blue on drag-over and show a dashed "Drop here" zone when empty.
+
+- **`api.requirements.transition(uid, status)`** added to `api.js`.
+
+
 ## [0.3.14] -- 2025-06-07
 
 ### Fixed

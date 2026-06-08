@@ -30,7 +30,7 @@ const oneLight = EditorView.theme({
 import { useApp } from '../AppContext';
 import { api } from '../api';
 import CommitModal from './CommitModal';
-import { AttachmentsSection, DiscussionSection } from './Advanced';
+import { AttachmentsSection, DiscussionSection as CommentsSection } from './Advanced';
 import './Editor.css';
 
 // Domain colours matching the JSX viewer
@@ -249,8 +249,16 @@ function StringListEditor({ items = [], onChange, placeholder = 'Add item...' })
   );
 }
 
-function Section({ title, children, defaultOpen = true }) {
+function Section({ title, children, defaultOpen = true, static: isStatic = false }) {
   const [open, setOpen] = useState(defaultOpen);
+  if (isStatic) return (
+    <div className="editor-section">
+      <div className="editor-section-header editor-section-header--static">
+        <span className="editor-section-title">{title}</span>
+      </div>
+      <div className="editor-section-body">{children}</div>
+    </div>
+  );
   return (
     <div className="editor-section">
       <div className="editor-section-header" onClick={() => setOpen(o => !o)}>
@@ -445,6 +453,7 @@ function NfrEditor({ nfr = {}, nfrKeys = [], onChange }) {
 // Relationships editor
 // ---------------------------------------------------------------------------
 function RelationshipsEditor({ rels = [], onChange, enums, excludeUid }) {
+  const { dispatch } = useApp();
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
   const [newType, setNewType] = useState('derived_from');
@@ -471,12 +480,21 @@ function RelationshipsEditor({ rels = [], onChange, enums, excludeUid }) {
 
   const remove = (idx) => onChange(rels.filter((_, i) => i !== idx));
 
+  const navigateTo = (rel) => {
+    const uid = rel.target?.uid;
+    if (uid && !uid.startsWith('__')) {
+      dispatch({ type: 'SELECT', uid, artefactType: 'requirement' });
+    }
+  };
+
   return (
     <div className="rels-editor">
       {rels.map((rel, idx) => (
         <div key={idx} className="rel-row">
           <span className="rel-type badge">{rel.type}</span>
-          <span className="rel-target mono">{rel._display || rel.target?.uid?.slice(0, 12) + '...'}</span>
+          <button className="rel-target-link" title="Navigate to this requirement" onClick={() => navigateTo(rel)}>
+            {rel._display || rel.target?.uid?.slice(0, 12) + '...'}
+          </button>
           <button className="string-list-remove" onClick={() => remove(idx)}>✕</button>
         </div>
       ))}
@@ -761,35 +779,74 @@ function CustomFieldsValueEditor({ schema, values, onChange }) {
 }
 
 // ---------------------------------------------------------------------------
-function WorkflowStateWidget({ uid, status, onTransition }) {
-  const { state } = useApp();
-  const wf = state.workflow;
-  if (!wf?.states?.length) return null;
+const AGILE_TYPES = new Set(['theme','initiative','epic','feature','story','task','bug','spike']);
 
-  const currentState = wf.states.find(s => s.id === status);
-  const transitions = (wf.transitions?.[status] || [])
-    .map(id => wf.states.find(s => s.id === id))
+const SPRINT_STATES = [
+  { id: 'backlog',     label: 'Backlog',      colour: '#8b949e' },
+  { id: 'ready',       label: 'Ready',        colour: '#d29922' },
+  { id: 'in_progress', label: 'In Progress',  colour: '#1f6feb' },
+  { id: 'in_review',   label: 'In Review',    colour: '#f97316' },
+  { id: 'done',        label: 'Done',         colour: '#238636', terminal: true },
+  { id: 'cancelled',   label: 'Cancelled',    colour: '#da3633', terminal: true },
+];
+const SPRINT_TRANSITIONS = {
+  backlog:     ['ready', 'in_progress'],
+  ready:       ['in_progress', 'backlog'],
+  in_progress: ['in_review', 'done', 'backlog'],
+  in_review:   ['done', 'in_progress'],
+  done:        ['backlog'],
+  cancelled:   [],
+};
+
+function WorkflowStateWidget({ uid, status, reqType, onTransition }) {
+  const { state } = useApp();
+
+  // Choose the right workflow based on req type
+  const isAgile = AGILE_TYPES.has(reqType);
+  let states, transitions;
+  if (isAgile) {
+    states = SPRINT_STATES;
+    transitions = SPRINT_TRANSITIONS;
+  } else {
+    const wf = state.workflow;
+    if (!wf?.states?.length) return null;
+    states = wf.states;
+    transitions = wf.transitions || {};
+  }
+
+  const currentState = states.find(s => s.id === status);
+  const nextTransitions = (transitions[status] || [])
+    .map(id => states.find(s => s.id === id))
     .filter(Boolean);
 
-  if (!currentState) return null;
+  if (!currentState) return (
+    <span className="wf-current-state" style={{ color: 'var(--text-muted)', borderColor: 'var(--border)', background: 'transparent' }}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--text-muted)', flexShrink: 0 }} />
+      {status || 'unknown'}
+    </span>
+  );
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       <span
         className="wf-current-state"
         style={{ color: currentState.colour, borderColor: currentState.colour + '44', background: currentState.colour + '15' }}
+        title="Current status"
       >
         <span style={{ width: 7, height: 7, borderRadius: '50%', background: currentState.colour, flexShrink: 0 }} />
         {currentState.label}
       </span>
-      {transitions.map(t => (
+      {nextTransitions.length > 0 && (
+        <span style={{ fontSize: 10, color: 'var(--text-muted)', marginRight: 2 }}>Move to:</span>
+      )}
+      {nextTransitions.map(t => (
         <button
           key={t.id}
           className="wf-transition-btn"
           style={{ color: t.colour, borderColor: t.colour + '55', background: t.colour + '12' }}
           onClick={() => onTransition(t.id)}
-          title={`Move to ${t.label}`}
-        >→ {t.label}</button>
+          title={`Change status to ${t.label}`}
+        >{t.label}</button>
       ))}
     </div>
   );
@@ -808,7 +865,24 @@ function RequirementEditor({ uid }) {
   const [showCommit, setShowCommit] = useState(false);
   const [history, setHistory] = useState(null);
   const [breadcrumb, setBreadcrumb] = useState([]);
-  const [validationIssues, setValidationIssues] = useState(null); // {errors, warnings} | null
+  const [validationIssues, setValidationIssues] = useState(null);
+  const [activeTab, setActiveTab] = useState('content');
+  const prevUid = useRef(null);
+  // Reset to content tab only when switching to a different requirement
+  useEffect(() => {
+    if (prevUid.current !== uid) {
+      setActiveTab('content');
+      setHistory(null); // clear cached history for previous req
+      prevUid.current = uid;
+    }
+  }, [uid]);
+
+  // Auto-load history when switching to governance tab
+  useEffect(() => {
+    if (activeTab === 'governance' && !history && uid) {
+      api.requirements.history(uid).then(setHistory).catch(() => {});
+    }
+  }, [activeTab, uid]);
 
   useEffect(() => {
     setLoading(true);
@@ -894,12 +968,11 @@ function RequirementEditor({ uid }) {
 
   const nfrKeys = enums?.nfr_keys || [];
 
-  const [activeTab, setActiveTab] = React.useState('content');
   const tabs = [
-    { id: 'content',        label: 'Content'        },
-    { id: 'classification', label: 'Classification'  },
-    { id: 'relations',      label: 'Relations'       },
-    { id: 'governance',     label: 'Governance'      },
+    { id: 'content',        label: 'Content'                         },
+    { id: 'classification', label: 'Classification & Ownership'      },
+    { id: 'relations',      label: 'Relationships & Links'           },
+    { id: 'governance',     label: 'Approval, Review & History'      },
   ];
 
   return (
@@ -926,23 +999,33 @@ function RequirementEditor({ uid }) {
         <div className="editor-header-left">
           <div className="copy-uid-wrap">
             <span className="editor-id mono">{draft.id}</span>
-            <button className="copy-uid-btn" title="Copy UID"
-              onClick={() => navigator.clipboard.writeText(uid).then(() => toast('UID copied', 'success', 1500))}>⎘</button>
+            <button className="copy-uid-btn" title="Copy unique ID to clipboard"
+              onClick={() => navigator.clipboard.writeText(uid).then(() => toast('UID copied', 'success', 1500))}>copy</button>
           </div>
           <span className="editor-version mono text-muted">v{draft.version}</span>
           <DomainBadge domain={draft.domain} />
           <TypeBadge reqType={draft.req_type} />
-          <WorkflowStateWidget uid={uid} status={draft.status} onTransition={v => patch('status', v)} />
-          {isDirty && <span className="editor-dirty-badge">unsaved</span>}
+          <WorkflowStateWidget uid={uid} status={draft.status} reqType={draft.req_type} onTransition={v => patch('status', v)} />
+          {isDirty && <span className="editor-dirty-badge" title="You have unsaved changes -- press Ctrl+S or click Save">● Unsaved changes</span>}
         </div>
         <div className="editor-header-right">
-          <button className="btn btn-ghost" title="Open in new tab"
-            onClick={() => window.open(`${window.location.pathname}?uid=${uid}&type=requirement`, '_blank')}
-            style={{ fontSize: 13, padding: '4px 8px' }}>⧉</button>
-          <button className="btn btn-secondary" onClick={handleSave} disabled={!isDirty || saving}>
-            {saving ? <span className="spinner" /> : 'Save'}
+
+          <button className="btn btn-danger" style={{ fontSize: 12, padding: '4px 8px' }}
+            title={`Delete ${draft.id}`}
+            onClick={async () => {
+              if (!confirm(`Delete ${draft.id}?\n"${draft.title}"\n\nThis cannot be undone.`)) return;
+              try {
+                await api.requirements.delete(uid);
+                dispatch({ type: 'DESELECT' });
+                toast(`Deleted ${draft.id}`, 'info');
+              } catch (err) { toast(err.message, 'error'); }
+            }}>Delete</button>
+          <button className="btn btn-secondary" onClick={handleSave} disabled={!isDirty || saving}
+            title={isDirty ? "Save changes (Ctrl+S)" : "No unsaved changes"}>
+            {saving ? <span className="spinner" /> : isDirty ? 'Save' : 'Saved ✓'}
           </button>
-          <button className="btn btn-primary" onClick={() => setShowCommit(true)} disabled={saving}>
+          <button className="btn btn-primary" onClick={() => setShowCommit(true)} disabled={saving}
+            title="Save and create a versioned git commit">
             Save &amp; Commit
           </button>
         </div>
@@ -968,7 +1051,7 @@ function RequirementEditor({ uid }) {
         {/* ── Content ── */}
         {activeTab === 'content' && (
           <>
-            <Section title="Identity">
+            <Section title="Identity" static>
               <div className="field-row">
                 <Field label="ID"><input value={draft.id ?? ''} onChange={e => patch('id', e.target.value)} /></Field>
                 <Field label="Parent requirement">
@@ -978,7 +1061,7 @@ function RequirementEditor({ uid }) {
               <Field label="Title"><input value={draft.title ?? ''} onChange={e => patch('title', e.target.value)} /></Field>
             </Section>
 
-            <Section title="Description">
+            <Section title="Description" static>
               <Field label="Shall statement">
                 <MarkdownEditor value={draft.content?.description} onChange={v => patchContent('description', v)} rows={7} />
               </Field>
@@ -990,7 +1073,7 @@ function RequirementEditor({ uid }) {
               </Field>
             </Section>
 
-            <Section title="Acceptance Criteria">
+            <Section title="Acceptance Criteria" static>
               <ACEditor acs={draft.acceptance_criteria ?? []} onChange={v => patch('acceptance_criteria', v)} enums={enums} />
             </Section>
 
@@ -1210,11 +1293,11 @@ function RequirementEditor({ uid }) {
               </div>
             </Section>
 
-            <Section title="History" defaultOpen={false}>
-              <button className="btn btn-secondary" style={{ marginBottom: 8 }}
-                onClick={async () => { if (!history) setHistory(await api.requirements.history(uid)); }}>
-                Load history
-              </button>
+            <Section title="History">
+              {!history && <div className="sidebar-loading"><div className="spinner" /></div>}
+              {history && (history.in_file?.length === 0 && history.git?.length === 0) && (
+                <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>No history yet. Commit to start tracking versions.</div>
+              )}
               {history && (
                 <div className="history-list">
                   {history.in_file?.map((h, i) => (
@@ -1222,7 +1305,7 @@ function RequirementEditor({ uid }) {
                       <span className="mono text-muted" style={{ fontSize: 10 }}>v{h.version}</span>
                       <span className="text-secondary" style={{ fontSize: 11 }}>{h.date?.slice(0, 10)}</span>
                       <span style={{ fontSize: 12 }}>{h.summary}</span>
-                      {h.commit_sha && <span className="mono text-muted" style={{ fontSize: 10 }}>{h.commit_sha}</span>}
+                      {h.commit_sha && <span className="mono text-muted" style={{ fontSize: 10 }}>{h.commit_sha?.slice(0,7)}</span>}
                     </div>
                   ))}
                   {history.git?.map((g, i) => (
@@ -1241,7 +1324,7 @@ function RequirementEditor({ uid }) {
             </Section>
 
             <Section title="Discussion" defaultOpen={false}>
-              <CommentsSection uid={uid} />
+              <CommentsSection uid={uid} currentUser={enums?._current_user || 'user'} />
             </Section>
           </>
         )}
@@ -1253,7 +1336,366 @@ function RequirementEditor({ uid }) {
           onClose={() => setShowCommit(false)}
           onCommit={handleCommit}
           saving={saving}
+          defaultMessage={`Update ${draft.id}: ${draft.title?.slice(0, 60) ?? ''}`}
+          changes={isDirty ? 'Unsaved changes will be committed.' : 'No unsaved changes -- creates a version marker.'}
         />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Principle editor
+// ---------------------------------------------------------------------------
+function PrincipleEditor({ uid }) {
+  const { state, dispatch, toast } = useApp();
+  const { enums } = state;
+  const [data, setData]       = useState(null);
+  const [draft, setDraft]     = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving]   = useState(false);
+  const [showCommit, setShowCommit] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    api.principles.get(uid)
+      .then(d => { setData(d); setDraft(d); })
+      .catch(err => toast(err.message, 'error'))
+      .finally(() => setLoading(false));
+  }, [uid]);
+
+  const isDirty = JSON.stringify(draft) !== JSON.stringify(data);
+  useEffect(() => {
+    if (isDirty) dispatch({ type: 'MARK_DIRTY', uid });
+    else dispatch({ type: 'MARK_CLEAN', uid });
+  }, [isDirty, uid]);
+
+  const patch = useCallback((field, value) => setDraft(d => ({ ...d, [field]: value })), []);
+  const patchContent = useCallback((field, value) => setDraft(d => ({ ...d, content: { ...d.content, [field]: value } })), []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updated = await api.principles.update(uid, draft);
+      setData(updated); setDraft(updated);
+      dispatch({ type: 'MARK_CLEAN', uid });
+      toast('Saved', 'success');
+    } catch (err) { toast(err.message, 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const handleCommit = async (message, increment) => {
+    setSaving(true);
+    try {
+      if (isDirty) {
+        const updated = await api.principles.update(uid, draft);
+        setData(updated); setDraft(updated);
+      }
+      const result = await api.principles.commit(uid, { message, increment });
+      toast(`Committed: ${result.commit_sha?.slice(0, 7)}`, 'success');
+      setShowCommit(false);
+      dispatch({ type: 'COMMITTED' });
+      const updated = await api.principles.get(uid);
+      setData(updated); setDraft(updated);
+    } catch (err) { toast(err.message, 'error'); }
+    finally { setSaving(false); }
+  };
+
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (isDirty && !saving) handleSave(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isDirty, saving, draft]);
+
+  if (loading) return <div className="editor-loading"><div className="spinner" /></div>;
+  if (!draft) return <div className="editor-empty">Could not load principle.</div>;
+
+  return (
+    <div className="editor">
+      <div className="editor-header">
+        <div className="editor-header-left">
+          <span className="editor-id mono">{draft.id}</span>
+          <span className="editor-version mono text-muted">v{draft.version}</span>
+          <span className="badge" style={{ background: 'rgba(139,148,158,.2)', color: 'var(--text-muted)', fontSize: 10 }}>Principle</span>
+          {isDirty && <span className="editor-dirty-badge" title="You have unsaved changes -- press Ctrl+S or click Save">● Unsaved changes</span>}
+        </div>
+        <div className="editor-header-right">
+          <button className="btn btn-danger" style={{ fontSize: 12, padding: '4px 8px' }}
+            onClick={async () => {
+              if (!confirm(`Delete ${draft.id}?\n"${draft.title}"\n\nThis cannot be undone.`)) return;
+              try {
+                await api.principles.delete(uid);
+                dispatch({ type: 'DESELECT' });
+                toast(`Deleted ${draft.id}`, 'info');
+              } catch (err) { toast(err.message, 'error'); }
+            }}>Delete</button>
+          <button className="btn btn-secondary" onClick={handleSave} disabled={!isDirty || saving}
+            title={isDirty ? "Save changes (Ctrl+S)" : "No unsaved changes"}>
+            {saving ? <span className="spinner" /> : isDirty ? 'Save' : 'Saved ✓'}
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowCommit(true)} disabled={saving}
+            title="Save and create a versioned git commit">
+            Save &amp; Commit
+          </button>
+        </div>
+      </div>
+
+      <div className="editor-body">
+        <Section title="Identity" static>
+          <Field label="ID"><input value={draft.id ?? ''} onChange={e => patch('id', e.target.value)} /></Field>
+          <Field label="Title"><input value={draft.title ?? ''} onChange={e => patch('title', e.target.value)} /></Field>
+          <div className="field-row">
+            <Field label="Domain">
+              <EnumSelect value={draft.domain} options={enums?.domain || []} onChange={v => patch('domain', v)} />
+            </Field>
+            <Field label="Owner">
+              <ControlledListEditor items={draft.owner ? [draft.owner] : []}
+                onChange={v => patch('owner', v[v.length - 1] || null)}
+                vocabulary={enums?.owner || []} placeholder="Select owner..." allowFreeText />
+            </Field>
+          </div>
+          <Field label="Tags">
+            <ControlledListEditor items={draft.tags ?? []} onChange={v => patch('tags', v)}
+              vocabulary={enums?.tags || []} placeholder="Add tag..." />
+          </Field>
+        </Section>
+
+        <Section title="Content" static>
+          <Field label="Statement">
+            <MarkdownEditor value={draft.content?.description} onChange={v => patchContent('description', v)} rows={5} />
+          </Field>
+          <Field label="Rationale">
+            <MarkdownEditor value={draft.content?.rationale} onChange={v => patchContent('rationale', v)} rows={3} />
+          </Field>
+          <Field label="Implications">
+            <MarkdownEditor value={draft.content?.implications} onChange={v => patchContent('implications', v)} rows={3} />
+          </Field>
+          <Field label="Exceptions">
+            <MarkdownEditor value={draft.content?.exceptions} onChange={v => patchContent('exceptions', v)} rows={2} />
+          </Field>
+        </Section>
+
+        <Section title="Approval" defaultOpen={false}>
+          <div className="field-row">
+            <Field label="Status">
+              <EnumSelect value={draft.approval?.status} options={enums?.approval_status || []}
+                onChange={v => patch('approval', { ...draft.approval, status: v })} />
+            </Field>
+            <Field label="Approved By">
+              <ControlledListEditor items={draft.approval?.approved_by ? [draft.approval.approved_by] : []}
+                onChange={v => patch('approval', { ...draft.approval, approved_by: v[v.length - 1] || null })}
+                vocabulary={enums?.owner || []} placeholder="Select person..." allowFreeText />
+            </Field>
+          </div>
+        </Section>
+      </div>
+
+      {showCommit && (
+        <CommitModal onClose={() => setShowCommit(false)} onCommit={handleCommit} saving={saving}
+          defaultMessage={`Update ${draft.id}: ${draft.title?.slice(0, 60) ?? ''}`} />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// TBD editor
+// ---------------------------------------------------------------------------
+function TBDEditor({ uid }) {
+  const { state, dispatch, toast } = useApp();
+  const { enums } = state;
+  const [data, setData]       = useState(null);
+  const [draft, setDraft]     = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving]   = useState(false);
+  const [showCommit, setShowCommit] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    api.tbds.get(uid)
+      .then(d => { setData(d); setDraft(d); })
+      .catch(err => toast(err.message, 'error'))
+      .finally(() => setLoading(false));
+  }, [uid]);
+
+  const isDirty = JSON.stringify(draft) !== JSON.stringify(data);
+  useEffect(() => {
+    if (isDirty) dispatch({ type: 'MARK_DIRTY', uid });
+    else dispatch({ type: 'MARK_CLEAN', uid });
+  }, [isDirty, uid]);
+
+  const patch = useCallback((field, value) => setDraft(d => ({ ...d, [field]: value })), []);
+  const patchContent = useCallback((field, value) => setDraft(d => ({ ...d, content: { ...d.content, [field]: value } })), []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const updated = await api.tbds.update(uid, draft);
+      setData(updated); setDraft(updated);
+      dispatch({ type: 'MARK_CLEAN', uid });
+      toast('Saved', 'success');
+    } catch (err) { toast(err.message, 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const handleCommit = async (message, increment) => {
+    setSaving(true);
+    try {
+      if (isDirty) {
+        const updated = await api.tbds.update(uid, draft);
+        setData(updated); setDraft(updated);
+      }
+      const result = await api.tbds.commit(uid, { message, increment });
+      toast(`Committed: ${result.commit_sha?.slice(0, 7)}`, 'success');
+      setShowCommit(false);
+      dispatch({ type: 'COMMITTED' });
+      const updated = await api.tbds.get(uid);
+      setData(updated); setDraft(updated);
+    } catch (err) { toast(err.message, 'error'); }
+    finally { setSaving(false); }
+  };
+
+  const handleResolve = async () => {
+    const resolution = prompt('Resolution summary:');
+    if (resolution === null) return;
+    try {
+      await api.tbds.resolve(uid, { resolution });
+      const updated = await api.tbds.get(uid);
+      setData(updated); setDraft(updated);
+      toast('TBD resolved', 'success');
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (isDirty && !saving) handleSave(); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isDirty, saving, draft]);
+
+  if (loading) return <div className="editor-loading"><div className="spinner" /></div>;
+  if (!draft) return <div className="editor-empty">Could not load TBD.</div>;
+
+  const STATUS_COLOURS = { open: 'var(--accent-red)', in_progress: 'var(--accent-orange)', resolved: 'var(--accent-green)', cancelled: 'var(--text-muted)' };
+
+  return (
+    <div className="editor">
+      <div className="editor-header">
+        <div className="editor-header-left">
+          <span className="editor-id mono">{draft.id}</span>
+          <span className="editor-version mono text-muted">v{draft.version}</span>
+          <span className="badge" style={{
+            background: STATUS_COLOURS[draft.status] + '20',
+            color: STATUS_COLOURS[draft.status],
+            fontSize: 10
+          }}>{draft.status}</span>
+          {isDirty && <span className="editor-dirty-badge" title="You have unsaved changes -- press Ctrl+S or click Save">● Unsaved changes</span>}
+        </div>
+        <div className="editor-header-right">
+          {(draft.status === 'open' || draft.status === 'in_progress') && (
+            <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={handleResolve}>
+              ✓ Resolve
+            </button>
+          )}
+          <button className="btn btn-danger" style={{ fontSize: 12, padding: '4px 8px' }}
+            onClick={async () => {
+              if (!confirm(`Delete ${draft.id}?\n"${draft.title}"\n\nThis cannot be undone.`)) return;
+              try {
+                await api.tbds.delete(uid);
+                dispatch({ type: 'DESELECT' });
+                toast(`Deleted ${draft.id}`, 'info');
+              } catch (err) { toast(err.message, 'error'); }
+            }}>Delete</button>
+          <button className="btn btn-secondary" onClick={handleSave} disabled={!isDirty || saving}
+            title={isDirty ? "Save changes (Ctrl+S)" : "No unsaved changes"}>
+            {saving ? <span className="spinner" /> : isDirty ? 'Save' : 'Saved ✓'}
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowCommit(true)} disabled={saving}
+            title="Save and create a versioned git commit">
+            Save &amp; Commit
+          </button>
+        </div>
+      </div>
+
+      <div className="editor-body">
+        <Section title="Identity" static>
+          <Field label="Title"><input value={draft.title ?? ''} onChange={e => patch('title', e.target.value)} /></Field>
+          <div className="field-row">
+            <Field label="Status">
+              <EnumSelect value={draft.status} options={['open', 'in_progress', 'resolved', 'cancelled']}
+                onChange={v => patch('status', v)} nullable={false} />
+            </Field>
+            <Field label="Priority">
+              <EnumSelect value={draft.priority} options={enums?.priority || ['critical','high','medium','low']}
+                onChange={v => patch('priority', v)} nullable={false} />
+            </Field>
+          </div>
+          <div className="field-row">
+            <Field label="Owner">
+              <ControlledListEditor items={draft.owner ? [draft.owner] : []}
+                onChange={v => patch('owner', v[v.length - 1] || null)}
+                vocabulary={enums?.owner || []} placeholder="Select owner..." allowFreeText />
+            </Field>
+            <Field label="Due Date">
+              <input type="date" value={draft.due?.slice(0, 10) ?? ''}
+                onChange={e => patch('due', e.target.value || null)} />
+            </Field>
+          </div>
+        </Section>
+
+        <Section title="Content" static>
+          <Field label="Description">
+            <MarkdownEditor value={draft.content?.description} onChange={v => patchContent('description', v)} rows={4} />
+          </Field>
+          <Field label="Impact">
+            <MarkdownEditor value={draft.content?.impact} onChange={v => patchContent('impact', v)} rows={3} />
+          </Field>
+          <Field label="Resolution Criteria">
+            <MarkdownEditor value={draft.content?.resolution_criteria} onChange={v => patchContent('resolution_criteria', v)} rows={3} />
+          </Field>
+          {draft.content?.resolution && (
+            <Field label="Resolution">
+              <MarkdownEditor value={draft.content?.resolution} onChange={v => patchContent('resolution', v)} rows={3} />
+            </Field>
+          )}
+        </Section>
+
+        <Section title="Affected Requirements" defaultOpen={draft.affected_requirements?.length > 0}>
+          <div style={{ marginBottom: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+            Requirements that are blocked by or depend on this TBD.
+          </div>
+          {(draft.affected_requirements ?? []).map((reqUid, i) => (
+            <div key={reqUid} className="rel-row">
+              <button className="rel-target-link" onClick={() => dispatch({ type: 'SELECT', uid: reqUid, artefactType: 'requirement' })}>
+                {reqUid.slice(0, 12)}...
+              </button>
+              <button className="string-list-remove"
+                onClick={() => patch('affected_requirements', draft.affected_requirements.filter((_, j) => j !== i))}>✕</button>
+            </div>
+          ))}
+          <div style={{ marginTop: 8 }}>
+            <input placeholder="Search requirements to link..." style={{ fontSize: 12, padding: '4px 8px' }}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter' && e.target.value.trim()) {
+                  const results = await api.search(e.target.value.trim(), 5).catch(() => []);
+                  if (results.length === 1) {
+                    patch('affected_requirements', [...(draft.affected_requirements ?? []), results[0].uid]);
+                    e.target.value = '';
+                  } else {
+                    toast(results.length === 0 ? 'No results' : `${results.length} results -- be more specific`, 'info', 3000);
+                  }
+                }
+              }} />
+          </div>
+        </Section>
+      </div>
+
+      {showCommit && (
+        <CommitModal onClose={() => setShowCommit(false)} onCommit={handleCommit} saving={saving}
+          defaultMessage={`Update ${draft.id}: ${draft.title?.slice(0, 60) ?? ''}`} />
       )}
     </div>
   );
@@ -1263,8 +1705,9 @@ function RequirementEditor({ uid }) {
 // Empty state
 // ---------------------------------------------------------------------------
 function EditorEmpty() {
-  const { state, dispatch } = useApp();
+  const { state, dispatch, toast } = useApp();
   const templates = (state.templates || []).slice(0, 4);
+  const hasProduct = !!state.activeProduct;
 
   const AGILE_QUICK = [
     { icon: '📖', label: 'User Story',    req_type: 'story',    desc: 'As a [user], I want…' },
@@ -1274,10 +1717,11 @@ function EditorEmpty() {
   ];
 
   const createQuick = async (req_type) => {
+    if (!hasProduct) { toast('Select a product first', 'info'); return; }
     try {
       const req = await api.requirements.create({ title: `New ${req_type}`, req_type });
       dispatch({ type: 'SELECT', uid: req.uid, artefactType: 'requirement' });
-    } catch {}
+    } catch (err) { toast(err.message, 'error'); }
   };
 
   return (
@@ -1341,6 +1785,32 @@ export default function Editor() {
   const { state } = useApp();
   const { selectedUid, selectedType } = state;
   if (!selectedUid) return <EditorEmpty />;
+  // Module group nodes have a synthetic uid like __module__comms-security
+  // Show a read-only info panel instead of trying to load it as a requirement
+  if (selectedUid?.startsWith('__module__')) {
+    const modId = selectedUid.replace('__module__', '');
+    return (
+      <div className="editor" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 20 }}>📦</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>Module: {modId}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+              This is a shared requirement module included in this product.
+            </div>
+          </div>
+        </div>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, background: 'var(--bg-elevated)', padding: '12px 16px', borderRadius: 6, border: '1px solid var(--border)' }}>
+          Module requirements are read-only in this product. To edit them, modify the files in{' '}
+          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>modules/{modId}/</code> directly,
+          then run <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>req import {modId}</code> to update the lock file.
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+          Click an individual requirement below the module group to view its details.
+        </div>
+      </div>
+    );
+  }
   if (selectedType === 'requirement') return <RequirementEditor uid={selectedUid} />;
   if (selectedType === 'principle')   return <PrincipleEditor uid={selectedUid} />;
   if (selectedType === 'tbd')         return <TBDEditor uid={selectedUid} />;

@@ -104,6 +104,10 @@ function AppShell() {
       if (e.key === '?' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) {
         toggle('_showHelp', !state._showHelp);
       }
+      // Escape closes kanban slide-in panel
+      if (e.key === 'Escape' && state.panel === 'tasks' && state.selectedUid) {
+        dispatch({ type: 'DESELECT' });
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -133,7 +137,24 @@ function AppShell() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Sidebar />
         <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {state.panel === 'tasks' ? <KanbanPanel /> : <Editor />}
+          {state.panel === 'tasks'
+            ? <>
+                <KanbanPanel />
+                {state.selectedUid && (
+                  <div className="kanban-editor-panel">
+                    <div className="kanban-editor-panel-header">
+                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Editing task</span>
+                      <button className="btn btn-ghost"
+                        style={{ fontSize: 13, padding: '2px 8px' }}
+                        title="Close editor"
+                        onClick={() => dispatch({ type: 'DESELECT' })}>✕</button>
+                    </div>
+                    <div className="kanban-editor-panel-body"><Editor /></div>
+                  </div>
+                )}
+              </>
+            : <Editor />
+          }
         </main>
       </div>
 

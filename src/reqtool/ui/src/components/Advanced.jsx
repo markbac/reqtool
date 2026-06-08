@@ -745,7 +745,7 @@ export function DiscussionSection({ uid, currentUser = 'user' }) {
       )}
 
       {visible.length === 0 && !replyTo && (
-        <div className="discussion-empty">No comments yet.</div>
+        <div className="discussion-empty">No comments yet. Add the first one below.</div>
       )}
 
       {visible.map(c => <CommentNode key={c.uid} comment={c} />)}

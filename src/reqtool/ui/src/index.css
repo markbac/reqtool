@@ -304,3 +304,38 @@ select option { background: var(--bg-surface); color: var(--text-primary); }
   from { opacity: 0; transform: translateX(20px); }
   to   { opacity: 1; transform: translateX(0); }
 }
+
+/* ── Kanban editor slide-in panel ────────────────────────────────────────── */
+.kanban-editor-panel {
+  position: fixed;
+  top: var(--header-height, 48px);
+  right: 0;
+  bottom: 0;
+  width: min(520px, 50vw);
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  box-shadow: -4px 0 24px rgba(0,0,0,0.25);
+  animation: slide-in-right 0.18s ease-out;
+}
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.kanban-editor-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+.kanban-editor-panel-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

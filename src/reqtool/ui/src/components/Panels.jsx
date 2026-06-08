@@ -3,6 +3,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useApp } from '../AppContext';
 import { api } from '../api';
 import './Panels.css';
 
@@ -10,6 +11,7 @@ import './Panels.css';
 // Validation panel
 // ---------------------------------------------------------------------------
 export function ValidationPanel({ onClose }) {
+  const { dispatch } = useApp();
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -19,6 +21,27 @@ export function ValidationPanel({ onClose }) {
       .catch(err => setResult({ errors: [{ message: err.message }], warnings: [] }))
       .finally(() => setLoading(false));
   }, []);
+
+  const navigate = (uid) => {
+    if (!uid) return;
+    dispatch({ type: 'SELECT', uid, artefactType: 'requirement' });
+    onClose();
+  };
+
+  const ValidationItem = ({ item, kind }) => (
+    <div
+      className={`validation-item ${kind} ${item.uid ? 'validation-item--clickable' : ''}`}
+      onClick={() => item.uid && navigate(item.uid)}
+      title={item.uid ? 'Click to open this requirement' : undefined}
+    >
+      <span className="validation-code mono">{item.code ?? kind}</span>
+      <div style={{ flex: 1 }}>
+        <div className="validation-msg">{item.message}</div>
+        {item.field && <div className="validation-field mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>field: {item.field}</div>}
+      </div>
+      {item.uid && <span className="validation-nav-hint">→</span>}
+    </div>
+  );
 
   return (
     <div className="panel-overlay" onClick={onClose}>
@@ -41,15 +64,7 @@ export function ValidationPanel({ onClose }) {
                 <div className="validation-group-header error">
                   Errors ({result.errors.length})
                 </div>
-                {result.errors.map((e, i) => (
-                  <div key={i} className="validation-item error">
-                    <span className="validation-code mono">{e.code ?? 'error'}</span>
-                    <div>
-                      <div className="validation-msg">{e.message}</div>
-                      {e.uid && <div className="validation-uid mono">{e.uid.slice(0, 8)}...</div>}
-                    </div>
-                  </div>
-                ))}
+                {result.errors.map((e, i) => <ValidationItem key={i} item={e} kind="error" />)}
               </div>
             )}
 
@@ -58,15 +73,7 @@ export function ValidationPanel({ onClose }) {
                 <div className="validation-group-header warning">
                   Warnings ({result.warnings.length})
                 </div>
-                {result.warnings.map((w, i) => (
-                  <div key={i} className="validation-item warning">
-                    <span className="validation-code mono">{w.code ?? 'warn'}</span>
-                    <div>
-                      <div className="validation-msg">{w.message}</div>
-                      {w.uid && <div className="validation-uid mono">{w.uid.slice(0, 8)}...</div>}
-                    </div>
-                  </div>
-                ))}
+                {result.warnings.map((w, i) => <ValidationItem key={i} item={w} kind="warning" />)}
               </div>
             )}
           </div>

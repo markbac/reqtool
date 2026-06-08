@@ -939,7 +939,7 @@ class TestServeBanner:
 
         assert result.exit_code == 0, result.output
         assert "reqtool" in result.output
-        assert "0.3.14" in result.output
+        assert "0.3.20" in result.output
         assert "http://127.0.0.1:19999" in result.output
         assert "/docs" in result.output
         assert "Requirements" in result.output

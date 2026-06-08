@@ -517,6 +517,14 @@ def init_demo(repo: Optional[str]):
         sys.exit(1)
 
     _write_base_repo(root, "iot-sensor", "IoT Environmental Sensor")
+    # For the demo repo, relax advisory warnings -- it's a starting point, not production
+    from .fileio import load_yaml, save_yaml as _save_yaml
+    _cfg = load_yaml(root / ".reqtool" / "config.yaml") or {}
+    _cfg.setdefault("validation", {}).update({
+        "require_owner": False,
+        "warn_on_missing_test_ref": False,
+    })
+    _save_yaml(root / ".reqtool" / "config.yaml", _cfg)
     _write_enums(root,
         domains=["need","sensing","comms","power","mechanical","thermal",
                  "industrial","security","safety","compliance","ux",
@@ -1692,6 +1700,10 @@ def init_demo(repo: Optional[str]):
             product_data["modules"] = []
         product_data["modules"].append({"id": "comms-security", "version": "1.0.0", "overrides": {}})
         save_yaml(product_path, product_data)
+        # Generate the lock file so validation passes
+        store._load_modules()
+        store._load_products()
+        store.import_module("env-sensor-v1", "comms-security")
 
     click.echo(click.style(f"Demo repository initialised at {root}", fg="green"))
     click.echo(f"  {r_count} systems requirements  |  {t_count} TBDs  |  {p_count} principles")

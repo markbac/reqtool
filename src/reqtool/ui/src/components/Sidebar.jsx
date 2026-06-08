@@ -182,6 +182,7 @@ function RequirementsPanel() {
   const [histData, setHistData] = useState(null);
   const [showModulePanel, setShowModulePanel] = useState(false);
   const [availableModules, setAvailableModules] = useState([]);
+  const [expandAll, setExpandAll] = useState(false);
 
   const load = useCallback(async () => {
     if (!activeProduct) return;
@@ -246,10 +247,16 @@ function RequirementsPanel() {
 
   if (!activeProduct) return (
     <div className="sidebar-empty">
-      <div style={{ marginBottom: 8 }}>Select a product from the dropdown above.</div>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-        No products yet? Create one with <strong>+ Product</strong> in the top bar,
-        or run <code>req init demo</code> for a sample dataset.
+      <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.4 }}>◈</div>
+      <div style={{ fontWeight: 600, marginBottom: 6 }}>No product selected</div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12, textAlign: 'center' }}>
+        Use the product dropdown in the top bar to select a product, or create a new one with <strong>+ Product</strong>.
+      </div>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6, background: 'var(--bg-elevated)', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', textAlign: 'left' }}>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>Don't have a repo yet?</div>
+        Run from your terminal:<br />
+        <code style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>req init demo</code><br />
+        <code style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>req serve</code>
       </div>
     </div>
   );
@@ -260,10 +267,16 @@ function RequirementsPanel() {
     <>
       {/* Toolbar */}
       <div className="tree-toolbar">
-        <button className="btn btn-ghost tree-toolbar-btn" onClick={() => createReq()} title="New requirement (right-click any node for Add child/sibling)">+ New</button>
+        <button className="btn btn-ghost tree-toolbar-btn" onClick={() => createReq()} title="New requirement">+ New</button>
         <button className="btn btn-ghost tree-toolbar-btn" onClick={openModulePanel}
           title="Include a shared requirement module in this product">⊕ Module</button>
-        <button className="btn btn-ghost tree-toolbar-btn" style={{ marginLeft: 'auto', fontSize: 13 }} onClick={load} title="Refresh tree">↺</button>
+        <div style={{ flex: 1 }} />
+        <button className="btn btn-ghost tree-toolbar-btn"
+          title={expandAll ? "Collapse all" : "Expand all"}
+          onClick={() => setExpandAll(v => !v)}>
+          {expandAll ? '⊟' : '⊞'}
+        </button>
+        <button className="btn btn-ghost tree-toolbar-btn" style={{ fontSize: 13 }} onClick={load} title="Refresh tree">↺</button>
       </div>
       {state.pendingTemplate && (
         <div className="tree-template-active">
@@ -336,7 +349,7 @@ function RequirementsPanel() {
 
       <div className="tree-container" role="tree" onClick={() => setCtxMenu(null)}>
         {displayTree.map(node => (
-          <TreeNode key={node.uid} node={node} forceOpen={!!searchQuery}
+          <TreeNode key={node.uid} node={node} forceOpen={expandAll || !!searchQuery}
             onContextMenu={(x, y, n) => setCtxMenu({ x, y, node: n })} />
         ))}
       </div>
@@ -355,21 +368,25 @@ const PRINCIPLE_DOMAIN_ORDER = ['business', 'architecture', 'security', 'firmwar
 
 function PrinciplesPanel() {
   const { state, dispatch, toast } = useApp();
-  const [items, setItems]       = useState([]);
-  const [loading, setLoading]   = useState(false);
+  const [items, setItems]         = useState([]);
+  const [loading, setLoading]     = useState(false);
   const [collapsed, setCollapsed] = useState({});
+  const [search, setSearch]       = useState('');
 
   const load = () => { setLoading(true); api.principles.list().then(setItems).catch(() => {}).finally(() => setLoading(false)); };
   useEffect(() => { load(); }, []);
 
+  const filtered = search ? items.filter(p => p.title?.toLowerCase().includes(search.toLowerCase()) || p.id?.toLowerCase().includes(search.toLowerCase())) : items;
   const grouped = {};
-  for (const p of items) { const d = p.domain || 'unclassified'; if (!grouped[d]) grouped[d] = []; grouped[d].push(p); }
+  for (const p of filtered) { const d = p.domain || 'unclassified'; if (!grouped[d]) grouped[d] = []; grouped[d].push(p); }
   const order = [...PRINCIPLE_DOMAIN_ORDER.filter(d => grouped[d]), ...Object.keys(grouped).filter(d => !PRINCIPLE_DOMAIN_ORDER.includes(d)).sort()];
 
   if (loading) return <div className="sidebar-loading"><div className="spinner" /></div>;
   return (
     <div className="list-panel">
       <div className="list-panel-toolbar">
+        <input className="list-search" placeholder="Search principles..." value={search}
+          onChange={e => setSearch(e.target.value)} />
         <button className="btn btn-ghost list-new-btn" onClick={async () => {
           try { const p = await api.principles.create({ title: 'New principle', content: { description: '', rationale: '', implications: '', exceptions: '' } }); dispatch({ type: 'SELECT', uid: p.uid, artefactType: 'principle' }); load(); }
           catch (err) { toast(err.message, 'error'); }
@@ -442,9 +459,25 @@ function TBDsPanel() {
           <div className="list-item-header">
             <span className="list-item-id mono">{t.id}</span>
             <span className={`badge badge-${t.status}`}>{t.status}</span>
+            {t.status === 'open' || t.status === 'in_progress' ? (
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 10, padding: '1px 6px', marginLeft: 'auto' }}
+                title="Mark as resolved"
+                onClick={async e => {
+                  e.stopPropagation();
+                  try {
+                    await api.tbds.resolve(t.uid, { resolution: 'Resolved via UI' });
+                    load();
+                    toast('TBD resolved', 'success');
+                  } catch (err) { toast(err.message, 'error'); }
+                }}>
+                ✓ Resolve
+              </button>
+            ) : null}
           </div>
           <div className="list-item-title">{t.title}</div>
-          {t.affected_requirements?.length > 0 && <div className="list-item-meta">{t.affected_requirements.length} affected</div>}
+          {t.affected_requirements?.length > 0 && <div className="list-item-meta">{t.affected_requirements.length} affected reqs</div>}
         </div>
       ))}
     </div>
@@ -525,9 +558,73 @@ function ModulesPanel() {
 }
 
 // ---------------------------------------------------------------------------
-// 2. Kanban panel -- column-per-state, grouped by person or team
+// Task sidebar -- quick stats and sprint filter while kanban is open
 // ---------------------------------------------------------------------------
-// Sidebar root
+function TaskSidebarPanel() {
+  const { state, dispatch, toast } = useApp();
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    api.kanban.get({}).then(board => {
+      if (!board) return;
+      const cols = board.columns || {};
+      const total = Object.values(cols).flat().length;
+      const done  = (cols.done || []).length;
+      const inProg = (cols.in_progress || []).length;
+      const blocked = (cols.backlog || []).filter(c => c.priority === 'critical').length;
+      setStats({ total, done, inProg, blocked, states: board.states || [] });
+    }).catch(() => {});
+  }, [state._lastCommit]);
+
+  const createItem = async (req_type) => {
+    try {
+      const item = await api.requirements.create({ title: `New ${req_type}`, req_type });
+      dispatch({ type: 'SELECT', uid: item.uid, artefactType: 'requirement' });
+      toast(`Created ${item.id}`, 'success');
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  return (
+    <div className="task-sidebar">
+      <div className="task-sidebar-section">
+        <div className="task-sidebar-label">Quick create</div>
+        <div className="task-sidebar-actions">
+          {[
+            { icon: '📖', label: 'Story',   type: 'story' },
+            { icon: '✅', label: 'Task',    type: 'task' },
+            { icon: '🐛', label: 'Bug',     type: 'bug' },
+            { icon: '🔬', label: 'Spike',   type: 'spike' },
+          ].map(q => (
+            <button key={q.type} className="task-quick-btn"
+              onClick={() => createItem(q.type)}>
+              <span>{q.icon}</span> {q.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {stats && (
+        <div className="task-sidebar-section">
+          <div className="task-sidebar-label">Sprint snapshot</div>
+          <div className="task-stats-grid">
+            <div className="task-stat"><div className="task-stat-value">{stats.total}</div><div className="task-stat-label">Total</div></div>
+            <div className="task-stat"><div className="task-stat-value" style={{ color: 'var(--accent-blue)' }}>{stats.inProg}</div><div className="task-stat-label">In progress</div></div>
+            <div className="task-stat"><div className="task-stat-value" style={{ color: 'var(--accent-green)' }}>{stats.done}</div><div className="task-stat-label">Done</div></div>
+            {stats.blocked > 0 && <div className="task-stat"><div className="task-stat-value" style={{ color: 'var(--accent-red)' }}>{stats.blocked}</div><div className="task-stat-label">Critical backlog</div></div>}
+          </div>
+        </div>
+      )}
+
+      <div className="task-sidebar-section">
+        <div className="task-sidebar-hint">
+          Drag cards between columns to update status. Click a card to open the editor.
+          Press <kbd>Esc</kbd> to close the editor panel.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 
 const TOP_SECTIONS = [
@@ -572,10 +669,10 @@ export default function Sidebar() {
         </nav>
       )}
 
-      {/* Task Mgmt: sidebar shows filter/nav controls; board renders in <main> */}
+      {/* Task Mgmt: sidebar quick-actions */}
       {topSection === 'tasks' && (
-        <div className="sidebar-empty" style={{ padding: 16, fontSize: 12, color: 'var(--text-muted)' }}>
-          Use the filters in the board to narrow by type, iteration, or person.
+        <div className="sidebar-content">
+          <TaskSidebarPanel />
         </div>
       )}
 
@@ -584,7 +681,6 @@ export default function Sidebar() {
         {topSection === 'requirements' && panel === 'principles'   && <PrinciplesPanel />}
         {topSection === 'requirements' && panel === 'tbds'         && <TBDsPanel />}
         {topSection === 'requirements' && panel === 'modules'      && <ModulesPanel />}
-      </div>
-    </aside>
+      </div>    </aside>
   );
 }

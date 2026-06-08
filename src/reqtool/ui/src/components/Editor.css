@@ -39,11 +39,18 @@
 
 .editor-dirty-badge {
   font-size: var(--font-size-xs);
-  background: rgba(210,153,34,.2);
+  background: rgba(210,153,34,.18);
   color: var(--accent-orange);
-  border: 1px solid rgba(210,153,34,.3);
-  padding: 1px 6px;
+  border: 1px solid rgba(210,153,34,.4);
+  padding: 3px 8px;
   border-radius: var(--radius-sm);
+  font-weight: 600;
+  animation: pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: rgba(210,153,34,.4); }
+  50%       { border-color: rgba(210,153,34,.9); }
 }
 
 .editor-body {
@@ -538,11 +545,14 @@
   border-bottom: 1px solid var(--border);
   background: var(--bg-surface);
   flex-shrink: 0;
-  padding: 0 16px;
+  padding: 0 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.editor-tabs::-webkit-scrollbar { display: none; }
 .editor-tab {
-  padding: 8px 14px;
-  font-size: 13px;
+  padding: 8px 10px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-muted);
   background: none;
@@ -551,6 +561,8 @@
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s;
   margin-bottom: -1px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .editor-tab:hover { color: var(--text-primary); }
 .editor-tab--active {
@@ -691,3 +703,42 @@
   align-items: center;
   gap: 6px;
 }
+
+/* ── Clickable relationship target ───────────────────────────────────────── */
+.rel-target-link {
+  flex: 1;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent-blue);
+  cursor: pointer;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rel-target-link:hover { text-decoration: underline; }
+
+/* Static (non-collapsible) section header */
+.editor-section-header--static {
+  cursor: default;
+  padding: 8px 12px 6px;
+}
+.editor-section-header--static:hover { background: var(--bg-surface); }
+
+/* ── Copy UID button ─────────────────────────────────────────────────────── */
+.copy-uid-btn {
+  background: none;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-family: var(--font-sans);
+  padding: 2px 6px;
+  border-radius: 3px;
+  transition: all 0.1s;
+}
+.copy-uid-btn:hover { color: var(--text-primary); background: var(--bg-elevated); }

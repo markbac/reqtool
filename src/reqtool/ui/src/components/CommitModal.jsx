@@ -3,14 +3,21 @@
  * Prompts for message, version increment, and optional change ref.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './CommitModal.css';
 
-export default function CommitModal({ onCommit, onClose, changes }) {
-  const [message, setMessage] = useState('');
+export default function CommitModal({ onCommit, onClose, changes, defaultMessage = '' }) {
+  const [message, setMessage] = useState(defaultMessage);
   const [increment, setIncrement] = useState('patch');
   const [changeRef, setChangeRef] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // Close on Escape
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape' && !busy) onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [busy, onClose]);
 
   const handleSubmit = async () => {
     if (!message.trim()) return;

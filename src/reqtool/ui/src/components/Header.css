@@ -175,3 +175,17 @@
   background: none; color: var(--text-primary); cursor: pointer;
 }
 .overflow-menu-item:hover { background: var(--bg-hover); }
+
+/* ── Search hint ─────────────────────────────────────────────────────────── */
+.header-search-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  pointer-events: none;
+  flex-shrink: 0;
+}

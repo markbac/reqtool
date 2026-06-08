@@ -176,15 +176,16 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
       )}
 
       <div className="header-centre">
-        <div className="header-search">
+        <div className="header-search" title="Filter items in the sidebar tree. For full-text search press Ctrl+K.">
           <span className="header-search-icon">⌕</span>
           <input
             type="search"
-            placeholder="Filter tree... (Ctrl+K for global search)"
+            placeholder="Filter tree…"
             value={state.searchQuery || ''}
             onChange={e => dispatch({ type: 'SET_SEARCH', payload: e.target.value })}
             className="header-search-input"
           />
+          <span className="header-search-hint">Ctrl+K</span>
         </div>
       </div>
 
