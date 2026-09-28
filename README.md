@@ -460,6 +460,44 @@ pytest tests/test_regression.py                                            # ~30
 
 The watchdog-based incremental reload tests are slow (they wait for filesystem events). Exclude with `-k "not watchdog"` during development.
 
+## Packaging & Release Pipeline
+
+### Installation Options
+
+- **PyPI / Wheel Installation:**
+  ```bash
+  pip install reqtool
+  ```
+- **Local Wheel Distribution:**
+  ```bash
+  pip install dist/reqtool-0.3.20-py3-none-any.whl
+  ```
+- **Development Installation:**
+  ```bash
+  git clone https://github.com/markbac/reqtool.git
+  cd reqtool
+  pip install -e ".[test]"
+  ```
+
+### Automated Release Pipeline (`.github/workflows/release.yml`)
+
+The repository includes an automated GitHub Actions release pipeline triggered on git tag creation (`v*.*.*`):
+1. Builds Python source distribution (`.tar.gz`) and wheel (`.whl`).
+2. Verifies `reqtool` CLI execution.
+3. Automatically creates GitHub Releases with release notes.
+
+---
+
+## Automated GitHub Copilot Code Review
+
+PR code reviews are configured using repository-level guidelines in [.github/copilot-instructions.md](.github/copilot-instructions.md) and an automated PR Quality Gate workflow in [.github/workflows/copilot-code-review.yml](.github/workflows/copilot-code-review.yml):
+
+- **Architectural Rules:** Enforces FastAPI APIRouter scoping under `src/reqtool/routers/` and specialized stores under `src/reqtool/stores/`.
+- **Prose Linter Checks:** Evaluates requirement descriptions against INCOSE quality standards (passive voice, vague words, escape clauses).
+- **Safety & Schema Verification:** Validates ISO 26262 ASIL and DO-178C DAL classifications.
+
+---
+
 ## Further reading
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) -- component overview, data model, workflow engine, API surface, validation rules, git integration, and annotated sequence diagrams.
