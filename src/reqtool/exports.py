@@ -639,3 +639,34 @@ def export_reqif_xml(store: "Store") -> str:
         ET.SubElement(type_val, "DEFINITION").text = "Requirement.Type"
 
     return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
+
+
+def parse_reqif_xml(xml_content: str) -> dict:
+    """Parse ReqIF XML content securely using defusedxml (or ET fallback)."""
+    try:
+        import defusedxml.ElementTree as SafeET
+        root = SafeET.fromstring(xml_content)
+    except ImportError:
+        import xml.etree.ElementTree as ET
+        parser = ET.XMLParser()
+        if hasattr(parser, "parser"):
+            try:
+                parser.parser.UseForeignDTD(False)
+            except Exception:
+                pass
+        root = ET.fromstring(xml_content, parser=parser)
+
+    spec_objects = []
+    for obj in root.findall(".//SPEC-OBJECT"):
+        ident = obj.attrib.get("IDENTIFIER", "")
+        title = ""
+        desc = ""
+        for val in obj.findall(".//ATTRIBUTE-VALUE-STRING"):
+            def_text = val.findtext("DEFINITION", "")
+            if def_text == "ReqIF.Name":
+                title = val.attrib.get("THE-VALUE", "")
+            elif def_text == "ReqIF.Text":
+                desc = val.attrib.get("THE-VALUE", "")
+        if ident:
+            spec_objects.append({"id": ident, "title": title, "description": desc})
+    return {"spec_objects": spec_objects}

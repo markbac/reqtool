@@ -65,12 +65,24 @@ def create_app(repo_root: Path) -> FastAPI:
             from watchdog.events import FileSystemEventHandler
 
             class ReloadHandler(FileSystemEventHandler):
+                def __init__(self):
+                    super().__init__()
+                    self._last_events = {}
+                    self._lock = threading.Lock()
+
                 def on_any_event(self, event):
                     if event.is_directory:
                         return
                     if event.src_path.endswith(".yaml"):
+                        import time
+                        now = time.time()
+                        with self._lock:
+                            last_time = self._last_events.get(event.src_path, 0)
+                            if now - last_time < 0.1:  # 100ms debounce
+                                return
+                            self._last_events[event.src_path] = now
                         changed = Path(event.src_path)
-                        log.debug("File changed: %s", changed)
+                        log.debug("File changed (debounced): %s", changed)
                         store.reload_file(changed)
 
             observer = Observer()
