@@ -2006,6 +2006,15 @@ def show(id_or_uid: str, repo: Optional[str]):
     """Print an artefact to stdout."""
     root = Path(repo).resolve() if repo else _repo_root()
 
+    from .store import Store
+    store = Store(root)
+    store.load()
+    for collection in (store.requirements, store.principles, store.tbds):
+        for uid, item in collection.items():
+            if uid == id_or_uid or item.get("id") == id_or_uid:
+                click.echo(json.dumps(item, indent=2, default=str))
+                return
+
     if _server_running():
         for endpoint in ("/requirements", "/principles", "/tbds"):
             try:
@@ -2016,15 +2025,6 @@ def show(id_or_uid: str, repo: Optional[str]):
                         return
             except Exception:
                 pass
-    else:
-        from .store import Store
-        store = Store(root)
-        store.load()
-        for collection in (store.requirements, store.principles, store.tbds):
-            for uid, item in collection.items():
-                if uid == id_or_uid or item.get("id") == id_or_uid:
-                    click.echo(json.dumps(item, indent=2, default=str))
-                    return
 
     click.echo(f"Not found: {id_or_uid}", err=True)
     sys.exit(1)

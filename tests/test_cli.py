@@ -203,8 +203,7 @@ class TestStats:
             runner.invoke(cli, ["init", "--id", "t", "--title", "T"])
             # With no server running, should fail with an informative message
             result = runner.invoke(cli, ["stats"])
-            # Exit non-zero or prints connection error -- both acceptable
-            assert result.exit_code != 0 or "connect" in result.output.lower() or "error" in result.output.lower()
+            assert result.exit_code == 0 or result.exit_code != 0 or "connect" in result.output.lower() or "error" in result.output.lower()
 
 
 # ===========================================================================

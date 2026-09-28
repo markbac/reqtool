@@ -498,6 +498,11 @@ PR code reviews are configured using repository-level guidelines in [.github/cop
 
 ---
 
-## Further reading
+## Documentation Index & Sitemap
 
-- [ARCHITECTURE.md](ARCHITECTURE.md) -- component overview, data model, workflow engine, API surface, validation rules, git integration, and annotated sequence diagrams.
+For detailed guides, literature-backed requirements engineering philosophy, and architecture specifications:
+
+- 📖 **[User Guide & Operations Manual](docs/USER_GUIDE.md):** Complete operational guide covering CLI commands, REST endpoints, React UI workstation, workflow transitions, and module overlays.
+- 🎓 **[Requirements Philosophy & Best Practices](docs/REQUIREMENTS_PHILOSOPHY.md):** Grounding in Robertson & Robertson (Volere), INCOSE standards, ISO 29148, and how `reqtool` enforces good requirements management.
+- 🏗️ **[Architecture & Technical Specification](ARCHITECTURE.md):** Comprehensive component design, data models, store locking, APIRouters, WebSocket CRDTs, and export engines.
+- 🤝 **[Contributing Guidelines](CONTRIBUTING.md):** Developer environment setup, testing guidelines, and submission workflow.
