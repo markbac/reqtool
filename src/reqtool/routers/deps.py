@@ -85,6 +85,11 @@ def broadcast_sync(event: str, payload: dict) -> None:
         loop.create_task(_do())
 
 
+from concurrent.futures import ThreadPoolExecutor
+
+_webhook_executor = ThreadPoolExecutor(max_workers=5, thread_name_prefix="reqtool-webhook-")
+
+
 def fire_webhook(store: Store, event: str, payload: dict) -> None:
     """Fire webhooks and broadcast WebSocket notification async."""
     # 1. HTTP Webhooks
@@ -121,7 +126,7 @@ def fire_webhook(store: Store, event: str, payload: dict) -> None:
                 log.warning("Webhook delivery failed to %s: %s", url, exc)
 
         for hook in hooks:
-            threading.Thread(target=_send, args=(hook.url, hook.secret), daemon=True).start()
+            _webhook_executor.submit(_send, hook.url, hook.secret)
 
     # 2. WebSocket broadcast
     broadcast_sync(event, {"uid": payload.get("uid", ""), "payload": payload})
