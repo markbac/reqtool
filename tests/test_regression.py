@@ -456,37 +456,36 @@ class TestCsvImportRegression:
 # ===========================================================================
 
 class TestInitDefaultsRegression:
-    def test_principles_cover_8_domains(self):
+    def test_principles_cover_8_domains(self, tmp_path, monkeypatch):
         from click.testing import CliRunner
         from reqtool.cli import cli
         from reqtool.store import Store
 
+        monkeypatch.chdir(tmp_path)
         runner = CliRunner()
-        with runner.isolated_filesystem() as td:
-            result = runner.invoke(cli, ["init", "defaults", "--id", "x", "--title", "X"])
-            assert result.exit_code == 0
-            root = Path(td)
-            s = Store(root)
-            s.load()
-            domains = {p.get("domain") for p in s.principles.values() if p.get("domain")}
-            expected = {"business", "architecture", "security", "firmware",
-                        "comms", "data", "process", "safety"}
-            assert expected.issubset(domains), f"Missing domains: {expected - domains}"
+        result = runner.invoke(cli, ["init", "defaults", "--id", "x", "--title", "X"])
+        assert result.exit_code == 0
+        s = Store(tmp_path)
+        s.load()
+        domains = {p.get("domain") for p in s.principles.values() if p.get("domain")}
+        expected = {"business", "architecture", "security", "firmware",
+                    "comms", "data", "process", "safety"}
+        assert expected.issubset(domains), f"Missing domains: {expected - domains}"
 
-    def test_workflow_states_in_config(self):
+    def test_workflow_states_in_config(self, tmp_path, monkeypatch):
         from click.testing import CliRunner
         from reqtool.cli import cli
         from reqtool.fileio import load_yaml
 
+        monkeypatch.chdir(tmp_path)
         runner = CliRunner()
-        with runner.isolated_filesystem() as td:
-            runner.invoke(cli, ["init", "defaults", "--id", "x", "--title", "X"])
-            cfg = load_yaml(Path(td) / ".reqtool" / "config.yaml")
-            wf = cfg.get("workflow", {})
-            assert "states" in wf
-            state_ids = [s["id"] for s in wf["states"]]
-            assert "draft" in state_ids
-            assert "approved" in state_ids
+        runner.invoke(cli, ["init", "defaults", "--id", "x", "--title", "X"])
+        cfg = load_yaml(tmp_path / ".reqtool" / "config.yaml")
+        wf = cfg.get("workflow", {})
+        assert "states" in wf
+        state_ids = [s["id"] for s in wf["states"]]
+        assert "draft" in state_ids
+        assert "approved" in state_ids
 
 
 # ===========================================================================
