@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+import subprocess
+import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from .fileio import (
     compute_requirement_hash,
@@ -20,6 +23,78 @@ from .fileio import (
 
 if TYPE_CHECKING:
     from .store import Store
+
+
+def run_vale_lint(
+    text: str, repo_root: Optional[Path] = None, uid: str = "", field: str = ""
+) -> list[dict[str, str]]:
+    """
+    Run Vale CLI prose linter on text.
+    Returns list of warning dicts for any prose style violations.
+    """
+    if not text or not text.strip():
+        return []
+
+    vale_bin = shutil.which("vale")
+    if not vale_bin:
+        return []
+
+    config_path = None
+    if repo_root and (repo_root / ".vale.ini").exists():
+        config_path = repo_root / ".vale.ini"
+    else:
+        bundled = Path(__file__).parent / "defaults" / ".vale.ini"
+        if bundled.exists():
+            config_path = bundled
+
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False, encoding="utf-8"
+        ) as tmp:
+            tmp.write(text)
+            tmp_path = Path(tmp.name)
+    except Exception:
+        return []
+
+    try:
+        cmd = [vale_bin, "--output=JSON"]
+        if config_path:
+            cmd.append(f"--config={config_path}")
+        cmd.append(str(tmp_path))
+
+        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+        if not res.stdout or not res.stdout.strip():
+            return []
+
+        try:
+            data = json.loads(res.stdout)
+        except Exception:
+            return []
+
+        warnings: list[dict[str, str]] = []
+        for alert_list in data.values():
+            if not isinstance(alert_list, list):
+                continue
+            for alert in alert_list:
+                severity = alert.get("Severity", "warning").lower()
+                msg = alert.get("Message", "")
+                rule = alert.get("Check", "vale.rule")
+                line = alert.get("Line", 1)
+                code = "VALE_PROSE_ERROR" if severity == "error" else "VALE_PROSE_WARNING"
+                warnings.append({
+                    "code": code,
+                    "message": f"[Line {line}] {msg} ({rule})",
+                    "uid": uid,
+                    "field": field,
+                })
+        return warnings
+    except Exception:
+        return []
+    finally:
+        try:
+            tmp_path.unlink()
+        except Exception:
+            pass
 
 
 def _err(code: str, message: str, uid: str = "", field: str = "") -> dict[str, str]:
@@ -79,6 +154,42 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
         e, w = _validate_principle(principle, merged_enums)
         errors.extend(e)
         warnings.extend(w)
+
+        # Product Principle & NFR Constraint validation (Issue #29)
+        p_kind = principle.get("principle_kind") or principle.get("kind")
+        nfr_targets = principle.get("nfr_targets") or principle.get("nfr_constraints", {})
+        if p_kind == "product_nfr" or nfr_targets:
+            if isinstance(nfr_targets, dict):
+                for k in nfr_targets.keys():
+                    if nfr_keys and k not in nfr_keys:
+                        warnings.append(_warn(
+                            "unregistered_nfr_key",
+                            f"Product principle '{uid}' uses unregistered NFR key '{k}'",
+                            uid, "nfr_targets",
+                        ))
+            satisfied = False
+            for req_uid, req in store.requirements.items():
+                if req.get("deleted"):
+                    continue
+                for rel in req.get("relationships", []):
+                    tgt = rel.get("target", {}).get("uid") if isinstance(rel.get("target"), dict) else rel.get("target")
+                    if tgt == uid:
+                        satisfied = True
+                        break
+                if satisfied:
+                    break
+                for link in req.get("links", []):
+                    if link.get("target_uid") == uid:
+                        satisfied = True
+                        break
+                if satisfied:
+                    break
+            if not satisfied:
+                warnings.append(_warn(
+                    "unmapped_product_principle",
+                    f"Product NFR principle '{uid}' is not satisfied by any requirement",
+                    uid, "principle_kind",
+                ))
 
     for uid, tbd in store.tbds.items():
         if tbd.get("deleted"):
@@ -272,11 +383,36 @@ def _validate_requirement(
                     uid, "relationships",
                 ))
 
+        # Schedule dependency conflict check
+        if rel_type == "depends_on" and target_uid:
+            target_req = store_req_map.get(target_uid, {}) if 'store_req_map' in locals() else {}
+            this_rel = req.get("target_release") or req.get("iteration")
+            target_rel = target_req.get("target_release") or target_req.get("iteration")
+            if this_rel and target_rel and this_rel < target_rel:
+                warnings.append(_warn(
+                    "schedule_dependency_conflict",
+                    f"Item scheduled for '{this_rel}' depends on target {target_uid[:8]}... scheduled for later release '{target_rel}'",
+                    uid, "relationships",
+                ))
+
     # parentId
     parent = req.get("parentId")
     if parent and parent not in all_uids:
         errors.append(_err("broken_uid_ref",
                            f"parentId '{parent}' does not exist", uid, "parentId"))
+
+    # Link validation (top-level and acceptance criteria links)
+    all_links = list(req.get("links", []))
+    for ac in req.get("acceptance_criteria", []):
+        all_links.extend(ac.get("links", []))
+
+    for link in all_links:
+        sys_val = link.get("system")
+        if sys_val and sys_val not in merged_enums.get("link_system", []):
+            errors.append(_err("invalid_enum", f"Link system '{sys_val}' is not valid", uid, "links"))
+        target_ref = link.get("ref")
+        if sys_val in ("rms", "requirement", "principle", "tbd") and target_ref and target_ref not in all_uids:
+            errors.append(_err("broken_uid_ref", f"Link target UID '{target_ref}' does not exist", uid, "links"))
 
     # negative requires positive_counterpart
     if req.get("attributes", {}).get("negative"):
@@ -303,6 +439,14 @@ def _validate_requirement(
                 ))
 
     # --- Warnings ---
+
+    comp_status = req.get("legal_compliance_status")
+    if comp_status in ("partially_compliant", "non_compliant", "n_a") and not req.get("compliance_rationale"):
+        warnings.append(_warn(
+            "missing_compliance_rationale",
+            f"legal_compliance_status '{comp_status}' requires compliance_rationale explanation",
+            uid, "compliance_rationale",
+        ))
 
     if cfg.require_rationale_for_approved and approval_status == "approved":
         if not content.get("rationale"):

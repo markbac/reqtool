@@ -1,0 +1,12 @@
+extends: existence
+message: "INCOSE Rule: Avoid unquantified term '%s'. Use explicit numeric bounds."
+level: warning
+tokens:
+  - high
+  - low
+  - maximum
+  - minimum
+  - several
+  - many
+  - approx
+  - approximately

@@ -1,0 +1,9 @@
+extends: existence
+message: "INCOSE Rule: Avoid unreferenced pronoun '%s'. Refer explicitly to named entities."
+level: warning
+tokens:
+  - it
+  - they
+  - this
+  - these
+  - those

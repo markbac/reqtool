@@ -1,0 +1,350 @@
+"""
+reqtool.routers.requirements
+============================
+FastAPI router for requirement endpoints.
+"""
+
+from __future__ import annotations
+
+import copy
+import logging
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from reqtool.store import Store
+from reqtool.git_ops import has_conflicts, stage_file, commit as git_commit, git_log
+from reqtool.models import (
+    CommitRequest, ApproveRequest, BulkUpdateRequest,
+    CreateRequirementRequest, UpdateRequirementRequest,
+    AddACRequest, UpdateACRequest,
+)
+from reqtool.fileio import utcnow_iso, uuid7, save_yaml
+from .deps import get_store, not_found, conflict, fire_webhook, broadcast_sync
+
+log = logging.getLogger(__name__)
+
+router = APIRouter(tags=["requirements"])
+
+
+@router.get("/requirements")
+def list_requirements(
+    product: Optional[str] = None,
+    domain: Optional[str] = None,
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+    req_type: Optional[str] = None,
+    owner: Optional[str] = None,
+    tag: Optional[str] = None,
+    deleted: bool = False,
+    store: Store = Depends(get_store),
+):
+    results = []
+    for req in store.requirements.values():
+        if not deleted and req.get("deleted"):
+            continue
+        if deleted and not req.get("deleted"):
+            continue
+        if domain and req.get("domain") != domain:
+            continue
+        if status and req.get("status") != status:
+            continue
+        if priority and req.get("priority") != priority:
+            continue
+        if req_type and req.get("req_type") != req_type:
+            continue
+        if owner and req.get("owner") != owner:
+            continue
+        if tag and tag not in req.get("tags", []):
+            continue
+        results.append({
+            "uid": req.get("uid"),
+            "id": req.get("id"),
+            "title": req.get("title"),
+            "status": req.get("status"),
+            "priority": req.get("priority"),
+            "req_type": req.get("req_type"),
+            "domain": req.get("domain"),
+            "owner": req.get("owner"),
+            "version": req.get("version"),
+            "parentId": req.get("parentId"),
+        })
+    return sorted(results, key=lambda r: r.get("id", ""))
+
+
+@router.get("/requirements/tree")
+def requirements_tree(
+    product: str = Query(...),
+    variant: Optional[str] = None,
+    store: Store = Depends(get_store),
+):
+    return store.build_tree(product, variant)
+
+
+@router.get("/requirements/{uid}")
+def get_requirement(uid: str, store: Store = Depends(get_store)):
+    req = store.get_requirement(uid)
+    if req is None:
+        raise not_found(uid)
+    return req
+
+
+@router.get("/requirements/{uid}/progress")
+def get_requirement_progress(uid: str, store: Store = Depends(get_store)):
+    """Return hierarchical progress percentage and estimate completion metrics."""
+    req = store.get_requirement(uid)
+    if req is None:
+        raise not_found(uid)
+    return store.compute_progress_rollup(uid)
+
+
+@router.post("/requirements/bulk")
+def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get_store)):
+    """Update a set of fields across multiple requirements at once."""
+    updated = []
+    failed = []
+    for uid in body.uids:
+        result = store.update_requirement(
+            uid, body.fields,
+            increment=body.increment,
+            summary=body.summary,
+        )
+        if result:
+            updated.append(uid)
+        else:
+            failed.append(uid)
+    return {"updated": updated, "failed": failed, "count": len(updated)}
+
+
+@router.post("/requirements/{uid}/clone", status_code=201)
+def clone_requirement(uid: str, new_id: str = "", store: Store = Depends(get_store)):
+    """Duplicate a requirement, clearing history and resetting version."""
+    src = store.get_requirement(uid)
+    if src is None:
+        raise not_found(uid)
+    fields = copy.deepcopy(src)
+    for key in ("uid", "content_hash", "created", "last_modified", "history",
+                "version", "schema_version", "tool_version", "type"):
+        fields.pop(key, None)
+    if new_id:
+        fields["id"] = new_id
+    else:
+        fields["id"] = src.get("id", "REQ") + "-COPY"
+    fields["title"] = src.get("title", "") + " (copy)"
+    fields["status"] = "draft"
+    fields["approval"] = {"status": "draft", "approved_by": None, "approved_date": None}
+    fields["verification"] = {"status": "not_started", "verified_date": None, "note": ""}
+    return store.create_requirement(fields)
+
+
+@router.post("/requirements/{uid}/relationships/{rel_index}/clear-suspect")
+def clear_suspect_link(uid: str, rel_index: int, store: Store = Depends(get_store)):
+    """Acknowledge and clear suspect flag on a relationship link."""
+    res = store.clear_suspect_link(uid, rel_index)
+    if not res:
+        raise not_found(f"Requirement '{uid}' or relationship index '{rel_index}' not found")
+    return {"status": "cleared", "uid": uid, "rel_index": rel_index}
+
+
+@router.post("/requirements", status_code=201)
+def create_requirement(body: CreateRequirementRequest, store: Store = Depends(get_store)):
+    if has_conflicts(store.root):
+        raise conflict("Working tree has unresolved merge conflicts")
+    return store.create_requirement(body.model_dump(exclude_none=True))
+
+
+@router.put("/requirements/{uid}")
+def update_requirement(
+    uid: str,
+    body: UpdateRequirementRequest,
+    if_version: Optional[str] = None,
+    store: Store = Depends(get_store),
+):
+    """Update a requirement. Pass if_version=<current_version> to detect concurrent edits."""
+    if has_conflicts(store.root):
+        raise conflict("Working tree has unresolved merge conflicts")
+    existing = store.get_requirement(uid)
+    if existing is None:
+        raise not_found(uid)
+    if if_version and existing.get("version") != if_version:
+        raise HTTPException(status_code=409, detail={
+            "error": "version_conflict",
+            "message": f"Requirement was modified since you loaded it "
+                       f"(your version: {if_version}, current: {existing.get('version')}). "
+                       "Reload and re-apply your changes.",
+            "current_version": existing.get("version"),
+            "your_version": if_version,
+        })
+    old_status = existing.get("status")
+    new_status = body.model_dump(exclude_none=True).get("status")
+    if new_status and new_status != old_status:
+        error = store.validate_transition(existing, new_status)
+        if error:
+            raise HTTPException(status_code=409, detail={"error": "workflow_guard", "message": error})
+    result = store.update_requirement(uid, body.model_dump(exclude_none=True), summary="Updated via API")
+    if result is None:
+        raise not_found(uid)
+    if result.get("status") != old_status:
+        fire_webhook(store, "status_changed", {
+            "uid": uid, "id": result.get("id"),
+            "from": old_status, "to": result.get("status"),
+        })
+    return result
+
+
+@router.delete("/requirements/{uid}")
+def delete_requirement(uid: str, store: Store = Depends(get_store)):
+    result = store.delete_requirement(uid)
+    if result is None:
+        raise not_found(uid)
+    return result
+
+
+@router.post("/requirements/{uid}/commit")
+def commit_requirement(uid: str, body: CommitRequest, store: Store = Depends(get_store)):
+    req = store.get_requirement(uid)
+    if req is None:
+        raise not_found(uid)
+    if has_conflicts(store.root):
+        raise conflict("Working tree has unresolved merge conflicts")
+    try:
+        file_path = store.req_path(uid)
+        store.update_requirement(
+            uid, {},
+            increment=body.increment or "patch",
+            summary=body.message or "Committed via UI",
+            change_ref=body.change_ref,
+        )
+        stage_file(store.root, file_path)
+        sha = git_commit(
+            store.root, body.message,
+            store.config.git.commit_name, store.config.git.commit_email,
+        )
+        req = store.get_requirement(uid)
+        if req and req.get("history"):
+            req["history"][-1]["commit_sha"] = sha[:7]
+            save_yaml(file_path, req)
+        return {"commit_sha": sha, "version": req.get("version", "") if req else ""}
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail={"error": "git_error", "message": str(exc)})
+
+
+@router.post("/requirements/{uid}/approve")
+def approve_requirement(uid: str, body: ApproveRequest, store: Store = Depends(get_store)):
+    req = store.get_requirement(uid)
+    if req is None:
+        raise not_found(uid)
+    now = utcnow_iso()
+    result = store.update_requirement(uid, {
+        "approval": {"status": "approved", "approved_by": body.approved_by, "approved_date": now},
+        "status": "approved",
+    }, increment="minor", summary=f"Approved by {body.approved_by}")
+    fire_webhook(store, "approved", {"uid": uid, "id": req.get("id"), "approved_by": body.approved_by})
+    return result
+
+
+@router.get("/requirements/{uid}/history")
+def requirement_history(uid: str, store: Store = Depends(get_store)):
+    req = store.get_requirement(uid)
+    if req is None:
+        raise not_found(uid)
+    file_path = store.req_path(uid)
+    git_entries = git_log(store.root, file_path)
+    return {
+        "in_file": req.get("history", []),
+        "git": git_entries,
+    }
+
+
+@router.get("/requirements/{uid}/relationships")
+def requirement_relationships(uid: str, store: Store = Depends(get_store)):
+    req = store.get_requirement(uid)
+    if req is None:
+        raise not_found(uid)
+    outgoing = req.get("relationships", [])
+    incoming = []
+    for other_uid, other in store.requirements.items():
+        if other_uid == uid:
+            continue
+        for rel in other.get("relationships", []):
+            if rel.get("target", {}).get("uid") == uid:
+                incoming.append({"source_uid": other_uid, "source_id": other.get("id"), "type": rel.get("type")})
+    return {"outgoing": outgoing, "incoming": incoming}
+
+
+@router.post("/requirements/{uid}/ac", status_code=201)
+def add_ac(uid: str, body: AddACRequest, store: Store = Depends(get_store)):
+    req = store.get_requirement(uid)
+    if req is None:
+        raise not_found(uid)
+    ac_uid = uuid7()
+    new_ac = {
+        "uid": ac_uid,
+        "id": body.id or f"{req.get('id', '')}__AC-{ac_uid[:8]}",
+        "text": body.text,
+        "links": body.links or [],
+    }
+    acs = list(req.get("acceptance_criteria", []))
+    acs.append(new_ac)
+    return store.update_requirement(uid, {"acceptance_criteria": acs}, summary="Added acceptance criterion")
+
+
+@router.put("/requirements/{uid}/ac/{ac_uid}")
+def update_ac(uid: str, ac_uid: str, body: UpdateACRequest, store: Store = Depends(get_store)):
+    req = store.get_requirement(uid)
+    if req is None:
+        raise not_found(uid)
+    acs = list(req.get("acceptance_criteria", []))
+    for i, ac in enumerate(acs):
+        if ac.get("uid") == ac_uid:
+            acs[i] = {**ac, **body.model_dump(exclude_none=True)}
+            return store.update_requirement(uid, {"acceptance_criteria": acs}, summary="Updated acceptance criterion")
+    raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"AC '{ac_uid}' not found"})
+
+
+@router.delete("/requirements/{uid}/ac/{ac_uid}")
+def delete_ac(uid: str, ac_uid: str, store: Store = Depends(get_store)):
+    req = store.get_requirement(uid)
+    if req is None:
+        raise not_found(uid)
+    acs = [ac for ac in req.get("acceptance_criteria", []) if ac.get("uid") != ac_uid]
+    return store.update_requirement(uid, {"acceptance_criteria": acs}, summary="Removed acceptance criterion")
+
+
+@router.get("/requirements/{uid}/impact")
+def requirement_impact(uid: str, store: Store = Depends(get_store)):
+    """Return the transitive downstream impact closure for a requirement."""
+    req = store.get_requirement(uid)
+    if req is None:
+        raise not_found(uid)
+    return store.compute_impact(uid)
+
+
+@router.post("/requirements/{uid}/transition")
+def transition_requirement(uid: str, body: dict, store: Store = Depends(get_store)):
+    """Transition a requirement to a new status with workflow guard enforcement."""
+    req = store.get_requirement(uid)
+    if req is None:
+        raise not_found(uid)
+    to_state = body.get("to_state", "")
+    if not to_state:
+        raise HTTPException(status_code=422, detail={"error": "validation", "message": "to_state is required"})
+    error = store.validate_transition(req, to_state)
+    if error:
+        raise HTTPException(status_code=409, detail={"error": "workflow_guard", "message": error})
+    old_status = req.get("status")
+    result = store.update_requirement(uid, {"status": to_state}, summary=f"Transitioned to {to_state}")
+    fire_webhook(store, "status_changed", {
+        "uid": uid, "id": req.get("id"), "from": old_status, "to": to_state,
+    })
+    broadcast_sync("status_changed", {"uid": uid, "id": req.get("id"), "from": old_status, "to": to_state})
+    return result
+
+
+@router.get("/requirements/{uid}/rollup")
+def estimate_rollup(uid: str, store: Store = Depends(get_store)):
+    """Return the rolled-up estimate sum for all direct children."""
+    req = store.get_requirement(uid)
+    if req is None:
+        raise not_found(uid)
+    rollup = store.compute_estimate_rollup(uid)
+    return {"uid": uid, "estimate_rollup": rollup, "estimate_unit": store.repo_enums.estimate_unit}

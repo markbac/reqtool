@@ -1,0 +1,10 @@
+extends: existence
+message: "INCOSE Rule: Avoid escape clause '%s'. Requirements must be unconditional or specify explicit triggers."
+level: warning
+tokens:
+  - if possible
+  - where appropriate
+  - as far as practical
+  - if necessary
+  - as required
+  - to the extent possible

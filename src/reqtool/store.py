@@ -35,14 +35,38 @@ log = logging.getLogger(__name__)
 from . import __version__ as TOOL_VERSION
 
 
+import threading
+
+from .stores import attachment_store, comment_store, hierarchy_store
+
+
+def substitute_template_variables(val: Any, variables: dict[str, Any]) -> Any:
+    """Recursively substitute {{var_name}} and {{var.var_name}} template expressions."""
+    if not variables or not val:
+        return val
+    if isinstance(val, str):
+        res = val
+        for k, v in variables.items():
+            pattern1 = "{{" + k + "}}"
+            pattern2 = "{{var." + k + "}}"
+            res = res.replace(pattern1, str(v)).replace(pattern2, str(v))
+        return res
+    if isinstance(val, dict):
+        return {k: substitute_template_variables(v, variables) for k, v in val.items()}
+    if isinstance(val, list):
+        return [substitute_template_variables(item, variables) for item in val]
+    return val
+
+
 class Store:
     """
     Holds all loaded artefacts in memory.
     Call load() to populate from disk.
     """
 
-    def __init__(self, repo_root: Path) -> None:
+    def __init__(self, repo_root: Path = Path(".")) -> None:
         self.root = repo_root
+        self._lock = threading.RLock()
         self.config: RepoConfig = RepoConfig()
         self.core_enums: CoreEnums = CoreEnums()
         self.repo_enums: RepoEnums = RepoEnums()
@@ -54,7 +78,6 @@ class Store:
         self.modules: dict[str, dict[str, Any]] = {}
         self.products: dict[str, dict[str, Any]] = {}
         self.module_requirements: dict[str, dict[str, dict[str, Any]]] = {}
-        # module_requirements[module_id][uid] = req dict
 
     # ------------------------------------------------------------------
     # Loading
@@ -62,28 +85,28 @@ class Store:
 
     def load(self) -> None:
         """Load (or reload) all artefacts from the repository root."""
-        # Reset all collections to prevent stale data from deleted files
-        self.requirements = {}
-        self.principles = {}
-        self.tbds = {}
-        self.modules = {}
-        self.products = {}
-        self.module_requirements = {}
+        with self._lock:
+            self.requirements = {}
+            self.principles = {}
+            self.tbds = {}
+            self.modules = {}
+            self.products = {}
+            self.module_requirements = {}
 
-        self._load_config()
-        self._load_enums()
-        self._load_hierarchy()
-        self._load_dir(self.root / "requirements", self.requirements)
-        self._load_dir(self.root / "principles", self.principles)
-        self._load_dir(self.root / "tbds", self.tbds)
-        self._load_modules()
-        self._load_products()
-        log.info(
-            "Store loaded: %d requirements, %d principles, %d TBDs, "
-            "%d modules, %d products",
-            len(self.requirements), len(self.principles), len(self.tbds),
-            len(self.modules), len(self.products),
-        )
+            self._load_config()
+            self._load_enums()
+            self._load_hierarchy()
+            self._load_dir(self.root / "requirements", self.requirements)
+            self._load_dir(self.root / "principles", self.principles)
+            self._load_dir(self.root / "tbds", self.tbds)
+            self._load_modules()
+            self._load_products()
+            log.info(
+                "Store loaded: %d requirements, %d principles, %d TBDs, "
+                "%d modules, %d products",
+                len(self.requirements), len(self.principles), len(self.tbds),
+                len(self.modules), len(self.products),
+            )
 
     def _load_config(self) -> None:
         cfg_path = self.root / ".reqtool" / "config.yaml"
@@ -99,20 +122,7 @@ class Store:
 
     def _load_hierarchy(self) -> None:
         """Load hierarchy.yaml from project, falling back to bundled defaults."""
-        project_path = self.root / ".reqtool" / "hierarchy.yaml"
-        default_path = Path(__file__).parent / "defaults" / "hierarchy.yaml"
-        for path in (project_path, default_path):
-            if path.exists():
-                try:
-                    data = load_yaml(path)
-                    if isinstance(data, dict):
-                        # Parse workflows with guards (not natively handled by simple model_validate)
-                        self.hierarchy = self._parse_hierarchy(data)
-                        return
-                except Exception as exc:
-                    log.warning("Failed to load hierarchy from %s: %s", path, exc)
-        # Leave default empty HierarchyConfig if nothing loads
-        log.debug("No hierarchy.yaml found; using empty HierarchyConfig")
+        self.hierarchy = hierarchy_store.load_hierarchy(self.root)
 
     def _parse_hierarchy(self, data: dict) -> HierarchyConfig:
         """Parse hierarchy YAML into HierarchyConfig, handling nested guards."""
@@ -285,12 +295,17 @@ class Store:
         """
         all_reqs = dict(self.requirements)
 
-        # Include module requirements for this product, applying overrides
+        # Include module requirements for this product, applying overlays and overrides
         if product_id and product_id in self.products:
             product = self.products[product_id]
+            prod_vars = product.get("variables", {}) or product.get("parameters", {}) or {}
+
             for mod_ref in product.get("modules", []):
                 mod_id = mod_ref.get("id")
                 overrides = mod_ref.get("overrides", {}) or {}
+                overlay = mod_ref.get("overlay", {}) or mod_ref.get("overlays", {}) or {}
+                mod_vars = {**prod_vars, **(mod_ref.get("variables", {}) or mod_ref.get("parameters", {}) or {})}
+
                 module = self.modules.get(mod_id, {})
                 overrideable: set[str] = set(module.get("overrideable", []))
 
@@ -298,19 +313,23 @@ class Store:
                     for uid, req in self.module_requirements[mod_id].items():
                         if uid not in all_reqs:
                             merged = {**req, "_module": mod_id}
-                            # Apply per-UID overrides from product manifest
+                            # Product Overlay (Issue #31)
+                            if uid in overlay:
+                                merged = {**merged, **overlay[uid]}
+                            # Per-UID overrides from product manifest
                             if uid in overrides:
                                 uid_overrides = overrides[uid]
                                 for field, value in uid_overrides.items():
                                     if field in overrideable:
-                                        # Handle nested fields like attributes.*
                                         if "." in field:
                                             top, sub = field.split(".", 1)
                                             if isinstance(merged.get(top), dict):
                                                 merged[top] = {**merged[top], sub: value}
                                         else:
                                             merged[field] = value
-                                    # silently ignore non-overrideable fields per spec
+                            # Template Variable Substitution (Issue #30)
+                            if mod_vars:
+                                merged = substitute_template_variables(merged, mod_vars)
                             all_reqs[uid] = merged
 
         # Filter variant if specified
@@ -533,6 +552,7 @@ class Store:
         if new_hash != old_hash:
             data["version"] = bump_version(data.get("version", "1.0.0"), increment)
             data["content_hash"] = new_hash
+            self._mark_downstream_suspect(uid)
 
         data["last_modified"] = now
         history = data.get("history", [])
@@ -543,6 +563,32 @@ class Store:
 
         save_yaml(self.req_path(uid), data)
         return data
+
+    def _mark_downstream_suspect(self, upstream_uid: str) -> None:
+        """Mark downstream requirements linked to upstream_uid as suspect upon upstream update."""
+        for req_uid, req in self.requirements.items():
+            if req.get("deleted") or req_uid == upstream_uid:
+                continue
+            updated = False
+            for rel in req.get("relationships", []):
+                rel_target_uid = rel.get("target", {}).get("uid") or rel.get("uid")
+                if rel_target_uid == upstream_uid:
+                    rel["suspect"] = True
+                    updated = True
+            if updated:
+                save_yaml(self.req_path(req_uid), req)
+
+    def clear_suspect_link(self, req_uid: str, rel_index: int) -> bool:
+        """Clear suspect flag on a relationship link."""
+        req = self.requirements.get(req_uid)
+        if not req or "relationships" not in req:
+            return False
+        rels = req["relationships"]
+        if 0 <= rel_index < len(rels):
+            rels[rel_index]["suspect"] = False
+            save_yaml(self.req_path(req_uid), req)
+            return True
+        return False
 
     def delete_requirement(self, uid: str) -> Optional[dict[str, Any]]:
         data = self.requirements.get(uid)
@@ -701,23 +747,24 @@ class Store:
         """Incrementally reload a single changed YAML file instead of full reload.
         Falls back to full reload for config/enums changes.
         """
-        path_str = str(changed_path)
+        with self._lock:
+            path_str = str(changed_path)
 
-        # Config or enums changes require full reload
-        if ".reqtool" in path_str:
-            log.info("Config file changed, full reload: %s", changed_path)
-            self.load()
-            return
+            # Config or enums changes require full reload
+            if ".reqtool" in path_str:
+                log.info("Config file changed, full reload: %s", changed_path)
+                self.load()
+                return
 
-        # Determine collection from path
-        rel = changed_path.relative_to(self.root) if changed_path.is_absolute() else changed_path
-        parts = rel.parts
+            # Determine collection from path
+            rel = changed_path.relative_to(self.root) if changed_path.is_absolute() else changed_path
+            parts = rel.parts
 
-        if not parts:
-            self.load()
-            return
+            if not parts:
+                self.load()
+                return
 
-        top = parts[0]
+            top = parts[0]
 
         try:
             if top == "requirements":
@@ -809,7 +856,7 @@ class Store:
     # ------------------------------------------------------------------
 
     def attachment_dir(self, uid: str) -> Path:
-        return self.root / "attachments" / uid
+        return attachment_store.attachment_dir(self.root, uid)
 
     def _get_artefact(self, uid: str) -> Optional[tuple[dict, str]]:
         """Return (artefact_dict, type) for any uid, or None."""
@@ -835,127 +882,38 @@ class Store:
         self, uid: str, filename: str, data: bytes, author: str = "reqtool",
         description: str = "",
     ) -> dict[str, Any]:
-        """Save a file and record it in the artefact's attachments list.
-
-        Works for requirements, principles, and TBDs.
-        Order: update YAML first, then write binary.
-        """
-        import hashlib
-        dest_dir = self.attachment_dir(uid)
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        dest = dest_dir / filename
-
-        sha256 = f"sha256:{hashlib.sha256(data).hexdigest()}"
-        now = utcnow_iso()
-        record = {
-            "filename": filename,
-            "size_bytes": len(data),
-            "sha256": sha256,
-            "added_by": author,
-            "added_at": now,
-            "description": description,
-        }
-
-        result = self._get_artefact(uid)
-        if result is None:
-            raise ValueError(f"Artefact {uid} not found")
-        artefact, _ = result
-        attachments = list(artefact.get("attachments", []))
-        attachments = [a for a in attachments if a.get("filename") != filename]
-        attachments.append(record)
-
-        # Update YAML first -- watchdog will see the updated record
-        self._update_artefact(uid, {"attachments": attachments},
-                              summary=f"Added attachment: {filename}")
-
-        # Write binary after YAML is stable
-        dest.write_bytes(data)
-        return record
+        return attachment_store.add_attachment(self, uid, filename, data, author, description)
 
     def delete_attachment(self, uid: str, filename: str) -> bool:
-        dest = self.attachment_dir(uid) / filename
-        if dest.exists():
-            dest.unlink()
-        result = self._get_artefact(uid)
-        if result is None:
-            return False
-        artefact, _ = result
-        before = artefact.get("attachments", [])
-        after = [a for a in before if a.get("filename") != filename]
-        if len(after) == len(before) and not dest.exists():
-            # Nothing was removed
-            return False
-        self._update_artefact(uid, {"attachments": after},
-                              summary=f"Removed attachment: {filename}")
-        return True
+        return attachment_store.delete_attachment(self, uid, filename)
 
     def list_attachments(self, uid: str) -> list[dict]:
-        result = self._get_artefact(uid)
-        if result is None:
-            return []
-        artefact, _ = result
-        return artefact.get("attachments", [])
+        return attachment_store.list_attachments(self, uid)
 
     # ------------------------------------------------------------------
     # Comments  (stored in comments/<uid>.yaml, outside content hash)
-    # Works for requirements, principles, and TBDs.
     # ------------------------------------------------------------------
 
     def comments_path(self, uid: str) -> Path:
-        return self.root / "comments" / f"{uid}.yaml"
+        return comment_store.comments_path(self.root, uid)
 
     def get_comments(self, uid: str) -> list[dict[str, Any]]:
-        path = self.comments_path(uid)
-        if not path.exists():
-            return []
-        data = load_yaml(path)
-        return data if isinstance(data, list) else []
+        return comment_store.get_comments(self.root, uid)
 
     def add_comment(
         self, uid: str, text: str, author: str,
         reply_to: Optional[str] = None,
     ) -> dict[str, Any]:
-        (self.root / "comments").mkdir(exist_ok=True)
-        comments = self.get_comments(uid)
-        comment = {
-            "uid": uuid7(),
-            "text": text,
-            "author": author,
-            "created_at": utcnow_iso(),
-            "updated_at": None,
-            "reply_to": reply_to,
-            "resolved": False,
-        }
-        comments.append(comment)
-        save_yaml(self.comments_path(uid), comments)
-        return comment
+        return comment_store.add_comment(self.root, uid, text, author, reply_to)
 
     def update_comment(self, uid: str, comment_uid: str, text: str) -> Optional[dict[str, Any]]:
-        comments = self.get_comments(uid)
-        for c in comments:
-            if c.get("uid") == comment_uid:
-                c["text"] = text
-                c["updated_at"] = utcnow_iso()
-                save_yaml(self.comments_path(uid), comments)
-                return c
-        return None
+        return comment_store.update_comment(self.root, uid, comment_uid, text)
 
     def resolve_comment(self, uid: str, comment_uid: str, resolved: bool = True) -> Optional[dict[str, Any]]:
-        comments = self.get_comments(uid)
-        for c in comments:
-            if c.get("uid") == comment_uid:
-                c["resolved"] = resolved
-                save_yaml(self.comments_path(uid), comments)
-                return c
-        return None
+        return comment_store.resolve_comment(self.root, uid, comment_uid, resolved)
 
     def delete_comment(self, uid: str, comment_uid: str) -> bool:
-        comments = self.get_comments(uid)
-        new = [c for c in comments if c.get("uid") != comment_uid]
-        if len(new) == len(comments):
-            return False
-        save_yaml(self.comments_path(uid), new)
-        return True
+        return comment_store.delete_comment(self.root, uid, comment_uid)
 
     # ------------------------------------------------------------------
     # Custom field schema (from .reqtool/custom_fields.yaml)
@@ -1007,105 +965,30 @@ class Store:
         return errors
 
     # ------------------------------------------------------------------
-
-    # ------------------------------------------------------------------
     # Hierarchy helpers
     # ------------------------------------------------------------------
 
     def get_workflow_for_type(self, req_type: str) -> Optional[HierarchyWorkflowDef]:
-        """Return the HierarchyWorkflowDef for a given req_type, or None."""
-        type_cfg = self.hierarchy.types.get(req_type)
-        if not type_cfg:
-            return None
-        return self.hierarchy.workflows.get(type_cfg.workflow)
+        return hierarchy_store.get_workflow_for_type(self.hierarchy, req_type)
 
     def get_allowed_children(self, req_type: str) -> list[str]:
-        """Return the list of allowed child types for a given parent type."""
-        rule = self.hierarchy.hierarchy.get(req_type)
-        if rule is None:
-            return []
-        return rule.allowed_children
+        return hierarchy_store.get_allowed_children(self.hierarchy, req_type)
 
     def check_transition_guard(
         self, req: dict[str, Any], to_state: str
     ) -> Optional[str]:
-        """
-        Check if transitioning to `to_state` satisfies all guards.
-        Returns an error message string if blocked, or None if allowed.
-        """
-        req_type = req.get("req_type", "functional")
-        wf = self.get_workflow_for_type(req_type)
-        if not wf:
-            return None  # No workflow configured -- allow all transitions
-        guard = wf.guards.get(to_state)
-        if not guard:
-            return None  # No guard for this state
-
-        # Check required fields
-        for field_path in guard.requires_fields:
-            parts = field_path.split(".")
-            val = req
-            for p in parts:
-                if isinstance(val, dict):
-                    val = val.get(p)
-                else:
-                    val = None
-                    break
-            if not val:
-                return guard.message or f"Field '{field_path}' is required before transitioning to '{to_state}'."
-
-        # Check required AC
-        if guard.requires_ac and not req.get("acceptance_criteria"):
-            return guard.message or f"At least one acceptance criterion is required before transitioning to '{to_state}'."
-
-        return None
+        return hierarchy_store.check_transition_guard(self.hierarchy, req, to_state)
 
     def validate_transition(
         self, req: dict[str, Any], to_state: str
     ) -> Optional[str]:
-        """
-        Validate that the transition from the current status to `to_state` is permitted
-        by the workflow definition.  Returns an error message or None if allowed.
-        """
-        req_type = req.get("req_type", "functional")
-        current = req.get("status", "draft")
-        wf = self.get_workflow_for_type(req_type)
-        if not wf:
-            # No hierarchy workflow -- fall back to config workflow
-            allowed = self.config.workflow.transitions.get(current, [])
-            if to_state not in allowed and to_state != current:
-                return f"Transition from '{current}' to '{to_state}' is not permitted."
-            return None
-        allowed = wf.transitions.get(current, [])
-        if to_state not in allowed and to_state != current:
-            return f"Transition from '{current}' to '{to_state}' is not permitted for type '{req_type}'."
-        return self.check_transition_guard(req, to_state)
+        return hierarchy_store.validate_transition(self.hierarchy, self.config.workflow, req, to_state)
 
     def next_id_for_type(self, req_type: str) -> str:
-        """
-        Auto-increment ID for a given req_type based on the configured prefix.
-        Looks at all existing requirement IDs and finds the highest numeric suffix.
-        """
-        type_cfg = self.hierarchy.types.get(req_type)
-        prefix = type_cfg.id_prefix if type_cfg else req_type.upper()[:3]
-
-        max_n = 0
-        for req in self.requirements.values():
-            rid = req.get("id", "")
-            if rid.startswith(prefix + "-"):
-                try:
-                    n = int(rid[len(prefix) + 1:])
-                    if n > max_n:
-                        max_n = n
-                except ValueError:
-                    pass
-        return f"{prefix}-{max_n + 1:03d}"
+        return hierarchy_store.next_id_for_type(self.hierarchy, self.requirements, req_type)
 
     def default_checklist(self, kind: str, req_type: str) -> list[dict[str, Any]]:
-        """Return default DoR or DoD checklist items for a type, with checked=False."""
-        templates = self.hierarchy.dor if kind == "dor" else self.hierarchy.dod
-        items = templates.get(req_type, [])
-        return [{"item": i.get("item", ""), "checked": False} for i in items]
+        return hierarchy_store.default_checklist(self.hierarchy, kind, req_type)
 
     # ------------------------------------------------------------------
     # Impact analysis
@@ -1417,6 +1300,57 @@ class Store:
                     break
         return affected
 
+    def compute_progress_rollup(self, uid: str) -> dict[str, Any]:
+        """Compute hierarchical estimate progress percentage and completed item counts."""
+        target = self.requirements.get(uid)
+        if not target:
+            return {"uid": uid, "total_items": 0, "done_items": 0, "total_estimate": 0.0, "done_estimate": 0.0, "progress_pct": 0.0}
+
+        descendants: list[dict] = []
+        visited = set()
+
+        def _collect(parent_uid: str):
+            for r_uid, r in self.requirements.items():
+                if r.get("deleted") or r_uid in visited:
+                    continue
+                if r.get("parentId") == parent_uid:
+                    visited.add(r_uid)
+                    descendants.append(r)
+                    _collect(r_uid)
+
+        _collect(uid)
+        items = [target] + descendants
+
+        total_items = len(items)
+        done_items = 0
+        total_estimate = 0.0
+        done_estimate = 0.0
+        _DONE_STATES = {"done", "approved", "verified", "active", "resolved"}
+
+        for item in items:
+            est = float(item.get("estimate") or 0.0)
+            status = item.get("status", "")
+            is_done = status in _DONE_STATES
+            total_estimate += est
+            if is_done:
+                done_items += 1
+                done_estimate += est
+
+        pct = round((done_estimate / total_estimate * 100.0), 1) if total_estimate > 0 else (
+            round((done_items / total_items * 100.0), 1) if total_items > 0 else 0.0
+        )
+
+        return {
+            "uid": uid,
+            "id": target.get("id", ""),
+            "title": target.get("title", ""),
+            "total_items": total_items,
+            "done_items": done_items,
+            "total_estimate": total_estimate,
+            "done_estimate": done_estimate,
+            "progress_pct": pct,
+        }
+
     def search_uids(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
         """Search requirements, principles, and TBDs by ID or title fragment."""
         q = query.lower().strip()
@@ -1442,4 +1376,27 @@ class Store:
                     "type": "principle",
                 })
         return results[:limit]
+
+    def fetch_remote_module(self, module_id: str) -> dict[str, Any]:
+        """Fetch an external Git repository module into modules/<module_id>/."""
+        manifest_path = self.root / "modules" / module_id / "_module.yaml"
+        if not manifest_path.exists():
+            raise ValueError(f"Module manifest for '{module_id}' not found")
+        data = load_yaml(manifest_path)
+        git_remote = data.get("git_remote")
+        git_ref = data.get("git_ref", "main")
+        if not git_remote:
+            raise ValueError(f"Module '{module_id}' does not specify 'git_remote'")
+
+        target_dir = self.root / "modules" / module_id / "remote"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        from .git_ops import _run_git
+        if (target_dir / ".git").exists():
+            _run_git(["fetch", "origin"], target_dir)
+            _run_git(["checkout", git_ref], target_dir)
+        else:
+            _run_git(["clone", "--branch", git_ref, git_remote, str(target_dir)], self.root)
+
+        self._load_modules()
+        return {"status": "fetched", "module_id": module_id, "git_remote": git_remote, "git_ref": git_ref}
 

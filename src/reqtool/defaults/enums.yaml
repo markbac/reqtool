@@ -53,19 +53,48 @@ team:
 owner: []
 
 # Safety integrity levels. Used on safety-related requirements.
-# Uncomment the relevant standard for your domain.
+# Supports IEC 61508 (SIL), ISO 26262 (ASIL), DO-178C (DAL), and IEC 62304 (Medical).
 safety_class:
   - SIL-1
   - SIL-2
   - SIL-3
   - SIL-4
-  # - ASIL-A
-  # - ASIL-B
-  # - ASIL-C
-  # - ASIL-D
-  # - Cat-1
-  # - Cat-2
-  # - Cat-3
+  - ASIL-A
+  - ASIL-B
+  - ASIL-C
+  - ASIL-D
+  - QM
+  - DAL-A
+  - DAL-B
+  - DAL-C
+  - DAL-D
+  - DAL-E
+  - Class-A
+  - Class-B
+  - Class-C
+
+# Verification methods for requirement verification blocks.
+verification_method:
+  - test
+  - analysis
+  - inspection
+  - demonstration
+  - simulation
+
+# Priority levels.
+priority:
+  - critical
+  - high
+  - medium
+  - low
+
+# Risk classifications.
+risk:
+  - critical
+  - high
+  - medium
+  - low
+  - none
 
 # Labels for requirements, principles and TBDs.
 tags:

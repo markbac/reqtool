@@ -502,7 +502,7 @@ def export_jsx(
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     return _JSX_TEMPLATE.format(
-        tool_version="0.1.0",
+        tool_version="0.3.20",
         product_id=product_id or "all",
         generated_at=now,
         requirements_json=json.dumps(reqs_data, indent=2, default=str),
@@ -511,3 +511,131 @@ def export_jsx(
         domain_colours_json=json.dumps(domain_colours, indent=2),
         component_name=component_name,
     )
+
+
+# ---------------------------------------------------------------------------
+# 2D Coverage Matrix Exporter
+# ---------------------------------------------------------------------------
+
+def export_coverage_matrix(
+    store: "Store",
+    source_type: str = "stakeholder_need",
+    target_type: str = "functional",
+) -> dict[str, Any]:
+    """Generate 2D coverage matrix grid mapping source_type requirements to target_type requirements."""
+    sources = [r for r in store.requirements.values() if not r.get("deleted") and r.get("req_type") == source_type]
+    targets = [r for r in store.requirements.values() if not r.get("deleted") and r.get("req_type") == target_type]
+
+    grid: list[list[str]] = []
+    matrix_rows = []
+
+    for src in sources:
+        src_uid = src.get("uid")
+        row = {"source": {"uid": src_uid, "id": src.get("id"), "title": src.get("title")}, "targets": []}
+        for tgt in targets:
+            tgt_uid = tgt.get("uid")
+            is_linked = any(
+                rel.get("target", {}).get("uid") == src_uid or rel.get("uid") == src_uid
+                for rel in tgt.get("relationships", [])
+            ) or (tgt.get("parentId") == src_uid)
+            if is_linked:
+                row["targets"].append({"uid": tgt_uid, "id": tgt.get("id"), "title": tgt.get("title")})
+        matrix_rows.append(row)
+
+    total_sources = len(sources)
+    covered_sources = sum(1 for r in matrix_rows if r["targets"])
+    coverage_pct = round((covered_sources / total_sources * 100.0), 1) if total_sources > 0 else 0.0
+
+    return {
+        "source_type": source_type,
+        "target_type": target_type,
+        "total_sources": total_sources,
+        "covered_sources": covered_sources,
+        "coverage_pct": coverage_pct,
+        "matrix": matrix_rows,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Gap Analysis Exporter
+# ---------------------------------------------------------------------------
+
+def export_gap_analysis(store: "Store") -> dict[str, Any]:
+    """Audit requirements lacking acceptance criteria, verification methods, or upstream links."""
+    missing_ac = []
+    missing_verification = []
+    missing_upstream = []
+
+    for uid, req in store.requirements.items():
+        if req.get("deleted"):
+            continue
+        req_type = req.get("req_type", "")
+        if not req.get("acceptance_criteria"):
+            missing_ac.append({"uid": uid, "id": req.get("id"), "title": req.get("title"), "type": req_type})
+        if not req.get("verification_method") or req.get("verification", {}).get("status") == "not_started":
+            missing_verification.append({"uid": uid, "id": req.get("id"), "title": req.get("title"), "type": req_type})
+        if req_type not in ("stakeholder_need", "theme") and not req.get("parentId"):
+            has_upstream = any(
+                r.get("type") in ("derived_from", "satisfies", "implements")
+                for r in req.get("relationships", [])
+            )
+            if not has_upstream:
+                missing_upstream.append({"uid": uid, "id": req.get("id"), "title": req.get("title"), "type": req_type})
+
+    return {
+        "missing_acceptance_criteria": missing_ac,
+        "missing_verification": missing_verification,
+        "missing_upstream_derivation": missing_upstream,
+        "counts": {
+            "missing_ac": len(missing_ac),
+            "missing_verification": len(missing_verification),
+            "missing_upstream": len(missing_upstream),
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# ReqIF (OMG Requirements Interchange Format v1.2) XML Exporter
+# ---------------------------------------------------------------------------
+
+def export_reqif_xml(store: "Store") -> str:
+    """Export all requirements and principles as an OMG ReqIF 1.2 XML document."""
+    from datetime import datetime, timezone
+    import xml.etree.ElementTree as ET
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    root = ET.Element("REQ-IF", {
+        "xmlns": "http://www.omg.org/spec/ReqIF/20110401/reqif.xsd",
+        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+    })
+
+    header = ET.SubElement(root, "THE-HEADER")
+    reqif_header = ET.SubElement(header, "REQ-IF-HEADER", {"IDENTIFIER": f"reqif-{store.config.repo_id or 'reqtool'}"})
+    ET.SubElement(reqif_header, "CREATION-TIME").text = now
+    ET.SubElement(reqif_header, "REQ-IF-TOOL-ID").text = "reqtool-0.3.20"
+    ET.SubElement(reqif_header, "TITLE").text = "reqtool Requirements Export"
+
+    core = ET.SubElement(root, "CORE-CONTENT")
+    reqif_content = ET.SubElement(core, "REQ-IF-CONTENT")
+    spec_objects = ET.SubElement(reqif_content, "SPEC-OBJECTS")
+
+    for uid, req in store.requirements.items():
+        if req.get("deleted"):
+            continue
+        obj = ET.SubElement(spec_objects, "SPEC-OBJECT", {
+            "IDENTIFIER": f"req-{uid}",
+            "LAST-CHANGE": req.get("last_modified") or now,
+        })
+        values = ET.SubElement(obj, "VALUES")
+
+        title_val = ET.SubElement(values, "ATTRIBUTE-VALUE-STRING", {"THE-VALUE": req.get("title", "")})
+        ET.SubElement(title_val, "DEFINITION").text = "ReqIF.Name"
+
+        desc_val = ET.SubElement(values, "ATTRIBUTE-VALUE-STRING", {"THE-VALUE": req.get("content", {}).get("description", "")})
+        ET.SubElement(desc_val, "DEFINITION").text = "ReqIF.Text"
+
+        type_val = ET.SubElement(values, "ATTRIBUTE-VALUE-STRING", {"THE-VALUE": req.get("req_type", "")})
+        ET.SubElement(type_val, "DEFINITION").text = "Requirement.Type"
+
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")

@@ -29,12 +29,15 @@ _REQ_HASHED_FIELDS: set[str] = {
     "status", "priority", "risk",
     # Ownership
     "owner", "allocated_to", "tags",
-    # Safety
-    "safety_related", "safety_classification",
+    # Safety and Compliance
+    "safety_related", "safety_classification", "safety_standard", "asil_level", "dal_level", "mitigates_hazard",
+    "source_document", "legal_compliance_status", "compliance_rationale",
     # Verification
     "verification_method",
     # Traceability
     "relationships", "links", "attachments",
+    # Planning and Release
+    "target_release", "target_milestone", "release_status", "planned_start_date", "planned_completion_date",
     # Constraints and NFR
     "constraints", "assumptions", "nfr", "attributes", "custom_fields",
 }

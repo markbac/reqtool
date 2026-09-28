@@ -1,0 +1,11 @@
+extends: existence
+message: "INCOSE Rule: Avoid passive voice '%s'. Use active voice with clear subject."
+level: warning
+tokens:
+  - is being
+  - was being
+  - are being
+  - were being
+  - will be
+  - shall be considered
+  - should be tested

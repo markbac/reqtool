@@ -76,6 +76,15 @@ class RequirementContent(BaseModel):
     description: str = ""
     rationale: str = ""
     extended_description: str = ""
+    strategic_goal: str = ""
+    target_outcome: str = ""
+    business_case: str = ""
+    timeframe_years: Optional[str] = None
+    executive_sponsor: str = ""
+    budget_estimate: Optional[float] = None
+    user_role: str = ""
+    user_action: str = ""
+    user_benefit: str = ""
 
 
 class VerificationBlock(BaseModel):
@@ -108,7 +117,7 @@ class ImplementationBlock(BaseModel):
 class Requirement(BaseModel):
     schema_version: str = "1.0.0"
     type: Literal["requirement"] = "requirement"
-    tool_version: str = "0.1.0"
+    tool_version: str = "0.3.20"
 
     uid: str
     id: str
@@ -131,6 +140,11 @@ class Requirement(BaseModel):
     allocated_to: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     iteration: Optional[str] = None
+    target_release: Optional[str] = None
+    target_milestone: Optional[str] = None
+    release_status: Optional[str] = "unassigned"
+    planned_start_date: Optional[str] = None
+    planned_completion_date: Optional[str] = None
     estimate: Optional[float] = None
     estimate_unit: Optional[str] = None
 
@@ -145,6 +159,14 @@ class Requirement(BaseModel):
     risk: str = "none"
     safety_related: bool = False
     safety_classification: Optional[str] = None
+    safety_standard: Optional[str] = None
+    asil_level: Optional[str] = None
+    dal_level: Optional[str] = None
+    mitigates_hazard: Optional[str] = None
+
+    source_document: Optional[str] = None
+    legal_compliance_status: Optional[str] = None
+    compliance_rationale: Optional[str] = None
 
     verification_method: str = "test"
     verification: VerificationBlock = Field(default_factory=VerificationBlock)
@@ -178,7 +200,8 @@ class PrincipleContent(BaseModel):
 class Principle(BaseModel):
     schema_version: str = "1.0.0"
     type: Literal["principle"] = "principle"
-    tool_version: str = "0.1.0"
+    tool_version: str = "0.3.20"
+    principle_kind: Literal["process_authoring", "product_nfr"] = "process_authoring"
 
     uid: str
     id: str
@@ -411,6 +434,9 @@ class RepoEnums(BaseModel):
     safety_class: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     nfr_keys: list[str] = Field(default_factory=list)
+    verification_method: list[str] = Field(default_factory=list)
+    priority: list[str] = Field(default_factory=list)
+    risk: list[str] = Field(default_factory=list)
     id_domain: dict[str, str] = Field(default_factory=dict)
     estimate_unit: str = "points"                              # repo-wide estimate unit label
     relationship_types: list[str] = Field(default_factory=list)  # extends core relationship_type

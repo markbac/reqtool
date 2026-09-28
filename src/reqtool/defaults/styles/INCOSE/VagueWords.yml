@@ -1,0 +1,15 @@
+extends: existence
+message: "INCOSE Rule: Avoid ambiguous term '%s'. Specify precise measurable criteria."
+level: warning
+tokens:
+  - fast
+  - slow
+  - user-friendly
+  - robust
+  - seamless
+  - reliable
+  - flexible
+  - efficient
+  - adequate
+  - reasonable
+  - state-of-the-art

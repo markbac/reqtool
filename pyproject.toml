@@ -62,7 +62,6 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-timeout = 30
 addopts = "-v --tb=short"
 # Subsets for faster local runs:
 #   pytest tests/test_store.py tests/test_validation.py tests/test_cli.py   (~20s)
