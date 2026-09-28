@@ -1379,14 +1379,24 @@ class Store:
 
     def fetch_remote_module(self, module_id: str) -> dict[str, Any]:
         """Fetch an external Git repository module into modules/<module_id>/."""
+        import re
+        from urllib.parse import urlparse
+
+        if not re.match(r"^[a-zA-Z0-9_\-]+$", module_id):
+            raise ValueError(f"Invalid module ID '{module_id}'")
+
         manifest_path = self.root / "modules" / module_id / "_module.yaml"
         if not manifest_path.exists():
             raise ValueError(f"Module manifest for '{module_id}' not found")
         data = load_yaml(manifest_path)
-        git_remote = data.get("git_remote")
-        git_ref = data.get("git_ref", "main")
+        git_remote = str(data.get("git_remote", "")).strip()
+        git_ref = str(data.get("git_ref", "main")).strip()
         if not git_remote:
             raise ValueError(f"Module '{module_id}' does not specify 'git_remote'")
+
+        parsed = urlparse(git_remote)
+        if parsed.scheme and parsed.scheme not in ("http", "https", "ssh", "git"):
+            raise ValueError(f"Unsupported git remote URI scheme for '{git_remote}'")
 
         target_dir = self.root / "modules" / module_id / "remote"
         target_dir.mkdir(parents=True, exist_ok=True)

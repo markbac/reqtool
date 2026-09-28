@@ -16,6 +16,18 @@ from reqtool.fileio import utcnow_iso
 log = logging.getLogger(__name__)
 
 
+import os
+import re
+
+def _sanitize_filename(filename: str) -> str:
+    """Sanitize filename and strip path traversal characters."""
+    clean = os.path.basename(filename).strip()
+    clean = re.sub(r'[^\w\-_\. ]', '_', clean)[:200]
+    if not clean or clean in (".", ".."):
+        raise ValueError("Invalid attachment filename")
+    return clean
+
+
 def attachment_dir(repo_root: Path, uid: str) -> Path:
     return repo_root / "attachments" / uid
 
@@ -28,9 +40,12 @@ def add_attachment(
     author: str = "reqtool",
     description: str = "",
 ) -> dict[str, Any]:
+    filename = _sanitize_filename(filename)
     dest_dir = attachment_dir(store.root, uid)
     dest_dir.mkdir(parents=True, exist_ok=True)
-    dest = dest_dir / filename
+    dest = (dest_dir / filename).resolve()
+    if not dest.is_relative_to(dest_dir.resolve()):
+        raise ValueError("Path traversal attempt detected")
 
     sha256 = f"sha256:{hashlib.sha256(data).hexdigest()}"
     now = utcnow_iso()
@@ -57,7 +72,14 @@ def add_attachment(
 
 
 def delete_attachment(store: Any, uid: str, filename: str) -> bool:
-    dest = attachment_dir(store.root, uid) / filename
+    try:
+        filename = _sanitize_filename(filename)
+    except ValueError:
+        return False
+    dest_dir = attachment_dir(store.root, uid)
+    dest = (dest_dir / filename).resolve()
+    if not dest.is_relative_to(dest_dir.resolve()):
+        return False
     if dest.exists():
         dest.unlink()
     result = store._get_artefact(uid)
