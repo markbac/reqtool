@@ -94,7 +94,14 @@ function TreeNode({ node, depth = 0, onContextMenu, forceOpen = false }) {
   const click = (e) => {
     e.stopPropagation();
     if (hasChildren) setOpen(o => !o);
-    if (!isModule) dispatch({ type: 'SELECT', uid: node.uid, artefactType: 'requirement' });
+    if (!isModule) {
+      if (state.dirtyUids.size > 0 && !state.dirtyUids.has(node.uid)) {
+        if (!confirm('You have unsaved changes in your current editing session. Switch anyway?')) {
+          return;
+        }
+      }
+      dispatch({ type: 'SELECT', uid: node.uid, artefactType: 'requirement' });
+    }
   };
   const keyDown = (e) => {
     if (isModule) return;
