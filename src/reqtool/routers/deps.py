@@ -39,25 +39,33 @@ def conflict(msg: str) -> HTTPException:
 class ConnectionManager:
     def __init__(self):
         self.active: list[WebSocket] = []
+        self._lock = threading.RLock()
 
     async def connect(self, ws: WebSocket):
         await ws.accept()
-        self.active.append(ws)
+        with self._lock:
+            self.active.append(ws)
 
     def disconnect(self, ws: WebSocket):
-        if ws in self.active:
-            self.active.remove(ws)
+        with self._lock:
+            if ws in self.active:
+                self.active.remove(ws)
 
     async def broadcast(self, message: dict):
         text = _json.dumps(message)
+        with self._lock:
+            connections = list(self.active)
         dead = []
-        for ws in list(self.active):
+        for ws in connections:
             try:
                 await ws.send_text(text)
             except Exception:
                 dead.append(ws)
-        for ws in dead:
-            self.disconnect(ws)
+        if dead:
+            with self._lock:
+                for ws in dead:
+                    if ws in self.active:
+                        self.active.remove(ws)
 
 
 ws_manager = ConnectionManager()
@@ -69,11 +77,12 @@ def broadcast_sync(event: str, payload: dict) -> None:
     async def _do():
         await ws_manager.broadcast(msg)
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop.create_task(_do())
-    except Exception:
-        pass
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop is not None and loop.is_running():
+        loop.create_task(_do())
 
 
 def fire_webhook(store: Store, event: str, payload: dict) -> None:
