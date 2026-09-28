@@ -1,0 +1,53 @@
+name: Release & Publishing Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node.js & Build UI Assets
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: |
+          cd src/reqtool/ui
+          npm ci
+          npm run build
+
+      - name: Install Build Tools
+        run: pip install build twine
+
+      - name: Build Python Package Distribution (.whl & .tar.gz)
+        run: python -m build
+
+      - name: Verify Executable CLI
+        run: |
+          pip install dist/*.whl
+          reqtool --help
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

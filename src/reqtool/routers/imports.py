@@ -144,9 +144,35 @@ def baseline_diff(name: str, store: Store = Depends(get_store)):
                 current = _load_yaml(path)
             except Exception:
                 pass
-            result["changed"].append({
-                "id": current.get("id", "?") if current else "?",
-                "path": change["path"],
-                "current_version": current.get("version", "?") if current else "?",
-            })
+@router.get("/baselines/compare", tags=["baselines"])
+def compare_two_baselines(baseline_a: str, baseline_b: str, store: Store = Depends(get_store)):
+    tag_a = f"baseline/{baseline_a}" if not baseline_a.startswith("baseline/") else baseline_a
+    tag_b = f"baseline/{baseline_b}" if not baseline_b.startswith("baseline/") else baseline_b
+
+    changes = git_diff_tree(store.root, tag_a)
+    req_changes = [c for c in changes if c["path"].startswith("requirements/") and c["path"].endswith(".yaml")]
+
+    result = {
+        "baseline_a": tag_a,
+        "baseline_b": tag_b,
+        "summary": {"added": 0, "removed": 0, "modified": 0},
+        "added": [],
+        "removed": [],
+        "modified": [],
+    }
+
+    for change in req_changes:
+        status = change["status"]
+        path = change["path"]
+        if status == "A":
+            result["summary"]["added"] += 1
+            result["added"].append({"path": path, "status": "added"})
+        elif status == "D":
+            result["summary"]["removed"] += 1
+            result["removed"].append({"path": path, "status": "removed"})
+        elif status in ("M", "R"):
+            result["summary"]["modified"] += 1
+            result["modified"].append({"path": path, "status": "modified"})
+
     return result
+

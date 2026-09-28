@@ -39,6 +39,7 @@ dependencies = [
 
 [project.scripts]
 req = "reqtool.cli:cli"
+reqtool = "reqtool.cli:cli"
 
 [project.optional-dependencies]
 test = [
@@ -53,6 +54,8 @@ where = ["src"]
 [tool.setuptools.package-data]
 reqtool = [
     "defaults/*.yaml",
+    "defaults/.vale.ini",
+    "defaults/styles/INCOSE/*.yml",
     "ui/dist/index.html",
     "ui/dist/assets/*",
 ]

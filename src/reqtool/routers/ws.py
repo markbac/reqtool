@@ -15,12 +15,21 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 
+import json
+
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """Real-time event stream. Events: created, updated, deleted, status_changed."""
+    """Real-time event stream & multi-user CRDT co-editing channel."""
     await ws_manager.connect(websocket)
     try:
         while True:
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            try:
+                msg = json.loads(data)
+                msg_type = msg.get("type", "")
+                if msg_type in ("PRESENCE", "CURSOR", "LOCK_FIELD", "UNLOCK_FIELD", "CO_EDIT"):
+                    await ws_manager.broadcast(msg_type, msg.get("payload", {}))
+            except Exception:
+                pass
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket)

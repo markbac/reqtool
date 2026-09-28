@@ -183,18 +183,74 @@ def verify_hash(data: dict[str, Any], artefact_type: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Version bumping
+# Version bumping & SemVer 2.0.0
 # ---------------------------------------------------------------------------
 
-def bump_version(current: str, increment: str) -> str:
-    """Increment a semver string by patch/minor/major."""
-    parts = current.split(".")
-    major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
+def parse_semver(version_str: str) -> dict[str, Any]:
+    """Parse a SemVer 2.0.0 version string into components."""
+    if not version_str:
+        return {"major": 0, "minor": 1, "patch": 0, "prerelease": None, "build_metadata": None, "raw": "0.1.0"}
+
+    main_and_pre, _, build_meta = version_str.partition("+")
+    main, _, prerelease = main_and_pre.partition("-")
+
+    parts = main.split(".")
+    major = int(parts[0]) if len(parts) > 0 and parts[0].isdigit() else 0
+    minor = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+    patch = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
+
+    return {
+        "major": major,
+        "minor": minor,
+        "patch": patch,
+        "prerelease": prerelease or None,
+        "build_metadata": build_meta or None,
+        "raw": version_str,
+    }
+
+
+def format_semver(
+    major: int,
+    minor: int,
+    patch: int,
+    prerelease: str | None = None,
+    build_metadata: str | None = None,
+) -> str:
+    """Format SemVer components into a compliant SemVer 2.0.0 string."""
+    res = f"{major}.{minor}.{patch}"
+    if prerelease:
+        res += f"-{prerelease}"
+    if build_metadata:
+        res += f"+{build_metadata}"
+    return res
+
+
+def bump_version(
+    current: str,
+    increment: str = "patch",
+    prerelease: str | None = None,
+    build_metadata: str | None = None,
+) -> str:
+    """
+    Increment a semver string by major/minor/patch, with optional prerelease and build metadata.
+    """
+    parsed = parse_semver(current)
+    major, minor, patch = parsed["major"], parsed["minor"], parsed["patch"]
+
     if increment == "major":
-        return f"{major + 1}.0.0"
-    if increment == "minor":
-        return f"{major}.{minor + 1}.0"
-    return f"{major}.{minor}.{patch + 1}"
+        major += 1
+        minor = 0
+        patch = 0
+    elif increment == "minor":
+        minor += 1
+        patch = 0
+    elif increment == "patch":
+        patch += 1
+
+    b_meta = build_metadata if build_metadata is not None else parsed["build_metadata"]
+    p_release = prerelease if prerelease is not None else parsed["prerelease"]
+
+    return format_semver(major, minor, patch, prerelease=p_release, build_metadata=b_meta)
 
 
 # ---------------------------------------------------------------------------

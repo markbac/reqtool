@@ -285,6 +285,8 @@ def get_metrics(store: Store = Depends(get_store)):
             except Exception:
                 pass
 
+    asil_counts = Counter(r.get("asil_level") or r.get("safety_classification") or "non_safety" for r in reqs if r.get("safety_related"))
+
     return {
         "totals": {
             "requirements": len(reqs),
@@ -311,6 +313,11 @@ def get_metrics(store: Store = Depends(get_store)):
         "velocity": {
             "changes_last_30d": recent_changes,
         },
+        "widgets": [
+            {"id": "w1", "type": "funnel", "title": "Approval Burndown", "data": {"approved": approved, "draft": draft, "in_review": in_review}},
+            {"id": "w2", "type": "safety", "title": "ASIL Safety Classification", "data": dict(asil_counts)},
+            {"id": "w3", "type": "gaps", "title": "Requirement Quality Gaps", "data": {"no_owner": no_owner, "no_ac": no_ac, "not_verified": no_verification}},
+        ],
     }
 
 
