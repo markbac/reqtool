@@ -4,15 +4,12 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
 
 jobs:
-  release:
-    name: Build & Publish Release
+  build-python-packages:
+    name: Build Wheel & Source Package
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -36,7 +33,7 @@ jobs:
       - name: Install Build Tools
         run: pip install build twine
 
-      - name: Build Python Package Distribution (.whl & .tar.gz)
+      - name: Build Python Package (.whl & .tar.gz)
         run: python -m build
 
       - name: Verify Executable CLI
@@ -44,10 +41,94 @@ jobs:
           pip install dist/*.whl
           reqtool --help
 
+      - name: Upload Python Package Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: dist/*
+
+  build-standalone-binaries:
+    name: Build Standalone Binary Executable (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: reqtool-windows-amd64.exe
+            binary_src: dist/reqtool.exe
+          - os: ubuntu-latest
+            artifact_name: reqtool-linux-amd64
+            binary_src: dist/reqtool
+          - os: macos-latest
+            artifact_name: reqtool-macos-amd64
+            binary_src: dist/reqtool
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node.js & Build UI Assets
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: |
+          cd src/reqtool/ui
+          npm ci
+          npm run build
+
+      - name: Install PyInstaller & Dependencies
+        run: |
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Build Standalone Executable
+        run: pyinstaller reqtool.spec --clean
+
+      - name: Rename Executable Artifact
+        shell: bash
+        run: |
+          mkdir -p release-binaries
+          cp ${{ matrix.binary_src }} release-binaries/${{ matrix.artifact_name }}
+
+      - name: Upload Standalone Binary Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.os }}
+          path: release-binaries/${{ matrix.artifact_name }}
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [build-python-packages, build-standalone-binaries]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+
+      - name: Flatten Release Assets Directory
+        run: |
+          mkdir -p final-dist
+          find release-assets/ -type f -exec cp {} final-dist/ \;
+          ls -la final-dist/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: final-dist/*
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
