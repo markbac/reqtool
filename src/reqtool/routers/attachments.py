@@ -12,6 +12,7 @@ import mimetypes
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from reqtool.store import Store
+from reqtool.stores.attachment_store import _sanitize_filename
 from .deps import get_store, not_found, fire_webhook
 
 log = logging.getLogger(__name__)
@@ -44,14 +45,19 @@ async def upload_artefact_attachment(uid: str, request: Request, author: str = "
 
 @router.get("/artefacts/{uid}/attachments/{filename}")
 def download_artefact_attachment(uid: str, filename: str, store: Store = Depends(get_store)):
-    path = store.attachment_dir(uid) / filename
-    if not path.exists():
+    try:
+        clean_name = _sanitize_filename(filename)
+    except ValueError:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Attachment '{filename}' not found"})
-    mime, _ = mimetypes.guess_type(filename)
+    target_dir = store.attachment_dir(uid).resolve()
+    path = (target_dir / clean_name).resolve()
+    if not path.is_relative_to(target_dir) or not path.exists():
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Attachment '{filename}' not found"})
+    mime, _ = mimetypes.guess_type(clean_name)
     return Response(
         content=path.read_bytes(),
         media_type=mime or "application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{clean_name}"'},
     )
 
 
@@ -92,15 +98,20 @@ async def upload_attachment(uid: str, request: Request, author: str = "reqtool",
 
 @router.get("/requirements/{uid}/attachments/{filename}")
 def download_attachment(uid: str, filename: str, store: Store = Depends(get_store)):
-    path = store.attachment_dir(uid) / filename
-    if not path.exists():
+    try:
+        clean_name = _sanitize_filename(filename)
+    except ValueError:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Attachment '{filename}' not found"})
-    mime, _ = mimetypes.guess_type(filename)
+    target_dir = store.attachment_dir(uid).resolve()
+    path = (target_dir / clean_name).resolve()
+    if not path.is_relative_to(target_dir) or not path.exists():
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Attachment '{filename}' not found"})
+    mime, _ = mimetypes.guess_type(clean_name)
     mime = mime or "application/octet-stream"
     return Response(
         content=path.read_bytes(),
         media_type=mime,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'attachment; filename="{clean_name}"'},
     )
 
 

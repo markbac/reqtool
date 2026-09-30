@@ -53,7 +53,8 @@ function OverflowMenu({ items }) {
 
 export default function Header({ onValidate, onExport, onCoverage, onBulk, onVocabularies,
                                onBaselines, onMetrics, onImport, onTraceability, onGlobalCommit,
-                               onCustomFields, onWebhooks, onToggleSidebar, onHelp, onRepo, onLogin, onDiagram, onIterations }) {
+                               onCustomFields, onWebhooks, onToggleSidebar, onHelp, onRepo, onLogin, onDiagram, onIterations,
+                               onAutomation, onDuplicateDetector }) {
   const { state, dispatch, toast } = useApp();
   const { products, activeProduct, activeVariant } = state;
   const [gitStatus, setGitStatus] = useState(null);
@@ -190,6 +191,8 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
         <OverflowMenu items={[
           { label: '⏱ Iterations & Gates',action: onIterations },
           { label: '🎨 Diagram Canvas',action: onDiagram },
+          { label: '🤖 Automation Rules', action: onAutomation },
+          { label: '✨ Duplicate Detector', action: onDuplicateDetector },
           { label: '🔐 Login / Server',action: onLogin },
           { label: '📦 Repository',   action: onRepo },
           { label: '⊞ Coverage',     action: onCoverage },

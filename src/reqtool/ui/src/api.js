@@ -104,7 +104,7 @@ export const api = {
   attachments: {
     list:     (uid)                         => get(`/artefacts/${uid}/attachments`),
     upload:   (uid, filename, data, description = '') =>
-      fetch(`${BASE}/artefacts/${uid}/attachments`, {
+      fetch(`${getBaseUrl()}/artefacts/${uid}/attachments`, {
         method: 'POST',
         headers: {
           'Content-Disposition': `attachment; filename="${filename}"`,
@@ -112,7 +112,7 @@ export const api = {
         },
         body: data,
       }).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(new Error(e?.detail?.message || 'Upload failed')))),
-    download: (uid, filename) => `${BASE}/artefacts/${uid}/attachments/${encodeURIComponent(filename)}`,
+    download: (uid, filename) => `${getBaseUrl()}/artefacts/${uid}/attachments/${encodeURIComponent(filename)}`,
     delete:   (uid, filename) => del(`/artefacts/${uid}/attachments/${encodeURIComponent(filename)}`),
   },
   comments: {
@@ -177,8 +177,20 @@ export const api = {
     delete: (id)   => del(`/iterations/${encodeURIComponent(id)}`),
     metrics:(id)   => get(`/iterations/${encodeURIComponent(id)}/metrics`),
   },
+  analysis: {
+    detectDuplicates: (threshold = 0.7) => get('/analysis/detect-duplicates?threshold=' + threshold),
+    generateAc:        (title, description = '') => post('/analysis/generate-ac', { title, description }),
+    generateTests:     (uid) => post(`/analysis/generate-tests/${uid}`, {}),
+  },
+  traceability: {
+    gaps: () => get('/traceability/gaps'),
+  },
+  automation: {
+    getRules:    ()     => get('/automation/rules'),
+    updateRules: (body) => put('/automation/rules', body),
+  },
   importCsv: async (csvText) => {
-    const res = await fetch(`${BASE}/import/csv/upload`, {
+    const res = await fetch(`${getBaseUrl()}/import/csv/upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'text/csv' },
       body: csvText,
@@ -200,8 +212,10 @@ export const api = {
     log:    (uid)  => get(`/git/log/${uid}`),
   },
   exports: {
-    jsx:      (body) => post('/export/jsx', body),
-    markdown: (body) => post('/export/markdown', body),
-    csv:      (body) => post('/export/csv', body),
+    jsx:          (body) => post('/export/jsx', body),
+    markdown:     (body) => post('/export/markdown', body),
+    csv:          (body) => post('/export/csv', body),
+    reqif:        (body = {}) => post('/export/reqif', body),
+    auditPackage: (params = {}) => `${getBaseUrl()}/export/audit-package?${new URLSearchParams(params)}`,
   },
 };

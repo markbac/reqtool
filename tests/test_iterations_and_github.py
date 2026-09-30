@@ -40,6 +40,13 @@ def test_parse_requirement_refs():
     assert "HW-002" in refs
 
 
+def test_parse_requirement_refs_edge_cases():
+    assert parse_requirement_refs("") == []
+    assert parse_requirement_refs("No refs here in regular text.") == []
+    assert set(parse_requirement_refs("REQ-1 and REQ-1")) == {"REQ-1"}
+    assert set(parse_requirement_refs("fixes req-sys-005 and closes #SW-101")) == {"REQ-SYS-005", "SW-101"}
+
+
 class TestIterationAndGithubApi:
     def test_iterations_api(self, client):
         r = client.get("/iterations")
@@ -70,3 +77,17 @@ class TestIterationAndGithubApi:
         res = r.json()
         assert res["status"] == "ok"
         assert res["event"] == "push"
+
+    def test_github_webhook_empty_commits(self, client):
+        payload = {"ref": "refs/heads/main", "commits": []}
+        r = client.post("/webhooks/github", json=payload, headers={"X-GitHub-Event": "push"})
+        assert r.status_code == 200
+        res = r.json()
+        assert res["processed_links"] == 0
+
+    def test_github_webhook_non_push_event(self, client):
+        payload = {"action": "opened"}
+        r = client.post("/webhooks/github", json=payload, headers={"X-GitHub-Event": "issues"})
+        assert r.status_code == 200
+        res = r.json()
+        assert res["processed_links"] == 0
