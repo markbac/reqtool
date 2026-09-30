@@ -17,6 +17,7 @@ if ui_dist_dir.exists():
 
 hiddenimports = [
     'reqtool',
+    'reqtool.main',
     'reqtool.cli',
     'reqtool.api',
     'reqtool.store',

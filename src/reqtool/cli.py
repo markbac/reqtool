@@ -2140,8 +2140,19 @@ def serve(repo: Optional[str], host: str, port: int, reload: bool, browser: bool
     # -----------------------------------------------------------------------
     # Startup banner
     # -----------------------------------------------------------------------
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     W = 58  # banner width
-    SEP = click.style("─" * W, fg="bright_black")
+    SEP = click.style("-" * W, fg="bright_black")
     def _row(label: str, value: str, value_colour: str = "white") -> None:
         padded = f"  {label:<20}"
         click.echo(padded + click.style(value, fg=value_colour))
@@ -2167,19 +2178,29 @@ def serve(repo: Optional[str], host: str, port: int, reload: bool, browser: bool
     click.echo(f"  {'React UI':<20}" + ui_status)
     if reload:
         click.echo("")
-        click.echo("  " + click.style("⚠  auto-reload enabled (dev mode)", fg="yellow"))
+        click.echo("  " + click.style("[!] auto-reload enabled (dev mode)", fg="yellow"))
     click.echo(SEP)
     click.echo(click.style("  Press Ctrl+C to stop.", fg="bright_black"))
     click.echo("")
 
-    uvicorn.run(
-        "reqtool.main:app_factory",
-        host=host,
-        port=port,
-        reload=reload,
-        factory=True,
-        log_level="info",
-    )
+    if reload:
+        uvicorn.run(
+            "reqtool.main:app_factory",
+            host=host,
+            port=port,
+            reload=True,
+            factory=True,
+            log_level="info",
+        )
+    else:
+        from .api import create_app
+        app_instance = create_app(root)
+        uvicorn.run(
+            app_instance,
+            host=host,
+            port=port,
+            log_level="info",
+        )
 
 
 @cli.command()
