@@ -1,3 +1,3 @@
 """reqtool -- git-backed YAML requirements management tool."""
 
-__version__ = "0.3.20"
+__version__ = "0.3.21"
