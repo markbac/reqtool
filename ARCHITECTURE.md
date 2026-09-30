@@ -1,6 +1,6 @@
 # reqtool -- Architecture and Technical Reference
 
-**Version 0.3.0**
+**Version 0.4.0**
 
 ---
 
@@ -843,8 +843,54 @@ For typical engineering programme sizes (< 10,000 requirements) all operations c
 
 ## 15. Security notes
 
-- The server binds to `127.0.0.1` by default. Exposing it on a network interface is the operator's responsibility.
-- Webhook signatures use HMAC-SHA256. The secret is stored in plaintext in `config.yaml`; treat that file as a secret if webhooks are in use.
+- By default, local workstation executables (`reqtool-web.exe`, `reqtool-app.exe`, `reqtool.exe`) bind to `127.0.0.1`. `reqtool-server.exe` binds to `0.0.0.0:8765` to host team repositories.
+- Built-in authentication uses PBKDF2-HMAC-SHA256 password hashing and HMAC-SHA256 JWT access tokens.
+- Secret key for JWT signing is generated automatically at `.reqtool/.secret_key`. Keep `.reqtool/.secret_key` secure.
+- Default administrator credentials (`admin` / `admin123`) are seeded on initial server launch in `.reqtool/users.yaml`. Change default admin passwords in production environments.
+- Webhook signatures use HMAC-SHA256. The secret is stored in `config.yaml`.
 - File attachments are stored under `attachments/<uid>/` with filenames sanitised to `[A-Za-z0-9._-]`. Maximum filename length is 200 characters.
-- Content-Disposition filenames from upload requests are sanitised before use as paths.
-- There is no authentication layer built in. Add a reverse proxy (nginx, Caddy) with basic auth or mutual TLS if multi-user network access is required.
+
+---
+
+## 16. Multi-User Architecture & Authentication
+
+`reqtool` 0.4.0 introduces native multi-user team hosting, authentication, and remote client capabilities.
+
+### 16.1 Process & Network Architecture
+
+```mermaid
+graph TD
+    subgraph ServerHost["Central Server Host"]
+        ServerExe["reqtool-server.exe<br/>(0.0.0.0:8765)"]
+        UserStore[".reqtool/users.yaml<br/>(User accounts & hashed credentials)"]
+        SecretKey[".reqtool/.secret_key<br/>(JWT HMAC secret)"]
+        RepoStore["Requirements Repository<br/>(.reqtool, requirements/, products/)"]
+        ServerExe --> UserStore
+        ServerExe --> SecretKey
+        ServerExe --> RepoStore
+    end
+
+    subgraph ClientNodes["Remote Client Workstations"]
+        Client1["reqtool-client.exe / Web Client 1<br/>(Bearer Token: JWT)"]
+        Client2["reqtool-client.exe / Web Client 2<br/>(Bearer Token: JWT)"]
+        Client1 -- "REST / WS (http://server:8765)" --> ServerExe
+        Client2 -- "REST / WS (http://server:8765)" --> ServerExe
+    end
+```
+
+### 16.2 Authentication Flow
+
+1. **Login:** Client sends `POST /auth/login` with `{"username": "...", "password": "..."}`.
+2. **Verification:** Server checks password hash using `UserStore` (PBKDF2-HMAC-SHA256).
+3. **Token Issuance:** Server issues a signed JWT access token containing user identity and role claims.
+4. **Header Injection:** Client stores token in local browser storage and includes `Authorization: Bearer <token>` header in all REST API requests and WebSocket handshakes.
+5. **Validation:** Server verifies token signature with `.reqtool/.secret_key` and extracts current user details via `get_current_user` dependency.
+
+### 16.3 Standalone Executables Matrix
+
+- **`reqtool-server`**: Multi-user backend server listening on `0.0.0.0:8765`.
+- **`reqtool-client`**: Desktop application workstation configured with Remote Server Connection UI.
+- **`reqtool-web`**: Workstation auto-launching web browser interface on `http://localhost:8765`.
+- **`reqtool-app`**: Workstation auto-launching local desktop application window.
+- **`reqtool`**: Command-line interface tool.
+
