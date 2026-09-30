@@ -461,6 +461,16 @@ class TestArtefactAttachments:
         r = client.delete(f"/artefacts/{req['uid']}/attachments/ghost.pdf")
         assert r.status_code == 404
 
+    def test_download_path_traversal_blocked(self, client):
+        req = make_req(client)
+        r = client.get(f"/artefacts/{req['uid']}/attachments/..%2F..%2Fconfig.yaml")
+        assert r.status_code == 404
+
+    def test_delete_path_traversal_blocked(self, client):
+        req = make_req(client)
+        r = client.delete(f"/artefacts/{req['uid']}/attachments/..%2F..%2Fconfig.yaml")
+        assert r.status_code in (404, 405)
+
 
 # ===========================================================================
 # Comments (generic /artefacts/ endpoint)

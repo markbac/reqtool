@@ -18,7 +18,7 @@ import {
 import {
   BaselinesPanel, MetricsPanel, ImportPanel,
   TraceabilityPanel, CmdPalette, WorkflowPanel, TemplatesPanel,
-  CustomFieldsPanel, WebhooksPanel,
+  CustomFieldsPanel, WebhooksPanel, AutomationRulesPanel, DuplicateDetectorPanel,
 } from './components/Advanced';
 import { RepoModal } from './components/RepoModal';
 import { LoginModal } from './components/LoginModal';
@@ -139,6 +139,8 @@ function AppShell() {
         onRepo={() => toggle('_showRepo')}
         onDiagram={() => toggle('_showDiagram')}
         onIterations={() => toggle('_showIterations')}
+        onAutomation={() => toggle('_showAutomation')}
+        onDuplicateDetector={() => toggle('_showDuplicateDetector')}
         onGlobalCommit={(status) => { setGitStatus(status); toggle('_showGlobalCommit'); }}
       />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -168,6 +170,8 @@ function AppShell() {
       {/* Overlay panels */}
       {state._showIterations   && <IterationsPanel   onClose={() => toggle('_showIterations',   false)} />}
       {state._showDiagram      && <DiagramPanel      onClose={() => toggle('_showDiagram',      false)} />}
+      {state._showAutomation   && <AutomationRulesPanel onClose={() => toggle('_showAutomation', false)} />}
+      {state._showDuplicateDetector && <DuplicateDetectorPanel onClose={() => toggle('_showDuplicateDetector', false)} />}
       {state._showLogin        && <LoginModal        onClose={() => toggle('_showLogin',        false)} />}
       {state._showRepo         && <RepoModal         onClose={() => toggle('_showRepo',         false)} />}
       {state._showHelp         && <HelpPanel initialTab="about"

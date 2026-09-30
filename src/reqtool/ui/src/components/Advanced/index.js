@@ -10,3 +10,5 @@ export { AttachmentsSection } from './AttachmentsSection';
 export { DiscussionSection } from './DiscussionSection';
 export { CustomFieldsPanel } from './CustomFieldsPanel';
 export { WebhooksPanel } from './WebhooksPanel';
+export { AutomationRulesPanel } from './AutomationRulesPanel';
+export { DuplicateDetectorPanel } from './DuplicateDetectorPanel';

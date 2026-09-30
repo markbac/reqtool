@@ -112,6 +112,14 @@ export function ExportPanel({ onClose }) {
       } else if (format === 'markdown') {
         blob = await api.exports.markdown({ ...body, split_by: splitBy });
         filename = 'requirements.zip';
+      } else if (format === 'reqif') {
+        blob = await api.exports.reqif(body);
+        filename = 'requirements.reqif';
+      } else if (format === 'audit_package') {
+        const url = api.exports.auditPackage(body);
+        window.open(url, '_blank');
+        setBusy(false);
+        return;
       } else {
         blob = await api.exports.jsx(body);
         filename = 'requirements.jsx';
@@ -127,7 +135,7 @@ export function ExportPanel({ onClose }) {
 
   return (
     <div className="panel-overlay" onClick={onClose}>
-      <div className="side-panel" onClick={e => e.stopPropagation()} style={{ width: 400 }}>
+      <div className="side-panel" onClick={e => e.stopPropagation()} style={{ width: 420 }}>
         <div className="side-panel-header">
           <span className="side-panel-title">Export</span>
           <button className="btn btn-ghost" onClick={onClose}>✕</button>
@@ -135,11 +143,17 @@ export function ExportPanel({ onClose }) {
         <div className="panel-body">
           <div className="field-group">
             <label className="field-label">Format</label>
-            <div className="export-format-group">
-              {['csv', 'markdown', 'jsx'].map(f => (
-                <label key={f} className={`export-format-option ${format === f ? 'active' : ''}`}>
-                  <input type="radio" name="format" value={f} checked={format === f} onChange={() => setFormat(f)} />
-                  <span className="mono" style={{ fontSize: 12 }}>{f.toUpperCase()}</span>
+            <div className="export-format-group" style={{ flexWrap: 'wrap' }}>
+              {[
+                { id: 'csv', label: 'CSV' },
+                { id: 'markdown', label: 'MARKDOWN' },
+                { id: 'jsx', label: 'JSX' },
+                { id: 'reqif', label: 'ReqIF 1.2' },
+                { id: 'audit_package', label: 'Audit Package (Part 11)' }
+              ].map(f => (
+                <label key={f.id} className={`export-format-option ${format === f.id ? 'active' : ''}`}>
+                  <input type="radio" name="format" value={f.id} checked={format === f.id} onChange={() => setFormat(f.id)} />
+                  <span className="mono" style={{ fontSize: 11 }}>{f.label}</span>
                 </label>
               ))}
             </div>
@@ -173,10 +187,16 @@ export function ExportPanel({ onClose }) {
             </div>
           )}
 
+          {format === 'audit_package' && (
+            <div className="field-group" style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-secondary)', padding: 8, borderRadius: 4 }}>
+              Generates a 21 CFR Part 11 / ISO 26262 audit zip package containing cryptographically signed version logs, baseline diffs, and verification matrices.
+            </div>
+          )}
+
           {error && <div className="panel-error">{error}</div>}
 
           <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleExport} disabled={busy}>
-            {busy ? <span className="spinner" /> : `↓ Download ${format.toUpperCase()}`}
+            {busy ? <span className="spinner" /> : `↓ Export ${format.toUpperCase()}`}
           </button>
         </div>
       </div>
