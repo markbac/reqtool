@@ -2069,6 +2069,33 @@ def history(id_or_uid: str, repo: Optional[str]):
     click.echo("No git history found (file not yet committed).")
 
 
+def _launch_ui_auto(host: str, port: int, is_app: bool) -> None:
+    import time
+    import threading
+    import webbrowser
+    import subprocess
+    import shutil
+
+    def _worker():
+        time.sleep(1.0)
+        url = f"http://{host}:{port}"
+        if is_app:
+            for browser_cmd in ["msedge", "chrome", "google-chrome", "brave", "chromium"]:
+                cmd_path = shutil.which(browser_cmd)
+                if cmd_path:
+                    try:
+                        subprocess.Popen([cmd_path, f"--app={url}"])
+                        return
+                    except Exception:
+                        pass
+        try:
+            webbrowser.open(url)
+        except Exception:
+            pass
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+
 # ---------------------------------------------------------------------------
 # serve
 # ---------------------------------------------------------------------------
@@ -2078,7 +2105,9 @@ def history(id_or_uid: str, repo: Optional[str]):
 @click.option("--host", default="127.0.0.1", show_default=True)
 @click.option("--port", default=8765, show_default=True)
 @click.option("--reload", is_flag=True, default=False, help="Enable uvicorn auto-reload (dev).")
-def serve(repo: Optional[str], host: str, port: int, reload: bool):
+@click.option("--browser", is_flag=True, default=False, help="Auto-launch default web browser.")
+@click.option("--app", is_flag=True, default=False, help="Auto-launch desktop application window.")
+def serve(repo: Optional[str], host: str, port: int, reload: bool, browser: bool, app: bool):
     """Start the backend API and UI server."""
     import uvicorn
     from . import __version__
@@ -2087,6 +2116,9 @@ def serve(repo: Optional[str], host: str, port: int, reload: bool):
 
     root = _Path(repo).resolve() if repo else _repo_root()
     os.environ["REQTOOL_REPO"] = str(root)
+
+    if browser or app:
+        _launch_ui_auto(host, port, is_app=app)
 
     # Load store just enough to read counts and config for the banner
     try:
