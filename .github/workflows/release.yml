@@ -47,6 +47,32 @@ jobs:
           name: python-dist
           path: dist/*
 
+  build-documentation-bundle:
+    name: Package Documentation & User Guide
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Package Documentation Archive
+        run: |
+          mkdir -p docs-dist/docs
+          cp README.md ARCHITECTURE.md LICENSE docs-dist/
+          cp docs/*.md docs-dist/docs/
+          cd docs-dist
+          zip -r ../reqtool-documentation-and-user-guide.zip .
+
+      - name: Upload Documentation Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-dist
+          path: reqtool-documentation-and-user-guide.zip
+
   build-standalone-binaries:
     name: Build Standalone Binary Executable (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -105,7 +131,7 @@ jobs:
 
   publish-release:
     name: Publish GitHub Release
-    needs: [build-python-packages, build-standalone-binaries]
+    needs: [build-python-packages, build-documentation-bundle, build-standalone-binaries]
     runs-on: ubuntu-latest
     permissions:
       contents: write

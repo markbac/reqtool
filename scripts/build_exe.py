@@ -2,11 +2,13 @@
 scripts/build_exe.py
 ====================
 Standalone executable build helper script for reqtool.
-Builds frontend UI assets and compiles single-file executable using PyInstaller.
+Builds frontend UI assets, packages documentation bundle, and compiles single-file executable using PyInstaller.
 """
 
 import os
 import sys
+import shutil
+import zipfile
 import subprocess
 from pathlib import Path
 
@@ -19,6 +21,28 @@ def build_ui():
     subprocess.run(["npm", "run", "build"], cwd=ui_dir, check=True, shell=True)
     print("UI build complete: src/reqtool/ui/dist\n")
 
+def build_docs_bundle():
+    print("=== Packaging Documentation & User Guide Bundle ===")
+    dist_dir = ROOT / "dist"
+    dist_dir.mkdir(exist_ok=True)
+    zip_path = dist_dir / "reqtool-documentation-and-user-guide.zip"
+    
+    docs_dir = ROOT / "docs"
+    files_to_pack = [
+        ROOT / "README.md",
+        ROOT / "ARCHITECTURE.md",
+        ROOT / "LICENSE",
+    ]
+    if docs_dir.exists():
+        files_to_pack.extend(list(docs_dir.glob("*.md")))
+
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for f in files_to_pack:
+            if f.exists():
+                arcname = f.name if f.parent == ROOT else f"docs/{f.name}"
+                zf.write(f, arcname)
+    print(f"Documentation bundle created: {zip_path}\n")
+
 def build_exe():
     print("=== Compiling PyInstaller standalone executable ===")
     subprocess.run([sys.executable, "-m", "PyInstaller", "reqtool.spec", "--clean"], cwd=ROOT, check=True)
@@ -27,4 +51,5 @@ def build_exe():
 
 if __name__ == "__main__":
     build_ui()
+    build_docs_bundle()
     build_exe()
