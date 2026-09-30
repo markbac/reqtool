@@ -619,20 +619,41 @@ export function AttachmentsSection({ uid }) {
     <div className="attachments-section">
       {attachments.length > 0 && (
         <div className="attachment-list">
-          {attachments.map(a => (
-            <div key={a.filename} className="attachment-item">
-              <span className="attachment-icon">{getFileIcon(a.filename)}</span>
-              <a
-                href={api.attachments.download(uid, a.filename)}
-                target="_blank" rel="noopener noreferrer"
-                className="attachment-name"
-              >{a.filename}</a>
-              <span className="attachment-meta">{fmtSize(a.size_bytes)}</span>
-              <span className="attachment-meta">{a.added_by}</span>
-              {a.description && <span className="attachment-meta text-muted">{a.description}</span>}
-              <button className="string-list-remove" onClick={() => handleDelete(a.filename)} title="Delete attachment">✕</button>
-            </div>
-          ))}
+          {attachments.map(a => {
+            const isImage = /\.(png|jpe?g|gif|svg|webp)$/i.test(a.filename);
+            const downloadUrl = api.attachments.download(uid, a.filename);
+            const copyImgMarkdown = () => {
+              navigator.clipboard.writeText(`![${a.filename}](${downloadUrl})`);
+              toast('Copied image markdown snippet!', 'success', 2000);
+            };
+            return (
+              <div key={a.filename} className="attachment-item" style={{ flexDirection: isImage ? 'column' : 'row', alignItems: isImage ? 'flex-start' : 'center', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
+                  <span className="attachment-icon">{getFileIcon(a.filename)}</span>
+                  <a
+                    href={downloadUrl}
+                    target="_blank" rel="noopener noreferrer"
+                    className="attachment-name"
+                  >{a.filename}</a>
+                  <span className="attachment-meta">{fmtSize(a.size_bytes)}</span>
+                  {isImage && (
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 10, padding: '2px 6px', marginLeft: 'auto' }}
+                      onClick={copyImgMarkdown}
+                      title="Copy inline markdown image snippet"
+                    >🖼 Copy Markdown</button>
+                  )}
+                  <button className="string-list-remove" onClick={() => handleDelete(a.filename)} title="Delete attachment">✕</button>
+                </div>
+                {isImage && (
+                  <div style={{ marginTop: 4, width: '100%', maxHeight: 180, overflow: 'hidden', borderRadius: 4, border: '1px solid var(--border-color)', background: '#000' }}>
+                    <img src={downloadUrl} alt={a.filename} style={{ maxWidth: '100%', maxHeight: 180, objectFit: 'contain', display: 'block' }} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
       <div
