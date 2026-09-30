@@ -20,6 +20,7 @@ import {
   TraceabilityPanel, CmdPalette, WorkflowPanel, TemplatesPanel,
   CustomFieldsPanel, WebhooksPanel,
 } from './components/Advanced';
+import { RepoModal } from './components/RepoModal';
 import { api } from './api';
 import './index.css';
 
@@ -132,6 +133,7 @@ function AppShell() {
         onCustomFields={() => toggle('_showCustomFields')}
         onWebhooks={() => toggle('_showWebhooks')}
         onHelp={() => toggle('_showHelp')}
+        onRepo={() => toggle('_showRepo')}
         onGlobalCommit={(status) => { setGitStatus(status); toggle('_showGlobalCommit'); }}
       />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -159,6 +161,7 @@ function AppShell() {
       </div>
 
       {/* Overlay panels */}
+      {state._showRepo         && <RepoModal         onClose={() => toggle('_showRepo',         false)} />}
       {state._showHelp         && <HelpPanel initialTab="about"
         onClose={() => toggle('_showHelp', false)}
         onApplyTemplate={t => { dispatch({ type: 'APPLY_TEMPLATE', payload: t }); toggle('_showHelp', false); }} />}

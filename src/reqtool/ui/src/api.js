@@ -78,6 +78,11 @@ export const api = {
     updateRepo: (body) => put('/enums/repo', body),
   },
   config: { get: () => get('/config') },
+  repo: {
+    get:    () => get('/repo'),
+    switch: (path) => post('/repo/switch', { path }),
+    init:   (body) => post('/repo/init', body),
+  },
   attachments: {
     list:     (uid)                         => get(`/artefacts/${uid}/attachments`),
     upload:   (uid, filename, data, description = '') =>

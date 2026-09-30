@@ -52,6 +52,90 @@ def get_config(store: Store = Depends(get_store)):
     return store.config.model_dump()
 
 
+@router.get("/repo", tags=["meta"])
+def get_repo_info(store: Store = Depends(get_store)):
+    return {
+        "path": str(store.root),
+        "repo_id": store.config.repo_id,
+        "repo_title": store.config.repo_title,
+        "requirements_count": len(store.requirements),
+        "principles_count": len(store.principles),
+        "tbds_count": len(store.tbds),
+    }
+
+
+@router.post("/repo/switch", tags=["meta"])
+def switch_repo(body: dict[str, Any], store: Store = Depends(get_store)):
+    raw_path = body.get("path")
+    if not raw_path:
+        raise HTTPException(status_code=400, detail="path parameter required")
+    target_path = Path(raw_path).resolve()
+    if not target_path.exists() or not (target_path / ".reqtool" / "config.yaml").exists():
+        raise HTTPException(status_code=404, detail=f"No valid reqtool repository found at '{target_path}'")
+    store.root = target_path
+    store.load()
+    return get_repo_info(store)
+
+
+@router.post("/repo/init", status_code=201, tags=["meta"])
+def init_repo(body: dict[str, Any], store: Store = Depends(get_store)):
+    raw_path = body.get("path")
+    if not raw_path:
+        raise HTTPException(status_code=400, detail="path parameter required")
+    target_path = Path(raw_path).resolve()
+    target_path.mkdir(parents=True, exist_ok=True)
+
+    repo_id = body.get("repo_id") or target_path.name
+    title = body.get("title") or repo_id.replace("-", " ").title()
+    mode = body.get("mode", "defaults")
+
+    if (target_path / ".reqtool" / "config.yaml").exists():
+        raise HTTPException(status_code=409, detail=f"Repository already initialised at '{target_path}'")
+
+    from reqtool.cli import _write_base_repo, _write_enums
+    _write_base_repo(target_path, repo_id, title)
+
+    if mode == "defaults":
+        defaults_dir = Path(__file__).parent.parent / "defaults"
+        if (defaults_dir / "enums.yaml").exists():
+            save_yaml(target_path / ".reqtool" / "enums.yaml", load_yaml(defaults_dir / "enums.yaml"))
+        if (defaults_dir / "workflow.yaml").exists():
+            cfg_p = target_path / ".reqtool" / "config.yaml"
+            cfg = load_yaml(cfg_p) or {}
+            cfg["workflow"] = load_yaml(defaults_dir / "workflow.yaml")
+            save_yaml(cfg_p, cfg)
+        if (defaults_dir / "hierarchy.yaml").exists():
+            save_yaml(target_path / ".reqtool" / "hierarchy.yaml", load_yaml(defaults_dir / "hierarchy.yaml"))
+        if (defaults_dir / "templates.yaml").exists():
+            save_yaml(target_path / ".reqtool" / "templates.yaml", load_yaml(defaults_dir / "templates.yaml"))
+
+        store.root = target_path
+        store.load()
+
+        if (defaults_dir / "principles.yaml").exists():
+            p_data = load_yaml(defaults_dir / "principles.yaml")
+            principles_list = p_data if isinstance(p_data, list) else p_data.get("principles", [])
+            for p in principles_list:
+                store.create_principle({
+                    "id": p.get("id", ""),
+                    "title": p.get("title", ""),
+                    "domain": p.get("domain"),
+                    "content": {
+                        "description": p.get("description", ""),
+                        "rationale": p.get("rationale", ""),
+                        "implications": p.get("implications", ""),
+                        "exceptions": p.get("exceptions", ""),
+                    },
+                })
+    else:
+        _write_enums(target_path, domains=[])
+        store.root = target_path
+        store.load()
+
+    return get_repo_info(store)
+
+
+
 @router.get("/enums", tags=["enums"])
 def get_enums(store: Store = Depends(get_store)):
     return store.merged_enums()
