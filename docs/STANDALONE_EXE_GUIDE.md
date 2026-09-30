@@ -12,6 +12,8 @@ The standalone executable release of **`reqtool`** provides the full requirement
 | :--- | :--- | :--- |
 | **`reqtool-web.exe`** | Automatically launches the Web Workstation in your default web browser (`http://localhost:8765`). | General engineering work, browser tab navigation, dual-screen setups. |
 | **`reqtool-app.exe`** | Automatically launches the visual workstation in a dedicated standalone application window. | Distraction-free native app experience for requirements engineers. |
+| **`reqtool-server.exe`** | Automatically launches central backend server listening on `0.0.0.0:8765`. | Multi-user team server hosting requirements repository for remote client connections. |
+| **`reqtool-client.exe`** | Automatically launches desktop client application configured with Remote Server Login UI. | Multi-user remote client connecting to central backend server with login credentials. |
 | **`reqtool.exe`** | Command Line Interface (CLI). Run with `--help` for available subcommands. | Terminal workflows, CI/CD scripts, automated validation & exports. |
 
 ---
@@ -67,7 +69,29 @@ Click the **`📦 Repo`** button in the top navigation bar (or select **📦 Rep
 
 ---
 
-## 4. Command Line Reference (`reqtool.exe`)
+## 4. Multi-User Server & Remote Client Setup
+
+`reqtool` supports multi-user collaboration where a central backend server hosts the requirements repository, and multiple team members connect remotely using `reqtool-client.exe` or web browser.
+
+### 4.1 Running Central Server (`reqtool-server.exe`)
+Launch `reqtool-server.exe` on your server host machine:
+```cmd
+reqtool-server.exe --port 8765
+```
+- Listens on `0.0.0.0:8765` by default, making it accessible across your local network or server IP.
+- Automatically seeds default admin credentials (`admin` / `admin123`) in `.reqtool/users.yaml`.
+
+### 4.2 Client Remote Connection & User Login (`reqtool-client.exe`)
+1. Launch `reqtool-client.exe` on client desktop.
+2. Click **🔐 User / Login** widget in top navigation bar or menu.
+3. Enter Server URL (e.g. `http://server-hostname:8765`).
+4. Enter Username (`admin`) and Password (`admin123`).
+5. Click **Login & Connect**.
+6. The client authenticates via JWT token and connects to the central server repository.
+
+---
+
+## 5. Command Line Reference (`reqtool.exe`)
 
 | Command | Usage & Purpose |
 | :--- | :--- |

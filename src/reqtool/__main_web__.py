@@ -12,8 +12,9 @@ from reqtool.cli import cli
 
 
 def main():
-    if len(sys.argv) == 1:
-        sys.argv.extend(["serve", "--browser"])
+    if len(sys.argv) == 1 or (len(sys.argv) > 1 and sys.argv[1].startswith("-")):
+        sys.argv.insert(1, "--browser")
+        sys.argv.insert(1, "serve")
     cli()
 
 

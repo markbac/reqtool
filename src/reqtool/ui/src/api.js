@@ -3,20 +3,32 @@
  * Base URL resolves to same host in production; env var for dev.
  */
 
-const BASE = import.meta.env.VITE_API_BASE ?? '';
+function getBaseUrl() {
+  const customServer = localStorage.getItem('reqtool:server_url');
+  if (customServer && customServer.trim()) {
+    return customServer.trim().replace(/\/+$/, '');
+  }
+  return import.meta.env.VITE_API_BASE ?? '';
+}
 
 async function request(method, path, body = null) {
+  const base = getBaseUrl();
+  const token = localStorage.getItem('reqtool:auth_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   const opts = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers,
   };
   if (body !== null) opts.body = JSON.stringify(body);
-  const res = await fetch(`${BASE}${path}`, opts);
+  const res = await fetch(`${base}${path}`, opts);
   if (!res.ok) {
     let detail;
     try { detail = await res.json(); } catch { detail = { message: res.statusText }; }
-    const msg = detail?.detail?.message ?? detail?.message ?? res.statusText;
-    throw new Error(msg);
+    const msg = detail?.detail?.message ?? detail?.message ?? detail?.detail ?? res.statusText;
+    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
   }
   const ct = res.headers.get('content-type') ?? '';
   if (ct.includes('application/json')) return res.json();
@@ -82,6 +94,12 @@ export const api = {
     get:    () => get('/repo'),
     switch: (path) => post('/repo/switch', { path }),
     init:   (body) => post('/repo/init', body),
+  },
+  auth: {
+    login:     (username, password) => post('/auth/login', { username, password }),
+    me:        ()                   => get('/auth/me'),
+    listUsers: ()                   => get('/auth/users'),
+    createUser:(body)               => post('/auth/users', body),
   },
   attachments: {
     list:     (uid)                         => get(`/artefacts/${uid}/attachments`),

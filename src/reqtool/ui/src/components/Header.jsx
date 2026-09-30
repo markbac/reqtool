@@ -12,40 +12,16 @@ import { useApp } from '../AppContext';
 import { api } from '../api';
 import './Header.css';
 
-function UserIdentityWidget() {
-  const { state, dispatch } = useApp();
-  const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState('');
-  const currentUser = state.enums?._current_user || 'user';
+function UserIdentityWidget({ onLogin }) {
+  const { state } = useApp();
+  const currentUser = state.enums?._current_user || localStorage.getItem('reqtool:username') || 'user';
 
-  const save = () => {
-    const name = val.trim() || 'user';
-    localStorage.setItem('reqtool:username', name);
-    dispatch({ type: 'SET_ENUMS', payload: { ...state.enums, _current_user: name } });
-    setEditing(false);
-  };
-
-  if (editing) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <input
-          autoFocus
-          value={val}
-          onChange={e => setVal(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
-          onBlur={save}
-          placeholder="Your name"
-          style={{ width: 110, height: 26, fontSize: 11 }}
-        />
-      </div>
-    );
-  }
   return (
     <button
       className="btn btn-ghost"
       style={{ fontSize: 11, padding: '3px 7px', color: 'var(--text-muted)' }}
-      onClick={() => { setVal(currentUser === 'user' ? '' : currentUser); setEditing(true); }}
-      title="Set your name (used for comments and approvals)"
+      onClick={onLogin}
+      title="User Identity & Server Connection (Click to login or switch server)"
     >👤 {currentUser}</button>
   );
 }
@@ -77,7 +53,7 @@ function OverflowMenu({ items }) {
 
 export default function Header({ onValidate, onExport, onCoverage, onBulk, onVocabularies,
                                onBaselines, onMetrics, onImport, onTraceability, onGlobalCommit,
-                               onCustomFields, onWebhooks, onToggleSidebar, onHelp, onRepo }) {
+                               onCustomFields, onWebhooks, onToggleSidebar, onHelp, onRepo, onLogin }) {
   const { state, dispatch, toast } = useApp();
   const { products, activeProduct, activeVariant } = state;
   const [gitStatus, setGitStatus] = useState(null);
@@ -212,6 +188,7 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
         <button className="btn btn-ghost header-action-btn" onClick={onMetrics}  title="Metrics dashboard">⊕ Metrics</button>
         {/* Overflow menu */}
         <OverflowMenu items={[
+          { label: '🔐 Login / Server',action: onLogin },
           { label: '📦 Repository',   action: onRepo },
           { label: '⊞ Coverage',     action: onCoverage },
           { label: '⊗ Traceability', action: onTraceability },
@@ -235,7 +212,7 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
           title="Help, About & Templates (press ?)"
           style={{ fontWeight: 700, fontSize: 15, padding: '4px 10px', color: 'var(--text-secondary)' }}
         >?</button>
-        <UserIdentityWidget />
+        <UserIdentityWidget onLogin={onLogin} />
       </div>
     </header>
   );

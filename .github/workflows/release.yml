@@ -123,6 +123,8 @@ jobs:
           mkdir -p release-binaries
           cp dist/reqtool-web${{ matrix.suffix }} release-binaries/reqtool-web-${{ matrix.platform }}${{ matrix.suffix }}
           cp dist/reqtool-app${{ matrix.suffix }} release-binaries/reqtool-app-${{ matrix.platform }}${{ matrix.suffix }}
+          cp dist/reqtool-server${{ matrix.suffix }} release-binaries/reqtool-server-${{ matrix.platform }}${{ matrix.suffix }}
+          cp dist/reqtool-client${{ matrix.suffix }} release-binaries/reqtool-client-${{ matrix.platform }}${{ matrix.suffix }}
           cp dist/reqtool${{ matrix.suffix }} release-binaries/reqtool-cli-${{ matrix.platform }}${{ matrix.suffix }}
 
       - name: Upload Standalone Binary Artifacts

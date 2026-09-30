@@ -20,12 +20,14 @@ hiddenimports = [
     'reqtool.main',
     'reqtool.cli',
     'reqtool.api',
+    'reqtool.auth',
     'reqtool.store',
     'reqtool.validation',
     'reqtool.exports',
     'reqtool.fileio',
     'reqtool.models',
     'reqtool.routers',
+    'reqtool.routers.auth',
     'reqtool.routers.system',
     'reqtool.routers.requirements',
     'reqtool.routers.principles',
@@ -54,7 +56,7 @@ hiddenimports = [
     'uvicorn.lifespan.on',
 ]
 
-# 1. reqtool-web executable (auto-launches web browser interface)
+# 1. reqtool-web executable (auto-launches browser web interface)
 a_web = Analysis(
     ['src/reqtool/__main_web__.py'],
     pathex=['src'],
@@ -136,7 +138,89 @@ exe_app = EXE(
     entitlements_file=None,
 )
 
-# 3. reqtool CLI executable
+# 3. reqtool-server executable (auto-launches central multi-user backend server on 0.0.0.0:8765)
+a_server = Analysis(
+    ['src/reqtool/__main_server__.py'],
+    pathex=['src'],
+    binaries=[],
+    datas=datas,
+    hiddenimports=hiddenimports,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+pyz_server = PYZ(a_server.pure, a_server.zipped_data, cipher=block_cipher)
+
+exe_server = EXE(
+    pyz_server,
+    a_server.scripts,
+    a_server.binaries,
+    a_server.zipfiles,
+    a_server.datas,
+    [],
+    name='reqtool-server',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
+# 4. reqtool-client executable (auto-launches desktop client application interface)
+a_client = Analysis(
+    ['src/reqtool/__main_client__.py'],
+    pathex=['src'],
+    binaries=[],
+    datas=datas,
+    hiddenimports=hiddenimports,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+pyz_client = PYZ(a_client.pure, a_client.zipped_data, cipher=block_cipher)
+
+exe_client = EXE(
+    pyz_client,
+    a_client.scripts,
+    a_client.binaries,
+    a_client.zipfiles,
+    a_client.datas,
+    [],
+    name='reqtool-client',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
+# 5. reqtool CLI executable
 a_cli = Analysis(
     ['src/reqtool/__main__.py'],
     pathex=['src'],

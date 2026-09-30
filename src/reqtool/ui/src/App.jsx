@@ -21,6 +21,7 @@ import {
   CustomFieldsPanel, WebhooksPanel,
 } from './components/Advanced';
 import { RepoModal } from './components/RepoModal';
+import { LoginModal } from './components/LoginModal';
 import { api } from './api';
 import './index.css';
 
@@ -161,6 +162,7 @@ function AppShell() {
       </div>
 
       {/* Overlay panels */}
+      {state._showLogin        && <LoginModal        onClose={() => toggle('_showLogin',        false)} />}
       {state._showRepo         && <RepoModal         onClose={() => toggle('_showRepo',         false)} />}
       {state._showHelp         && <HelpPanel initialTab="about"
         onClose={() => toggle('_showHelp', false)}
