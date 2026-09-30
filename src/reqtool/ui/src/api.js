@@ -149,7 +149,10 @@ export const api = {
     children:(reqType)  => get(`/hierarchy/children/${reqType}`),
   },
   diff: (since = 'HEAD~1') => get(`/diff?since=${encodeURIComponent(since)}`),
-  render: { markdown: (text) => post('/render/markdown', { text }) },
+  render: {
+    markdown: (text) => post('/render/markdown', { text }),
+    plantuml: (text) => post('/render/plantuml', { text }),
+  },
   health: () => get('/health'),
   workflow: {
     get:    ()     => get('/workflow'),

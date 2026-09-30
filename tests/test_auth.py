@@ -105,3 +105,10 @@ class TestAuthApi:
         usernames = [u["username"] for u in user_list]
         assert "admin" in usernames
         assert "bob" in usernames
+
+
+def test_render_plantuml_endpoint(client):
+    r = client.post("/render/plantuml", json={"text": "@startuml\nclass Requirement\n@enduml"})
+    assert r.status_code == 200
+    assert "image/svg+xml" in r.headers["content-type"]
+    assert "<svg" in r.text

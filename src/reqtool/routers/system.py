@@ -7,6 +7,7 @@ FastAPI router for system, config, metadata, hierarchy, kanban, metrics, workflo
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any, Optional
 from collections import Counter
@@ -436,3 +437,55 @@ def list_templates(store: Store = Depends(get_store)):
 def save_templates(body: list[dict[str, Any]], store: Store = Depends(get_store)):
     save_yaml(store.root / ".reqtool" / "templates.yaml", body)
     return {"saved": len(body)}
+
+
+import subprocess
+import shutil
+
+@router.post("/render/plantuml", tags=["meta"])
+def render_plantuml(body: dict[str, Any], store: Store = Depends(get_store)):
+    """Render PlantUML code to SVG using a backend plantuml.jar or java process."""
+    raw_text = body.get("text", "").strip()
+    if not raw_text:
+        raise HTTPException(status_code=400, detail="PlantUML text payload required")
+
+    if not raw_text.startswith("@start"):
+        text = f"@startuml\n{raw_text}\n@enduml"
+    else:
+        text = raw_text
+
+    # Locate plantuml.jar
+    jar_candidates = [
+        os.environ.get("PLANTUML_JAR"),
+        str(store.root / ".reqtool" / "plantuml.jar"),
+        str(Path(__file__).parent.parent / "defaults" / "plantuml.jar"),
+        "plantuml.jar",
+    ]
+    jar_path = next((c for c in jar_candidates if c and Path(c).exists()), None)
+
+    java_bin = shutil.which("java")
+
+    if jar_path and java_bin:
+        try:
+            res = subprocess.run(
+                [java_bin, "-jar", jar_path, "-pipe", "-tsvg"],
+                input=text.encode("utf-8"),
+                capture_output=True,
+                timeout=15,
+            )
+            if res.returncode == 0 and res.stdout:
+                return Response(content=res.stdout.decode("utf-8"), media_type="image/svg+xml")
+            else:
+                err_msg = res.stderr.decode("utf-8", errors="replace") if res.stderr else "PlantUML error"
+                raise HTTPException(status_code=400, detail=f"PlantUML render error: {err_msg}")
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"PlantUML execution failed: {exc}")
+
+    # Fallback response explaining how to enable plantuml.jar
+    fallback_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="540" height="120" viewBox="0 0 540 120">
+  <rect width="100%" height="100%" fill="#161b22" rx="8" stroke="#30363d"/>
+  <text x="20" y="35" fill="#f0883e" font-family="monospace" font-size="13" font-weight="bold">PlantUML Backend Server Mode</text>
+  <text x="20" y="65" fill="#c9d1d9" font-family="sans-serif" font-size="11">Place plantuml.jar in .reqtool/plantuml.jar or set PLANTUML_JAR env var.</text>
+  <text x="20" y="90" fill="#8b949e" font-family="sans-serif" font-size="11">Java runtime requirement: java -jar plantuml.jar -pipe -tsvg</text>
+</svg>"""
+    return Response(content=fallback_svg, media_type="image/svg+xml")
