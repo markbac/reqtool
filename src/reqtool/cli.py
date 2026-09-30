@@ -293,6 +293,31 @@ def _write_base_repo(root: Path, repo_id: str, title: str, theme: str = "dark") 
     if not gitignore.exists():
         gitignore.write_text("exports/\n*.pyc\n__pycache__/\n")
 
+    gitattributes = root / ".gitattributes"
+    if not gitattributes.exists():
+        gitattributes.write_text(
+            "# reqtool Git LFS tracking rules for binary attachments\n"
+            "attachments/*/*.png  filter=lfs diff=lfs merge=lfs -text\n"
+            "attachments/*/*.jpg  filter=lfs diff=lfs merge=lfs -text\n"
+            "attachments/*/*.jpeg filter=lfs diff=lfs merge=lfs -text\n"
+            "attachments/*/*.gif  filter=lfs diff=lfs merge=lfs -text\n"
+            "attachments/*/*.pdf  filter=lfs diff=lfs merge=lfs -text\n"
+            "attachments/*/*.zip  filter=lfs diff=lfs merge=lfs -text\n"
+            "attachments/*/*.step filter=lfs diff=lfs merge=lfs -text\n"
+            "attachments/*/*.svg  filter=lfs diff=lfs merge=lfs -text\n"
+        )
+
+    # Initialize Git repository and Git LFS if available
+    try:
+        import shutil
+        import subprocess
+        if shutil.which("git"):
+            subprocess.run(["git", "init"], cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if shutil.which("git-lfs"):
+                subprocess.run(["git", "lfs", "install", "--local"], cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
 
 def _write_enums(root: Path, domains: list, nfr_keys: list = None, id_domain: dict = None) -> None:
     from .fileio import save_yaml

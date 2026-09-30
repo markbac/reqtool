@@ -63,3 +63,13 @@ class TestIssueResolutionApi:
         r = client.get("/export/audit-package")
         assert r.status_code == 200
         assert "application/zip" in r.headers["content-type"]
+
+
+def test_git_lfs_init_scaffold(tmp_path: Path):
+    from reqtool.cli import _write_base_repo
+    _write_base_repo(tmp_path, "test-lfs-repo", "Test LFS Repo")
+    gitattrs = tmp_path / ".gitattributes"
+    assert gitattrs.exists()
+    content = gitattrs.read_text(encoding="utf-8")
+    assert "attachments/*/*.png" in content
+    assert "filter=lfs" in content
