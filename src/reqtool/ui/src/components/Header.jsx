@@ -53,7 +53,7 @@ function OverflowMenu({ items }) {
 
 export default function Header({ onValidate, onExport, onCoverage, onBulk, onVocabularies,
                                onBaselines, onMetrics, onImport, onTraceability, onGlobalCommit,
-                               onCustomFields, onWebhooks, onToggleSidebar, onHelp, onRepo, onLogin }) {
+                               onCustomFields, onWebhooks, onToggleSidebar, onHelp, onRepo, onLogin, onDiagram }) {
   const { state, dispatch, toast } = useApp();
   const { products, activeProduct, activeVariant } = state;
   const [gitStatus, setGitStatus] = useState(null);
@@ -188,6 +188,7 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
         <button className="btn btn-ghost header-action-btn" onClick={onMetrics}  title="Metrics dashboard">⊕ Metrics</button>
         {/* Overflow menu */}
         <OverflowMenu items={[
+          { label: '🎨 Diagram Canvas',action: onDiagram },
           { label: '🔐 Login / Server',action: onLogin },
           { label: '📦 Repository',   action: onRepo },
           { label: '⊞ Coverage',     action: onCoverage },

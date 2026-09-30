@@ -88,6 +88,20 @@ def verify_token(token: str, repo_root: Path) -> Optional[dict[str, Any]]:
         return None
 
 
+def sign_approval(uid: str, version: int, username: str, repo_root: Path) -> str:
+    """Generate an HMAC-SHA256 cryptographic signature for a requirement approval."""
+    secret = _get_secret_key(repo_root)
+    msg = f"APPROVE:{uid}:v{version}:{username}".encode("utf-8")
+    sig = hmac.new(secret, msg, hashlib.sha256).hexdigest()
+    return f"SIG-v1-{sig[:32]}"
+
+
+def verify_approval_signature(uid: str, version: int, username: str, signature: str, repo_root: Path) -> bool:
+    """Verify an HMAC-SHA256 cryptographic approval signature."""
+    expected = sign_approval(uid, version, username, repo_root)
+    return hmac.compare_digest(signature, expected)
+
+
 class UserStore:
     def __init__(self, root: Path):
         self.root = root

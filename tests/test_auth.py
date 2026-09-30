@@ -33,6 +33,16 @@ def test_jwt_creation_and_verification(tmp_path: Path):
     assert verify_token("invalid.token.str", repo_root) is None
 
 
+def test_cryptographic_approval_signature(tmp_path: Path):
+    from reqtool.auth import sign_approval, verify_approval_signature
+    sig = sign_approval("REQ-SYS-001", 1, "lead_engineer", tmp_path)
+    assert sig.startswith("SIG-v1-")
+    assert len(sig) == 39
+    assert verify_approval_signature("REQ-SYS-001", 1, "lead_engineer", sig, tmp_path) is True
+    assert verify_approval_signature("REQ-SYS-001", 1, "other_user", sig, tmp_path) is False
+    assert verify_approval_signature("REQ-SYS-001", 2, "lead_engineer", sig, tmp_path) is False
+
+
 def test_user_store_operations(tmp_path: Path):
     store = UserStore(tmp_path)
     # Default admin seeded

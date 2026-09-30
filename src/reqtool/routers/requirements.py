@@ -234,11 +234,19 @@ def approve_requirement(uid: str, body: ApproveRequest, store: Store = Depends(g
     if req is None:
         raise not_found(uid)
     now = utcnow_iso()
+    from reqtool.auth import sign_approval
+    req_v = req.get("version", 1)
+    sig = sign_approval(uid, req_v, body.approved_by, store.root)
     result = store.update_requirement(uid, {
-        "approval": {"status": "approved", "approved_by": body.approved_by, "approved_date": now},
+        "approval": {
+            "status": "approved",
+            "approved_by": body.approved_by,
+            "approved_date": now,
+            "signature": sig,
+        },
         "status": "approved",
     }, increment="minor", summary=f"Approved by {body.approved_by}")
-    fire_webhook(store, "approved", {"uid": uid, "id": req.get("id"), "approved_by": body.approved_by})
+    fire_webhook(store, "approved", {"uid": uid, "id": req.get("id"), "approved_by": body.approved_by, "signature": sig})
     return result
 
 
