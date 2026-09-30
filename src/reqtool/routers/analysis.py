@@ -56,3 +56,20 @@ def generate_ac_scenarios(payload: dict):
     ]
     return {"status": "ok", "scenarios": scenarios}
 
+
+from reqtool.intelligence import detect_duplicate_requirements, generate_test_cases_from_spec
+from fastapi import HTTPException
+
+@router.get("/analysis/detect-duplicates")
+def detect_duplicates(threshold: float = 0.4, store: Store = Depends(get_store)):
+    return detect_duplicate_requirements(store, threshold=threshold)
+
+
+@router.post("/analysis/generate-tests/{uid}")
+def generate_tests(uid: str, store: Store = Depends(get_store)):
+    req = store.get_requirement(uid)
+    if not req:
+        raise HTTPException(status_code=404, detail=f"Requirement '{uid}' not found")
+    tests = generate_test_cases_from_spec(req)
+    return {"uid": uid, "test_cases": tests}
+

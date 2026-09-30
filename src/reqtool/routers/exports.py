@@ -67,3 +67,13 @@ def get_coverage_matrix(
 def get_gap_analysis(store: Store = Depends(get_store)):
     """Audit requirements lacking acceptance criteria, verification methods, or upstream links."""
     return export_gap_analysis(store)
+
+
+from reqtool.intelligence import generate_audit_package
+
+@router.get("/export/audit-package")
+def export_audit_package(store: Store = Depends(get_store)):
+    """Export 21 CFR Part 11 / ISO 26262 Regulatory Compliance Audit Package (Zip)."""
+    zip_bytes = generate_audit_package(store)
+    return Response(content=zip_bytes, media_type="application/zip",
+                    headers={"Content-Disposition": 'attachment; filename="regulatory_compliance_audit_package.zip"'})
