@@ -170,6 +170,13 @@ export const api = {
   metrics: {
     get: () => get('/metrics'),
   },
+  iterations: {
+    list:   ()     => get('/iterations'),
+    get:    (id)   => get(`/iterations/${encodeURIComponent(id)}`),
+    create: (body) => post('/iterations', body),
+    delete: (id)   => del(`/iterations/${encodeURIComponent(id)}`),
+    metrics:(id)   => get(`/iterations/${encodeURIComponent(id)}/metrics`),
+  },
   importCsv: async (csvText) => {
     const res = await fetch(`${BASE}/import/csv/upload`, {
       method: 'POST',

@@ -23,7 +23,7 @@ from .store import Store
 from .routers import (
     system, requirements, principles, tbds, modules,
     comments, attachments, analysis, exports, git_ops,
-    imports, ws, auth,
+    imports, ws, auth, iterations, github,
 )
 
 log = logging.getLogger(__name__)
@@ -111,6 +111,8 @@ def create_app(repo_root: Path) -> FastAPI:
     app.include_router(imports.router)
     app.include_router(ws.router)
     app.include_router(auth.router)
+    app.include_router(iterations.router)
+    app.include_router(github.router)
 
     # ------------------------------------------------------------------
     # Static UI (or fallback landing page when dist is not built)

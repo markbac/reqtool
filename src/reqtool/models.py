@@ -110,6 +110,20 @@ class ImplementationBlock(BaseModel):
     branch: Optional[str] = None
 
 
+class Iteration(BaseModel):
+    id: str
+    title: str
+    methodology: Literal["scrum", "waterfall", "wagile", "kanban"] = "scrum"
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    milestone_date: Optional[str] = None
+    capacity_story_points: float = 0.0
+    status: Literal["planned", "active", "completed", "closed"] = "planned"
+    product_id: Optional[str] = None
+    gate_review_passed: Optional[bool] = None
+    notes: str = ""
+
+
 # ---------------------------------------------------------------------------
 # Requirement
 # ---------------------------------------------------------------------------
@@ -133,6 +147,7 @@ class Requirement(BaseModel):
     req_type: str = "functional"
     domain: Optional[str] = None
     feature: Optional[str] = None
+    iteration_id: Optional[str] = None
 
     owner: Optional[str] = None
     assignee: Optional[str] = None

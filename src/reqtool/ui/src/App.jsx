@@ -23,6 +23,7 @@ import {
 import { RepoModal } from './components/RepoModal';
 import { LoginModal } from './components/LoginModal';
 import { DiagramPanel } from './components/DiagramPanel';
+import { IterationsPanel } from './components/IterationsPanel';
 import { api } from './api';
 import './index.css';
 
@@ -137,6 +138,7 @@ function AppShell() {
         onHelp={() => toggle('_showHelp')}
         onRepo={() => toggle('_showRepo')}
         onDiagram={() => toggle('_showDiagram')}
+        onIterations={() => toggle('_showIterations')}
         onGlobalCommit={(status) => { setGitStatus(status); toggle('_showGlobalCommit'); }}
       />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -164,6 +166,7 @@ function AppShell() {
       </div>
 
       {/* Overlay panels */}
+      {state._showIterations   && <IterationsPanel   onClose={() => toggle('_showIterations',   false)} />}
       {state._showDiagram      && <DiagramPanel      onClose={() => toggle('_showDiagram',      false)} />}
       {state._showLogin        && <LoginModal        onClose={() => toggle('_showLogin',        false)} />}
       {state._showRepo         && <RepoModal         onClose={() => toggle('_showRepo',         false)} />}
