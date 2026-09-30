@@ -987,3 +987,44 @@ class TestConfig:
     def test_get_config(self, client):
         r = client.get("/config")
         assert r.status_code == 200
+
+
+# ===========================================================================
+# Repo Management
+# ===========================================================================
+
+class TestRepoManagement:
+    def test_get_repo(self, client):
+        r = client.get("/repo")
+        assert r.status_code == 200
+        data = r.json()
+        assert "path" in data
+        assert "repo_id" in data
+        assert "repo_title" in data
+        assert "requirements_count" in data
+
+    def test_init_and_switch_repo(self, client, tmp_path):
+        new_repo_dir = tmp_path / "new_repo"
+        r = client.post("/repo/init", json={
+            "path": str(new_repo_dir),
+            "repo_id": "test-repo",
+            "title": "Test Repo",
+            "mode": "defaults"
+        })
+        assert r.status_code == 201
+        data = r.json()
+        assert data["repo_id"] == "test-repo"
+        assert data["repo_title"] == "Test Repo"
+        assert (new_repo_dir / ".reqtool" / "config.yaml").exists()
+
+        # Switch repo
+        r_switch = client.post("/repo/switch", json={"path": str(new_repo_dir)})
+        assert r_switch.status_code == 200
+        assert r_switch.json()["repo_id"] == "test-repo"
+
+    def test_switch_invalid_repo(self, client, tmp_path):
+        empty_dir = tmp_path / "empty_dir"
+        empty_dir.mkdir()
+        r = client.post("/repo/switch", json={"path": str(empty_dir)})
+        assert r.status_code == 404
+

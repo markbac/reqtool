@@ -74,20 +74,20 @@ jobs:
           path: reqtool-documentation-and-user-guide.zip
 
   build-standalone-binaries:
-    name: Build Standalone Binary Executable (${{ matrix.os }})
+    name: Build Standalone Binary Executables (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - os: windows-latest
-            artifact_name: reqtool-windows-amd64.exe
-            binary_src: dist/reqtool.exe
+            suffix: .exe
+            platform: windows-amd64
           - os: ubuntu-latest
-            artifact_name: reqtool-linux-amd64
-            binary_src: dist/reqtool
+            suffix: ""
+            platform: linux-amd64
           - os: macos-latest
-            artifact_name: reqtool-macos-amd64
-            binary_src: dist/reqtool
+            suffix: ""
+            platform: macos-amd64
 
     steps:
       - name: Checkout Repository
@@ -114,20 +114,22 @@ jobs:
           pip install -e .
           pip install pyinstaller
 
-      - name: Build Standalone Executable
+      - name: Build Standalone Executables
         run: pyinstaller reqtool.spec --clean
 
-      - name: Rename Executable Artifact
+      - name: Package & Rename Executable Artifacts
         shell: bash
         run: |
           mkdir -p release-binaries
-          cp ${{ matrix.binary_src }} release-binaries/${{ matrix.artifact_name }}
+          cp dist/reqtool-web${{ matrix.suffix }} release-binaries/reqtool-web-${{ matrix.platform }}${{ matrix.suffix }}
+          cp dist/reqtool-app${{ matrix.suffix }} release-binaries/reqtool-app-${{ matrix.platform }}${{ matrix.suffix }}
+          cp dist/reqtool${{ matrix.suffix }} release-binaries/reqtool-cli-${{ matrix.platform }}${{ matrix.suffix }}
 
-      - name: Upload Standalone Binary Artifact
+      - name: Upload Standalone Binary Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: binary-${{ matrix.os }}
-          path: release-binaries/${{ matrix.artifact_name }}
+          path: release-binaries/*
 
   publish-release:
     name: Publish GitHub Release

@@ -1,35 +1,38 @@
-# `reqtool` Standalone Executable (`reqtool.exe`) Guide
+# `reqtool` Standalone Executable Guide
 
-The standalone executable release of **`reqtool`** provides the full requirements management engine, REST API backend, CLI tools, and React Web Workstation bundled as a single binary executable (`reqtool.exe`).
+The standalone executable release of **`reqtool`** provides the full requirements management engine, REST API backend, CLI tools, and React Web Workstation bundled as standalone binary executables.
 
-**No Python, Node.js, or external dependencies are required to run `reqtool.exe`.**
+**No Python, Node.js, or external dependencies are required to run `reqtool-web.exe` or `reqtool-app.exe`.**
 
 ---
 
-## 1. Quick Start
+## 1. Executable Release Options
 
-### 1.1 Download
-Download the latest executable binary for your operating system from the [GitHub Releases Page](https://github.com/markbac/reqtool/releases):
-- **Windows:** `reqtool-windows-amd64.exe` (or `reqtool.exe`)
-- **Linux:** `reqtool-linux-amd64`
-- **macOS:** `reqtool-macos-amd64`
+| Executable | Auto-Launch Behavior | Recommended Use Case |
+| :--- | :--- | :--- |
+| **`reqtool-web.exe`** | Automatically launches the Web Workstation in your default web browser (`http://localhost:8765`). | General engineering work, browser tab navigation, dual-screen setups. |
+| **`reqtool-app.exe`** | Automatically launches the visual workstation in a dedicated standalone application window. | Distraction-free native app experience for requirements engineers. |
+| **`reqtool.exe`** | Command Line Interface (CLI). Run with `--help` for available subcommands. | Terminal workflows, CI/CD scripts, automated validation & exports. |
 
-### 1.2 Running the Application
+---
 
-#### Option A: Native Desktop App Window Mode (Recommended for Engineers)
-Launches the server and automatically opens the visual workstation in a dedicated, frameless desktop window:
-```cmd
-reqtool.exe serve --app
-```
+## 2. Quick Start
 
-#### Option B: Web Workstation Server Mode
-Launches the backend server and serves the visual workstation at `http://localhost:8765`:
-```cmd
-reqtool.exe serve
-```
+### 2.1 Downloading Executables
+Download the executable binaries for your operating system from the [GitHub Releases Page](https://github.com/markbac/reqtool/releases):
+- **Windows:** `reqtool-web-windows-amd64.exe`, `reqtool-app-windows-amd64.exe`, `reqtool-cli-windows-amd64.exe`
+- **Linux:** `reqtool-web-linux-amd64`, `reqtool-app-linux-amd64`, `reqtool-cli-linux-amd64`
+- **macOS:** `reqtool-web-macos-amd64`, `reqtool-app-macos-amd64`, `reqtool-cli-macos-amd64`
 
-#### Option C: Terminal CLI Commands
-Execute CLI operations directly from PowerShell or Command Prompt:
+### 2.2 Launching the Application
+
+#### Web Interface Executable
+Double-click `reqtool-web.exe` (or run `./reqtool-web.exe` from terminal). The backend server will start and automatically open your default browser to `http://localhost:8765`.
+
+#### Native App Executable
+Double-click `reqtool-app.exe` (or run `./reqtool-app.exe` from terminal). The workstation will launch in an isolated desktop application window.
+
+#### Command Line Executable
 ```cmd
 reqtool.exe --help
 reqtool.exe init defaults
@@ -39,11 +42,36 @@ reqtool.exe export --format csv
 
 ---
 
-## 2. Command Line Reference (`reqtool.exe`)
+## 3. In-Tool Repository Management (Switch & Init)
+
+Both `reqtool-web.exe` and `reqtool-app.exe` feature dynamic repository switching and initialization directly inside the UI without needing to restart the process.
+
+### 3.1 Opening Repository Management
+Click the **`📦 Repo`** button in the top navigation bar (or select **📦 Repository** from the overflow `⋮` menu).
+
+### 3.2 Switching Repositories
+1. Open the **📦 Repository** modal.
+2. Select the **Switch Repository** tab.
+3. Enter the absolute directory path of an existing `reqtool` repository.
+4. Click **Switch Repository**. The backend will instantly validate the path, load the target repository, and refresh the UI tree.
+
+### 3.3 Initializing a New Repository
+1. Open the **📦 Repository** modal.
+2. Select the **Init New Repository** tab.
+3. Enter the directory path for the new repository.
+4. (Optional) Provide a Repo ID slug and Title.
+5. Select the template mode:
+   - **Engineering Defaults:** Pre-populates ~30 engineering principles, standard enums, and workflows.
+   - **Blank Repository:** Creates clean repository directory structure with empty configuration files.
+6. Click **Initialize Repository**. The new repository will be created and immediately loaded into the UI.
+
+---
+
+## 4. Command Line Reference (`reqtool.exe`)
 
 | Command | Usage & Purpose |
 | :--- | :--- |
-| `reqtool.exe serve` | Starts the backend API & Web Workstation. Use `--app` to launch in a desktop window, `--port <N>` for custom ports. |
+| `reqtool.exe serve` | Starts the backend API & Web Workstation. Use `--browser` for browser auto-open, `--app` for desktop app mode, `--port <N>` for custom ports. |
 | `reqtool.exe init` | Initialises `.reqtool/` config in current directory. Subcommands: `defaults`, `agile`, `systems`, `demo`. |
 | `reqtool.exe validate` | Runs full schema checks, vocabulary validation, and INCOSE prose quality linter. Exits 0 if clean. |
 | `reqtool.exe export` | Exports requirements to CSV, ReqIF 1.2 XML, Markdown document tree, or React JSX components. |
@@ -55,28 +83,11 @@ reqtool.exe export --format csv
 
 ---
 
-## 3. Environment Variables & Configuration
-
-Set these environment variables in your terminal or script before launching `reqtool.exe`:
-
-- `REQTOOL_REPO`: Absolute path to target requirements repository directory (defaults to current working directory).
-- `REQTOOL_PORT`: Port number for API and UI server (defaults to `8765`).
-- `REQTOOL_HOST`: Network bind host (defaults to `127.0.0.1` for localhost security; use `0.0.0.0` for team access).
-
-**Example (Windows PowerShell):**
-```powershell
-$env:REQTOOL_REPO = "D:\Engineering\Project-Saturn"
-$env:REQTOOL_PORT = "9000"
-.\reqtool.exe serve --app
-```
-
----
-
-## 4. Standalone Architecture & Self-Containment
+## 5. Standalone Architecture & Self-Containment
 
 ```
   ┌─────────────────────────────────────────────────────────────┐
-  │                   reqtool.exe (Standalone)                  │
+  │         reqtool-web.exe / reqtool-app.exe Standalone        │
   │                                                             │
   │  ┌──────────────────┐ ┌──────────────────┐ ┌─────────────┐  │
   │  │ Python 3.12 Engine│ │ FastAPI REST Server│ │ Embedded UI │  │
@@ -84,11 +95,11 @@ $env:REQTOOL_PORT = "9000"
   │  └──────────────────┘ └──────────────────┘ └─────────────┘  │
   └──────────────────────────────┬──────────────────────────────┘
                                  │
-                                 ▼ Reads & Writes
+                                 ▼ Dynamic Store Load / Switch
   ┌─────────────────────────────────────────────────────────────┐
   │         Git-Backed Repository (.reqtool / YAML files)       │
   └─────────────────────────────────────────────────────────────┘
 ```
 
-- **Single Binary Executable:** Includes the PyInstaller bootloader, Python 3.12 runtime, FastAPI REST routers, INCOSE style rule sets, and bundled React SPA workstation assets.
-- **Git Backed:** All requirement edits, principles, and TBDs remain 100% human-readable YAML files committed to your Git repository history.
+- **Single Binary Executable:** Includes PyInstaller bootloader, Python runtime, FastAPI REST API, INCOSE linter rules, and pre-compiled React SPA assets.
+- **Zero Installation:** Download and run directly. No setup installers, admin permissions, or external runtimes required.

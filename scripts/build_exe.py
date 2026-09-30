@@ -2,7 +2,12 @@
 scripts/build_exe.py
 ====================
 Standalone executable build helper script for reqtool.
-Builds frontend UI assets, packages documentation bundle, and compiles single-file executable using PyInstaller.
+Builds frontend UI assets, packages documentation bundle, and compiles standalone executables using PyInstaller.
+Creates:
+  - dist/reqtool-web.exe  (Auto-launches browser web interface)
+  - dist/reqtool-app.exe  (Auto-launches desktop app interface)
+  - dist/reqtool.exe      (CLI entrypoint)
+  - dist/reqtool-documentation-and-user-guide.zip
 """
 
 import os
@@ -14,6 +19,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent.resolve()
 
+
 def build_ui():
     print("=== Building UI static assets ===")
     ui_dir = ROOT / "src" / "reqtool" / "ui"
@@ -21,12 +27,13 @@ def build_ui():
     subprocess.run(["npm", "run", "build"], cwd=ui_dir, check=True, shell=True)
     print("UI build complete: src/reqtool/ui/dist\n")
 
+
 def build_docs_bundle():
     print("=== Packaging Documentation & User Guide Bundle ===")
     dist_dir = ROOT / "dist"
     dist_dir.mkdir(exist_ok=True)
     zip_path = dist_dir / "reqtool-documentation-and-user-guide.zip"
-    
+
     docs_dir = ROOT / "docs"
     files_to_pack = [
         ROOT / "README.md",
@@ -36,18 +43,27 @@ def build_docs_bundle():
     if docs_dir.exists():
         files_to_pack.extend(list(docs_dir.glob("*.md")))
 
-    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for f in files_to_pack:
             if f.exists():
                 arcname = f.name if f.parent == ROOT else f"docs/{f.name}"
                 zf.write(f, arcname)
     print(f"Documentation bundle created: {zip_path}\n")
 
+
 def build_exe():
-    print("=== Compiling PyInstaller standalone executable ===")
+    print("=== Compiling PyInstaller standalone executables ===")
     subprocess.run([sys.executable, "-m", "PyInstaller", "reqtool.spec", "--clean"], cwd=ROOT, check=True)
-    exe_path = ROOT / "dist" / ("reqtool.exe" if sys.platform == "win32" else "reqtool")
-    print(f"\nSuccess! Standalone executable created at: {exe_path}")
+    ext = ".exe" if sys.platform == "win32" else ""
+    web_exe = ROOT / "dist" / f"reqtool-web{ext}"
+    app_exe = ROOT / "dist" / f"reqtool-app{ext}"
+    cli_exe = ROOT / "dist" / f"reqtool{ext}"
+
+    print(f"\nSuccess! Standalone executables created:")
+    print(f"  - Web Interface:     {web_exe}")
+    print(f"  - Desktop App:       {app_exe}")
+    print(f"  - CLI Tool:          {cli_exe}")
+
 
 if __name__ == "__main__":
     build_ui()

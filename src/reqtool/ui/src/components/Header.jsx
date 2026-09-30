@@ -77,7 +77,7 @@ function OverflowMenu({ items }) {
 
 export default function Header({ onValidate, onExport, onCoverage, onBulk, onVocabularies,
                                onBaselines, onMetrics, onImport, onTraceability, onGlobalCommit,
-                               onCustomFields, onWebhooks, onToggleSidebar, onHelp }) {
+                               onCustomFields, onWebhooks, onToggleSidebar, onHelp, onRepo }) {
   const { state, dispatch, toast } = useApp();
   const { products, activeProduct, activeVariant } = state;
   const [gitStatus, setGitStatus] = useState(null);
@@ -150,6 +150,12 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
           onClick={() => setShowNewProduct(v => !v)}
           title="Create a new product"
         >+ Product</button>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: 11, padding: '3px 8px', marginLeft: 2 }}
+          onClick={onRepo}
+          title="Switch or initialize requirements repository"
+        >📦 Repo</button>
         {variants.length > 0 && (
           <select
             className="header-select header-select-sm"
@@ -206,6 +212,7 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
         <button className="btn btn-ghost header-action-btn" onClick={onMetrics}  title="Metrics dashboard">⊕ Metrics</button>
         {/* Overflow menu */}
         <OverflowMenu items={[
+          { label: '📦 Repository',   action: onRepo },
           { label: '⊞ Coverage',     action: onCoverage },
           { label: '⊗ Traceability', action: onTraceability },
           { label: '◎ Baselines',    action: onBaselines },
