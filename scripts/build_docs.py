@@ -200,6 +200,7 @@ SITE_TEMPLATE = """<!DOCTYPE html>
     <nav class="nav-links">
       <a href="index.html" class="nav-link">Home</a>
       <a href="api-reference.html" class="nav-link">API Reference</a>
+      <a href="https://github.com/markbac/reqtool/releases/latest" class="nav-link" target="_blank" style="color: var(--accent); font-weight: 600;">🚀 Download Release ↗</a>
       <a href="https://github.com/markbac/reqtool" class="nav-link" target="_blank">GitHub Repository ↗</a>
     </nav>
   </header>
@@ -216,6 +217,15 @@ SITE_TEMPLATE = """<!DOCTYPE html>
         <li class="sidebar-item {active_standalone_exe_guide}"><a href="standalone-exe-guide.html">Standalone Binaries Guide</a></li>
         <li class="sidebar-item {active_git_attachment_best_practices}"><a href="git-attachment-best-practices.html">Git LFS &amp; Attachments</a></li>
         <li class="sidebar-item {active_contributing}"><a href="contributing.html">Contributing</a></li>
+      </ul>
+
+      <div class="sidebar-section-title">Releases &amp; Binaries</div>
+      <ul class="sidebar-menu">
+        <li class="sidebar-item"><a href="https://github.com/markbac/reqtool/releases/latest" target="_blank">🚀 Latest Release Downloads ↗</a></li>
+        <li class="sidebar-item"><a href="https://github.com/markbac/reqtool/releases/latest/download/reqtool-cli-windows-amd64.exe">🪟 Windows CLI (.exe)</a></li>
+        <li class="sidebar-item"><a href="https://github.com/markbac/reqtool/releases/latest/download/reqtool-cli-linux-amd64">🐧 Linux CLI (amd64)</a></li>
+        <li class="sidebar-item"><a href="https://github.com/markbac/reqtool/releases/latest/download/reqtool-cli-macos-amd64">🍎 macOS CLI (amd64)</a></li>
+        <li class="sidebar-item"><a href="https://github.com/markbac/reqtool/releases/latest/download/reqtool-documentation-and-user-guide.zip">📦 Docs Archive (.zip)</a></li>
       </ul>
 
       <div class="sidebar-section-title">API &amp; Specifications</div>
