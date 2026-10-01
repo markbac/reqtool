@@ -165,14 +165,12 @@ jobs:
 
   publish-github-pages:
     name: Build & Deploy Documentation to GitHub Pages
+    needs: publish-release
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pages: write
       id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
