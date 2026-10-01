@@ -75,6 +75,23 @@ def export_csv_cmd(product: Optional[str], repo: Optional[str]):
     click.echo(f"Written: {out_path}")
 
 
+@export.command("adr")
+@click.option("--repo", default=None)
+def export_adr_cmd(repo: Optional[str]):
+    """Export Architecture Decision Records (ADR) as Markdown."""
+    root = Path(repo).resolve() if repo else _repo_root()
+    from ..store import Store
+    from ..exports import export_adr_markdown
+    store = Store(root)
+    store.load()
+    content = export_adr_markdown(store)
+    out_dir = root / store.config.export.output_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "architecture_decision_records.md"
+    out_path.write_text(content, encoding="utf-8")
+    click.echo(f"Written: {out_path}")
+
+
 @cli.command("import")
 @click.argument("module_id")
 @click.option("--product", default="", help="Product ID to lock against (default: all referencing products)")

@@ -88,7 +88,8 @@ class Store:
         with self._lock:
             self.requirements = {}
             self.principles = {}
-            self.tbds = {}
+            self.decisions: dict[str, dict[str, Any]] = {}
+            self.tbds: dict[str, dict[str, Any]] = self.decisions
             self.modules = {}
             self.products = {}
             self.module_requirements = {}
@@ -98,13 +99,14 @@ class Store:
             self._load_hierarchy()
             self._load_dir(self.root / "requirements", self.requirements)
             self._load_dir(self.root / "principles", self.principles)
-            self._load_dir(self.root / "tbds", self.tbds)
+            self._load_dir(self.root / "decisions", self.decisions)
+            self._load_dir(self.root / "tbds", self.decisions)
             self._load_modules()
             self._load_products()
             log.info(
-                "Store loaded: %d requirements, %d principles, %d TBDs, "
+                "Store loaded: %d requirements, %d principles, %d decisions/TBDs, "
                 "%d modules, %d products",
-                len(self.requirements), len(self.principles), len(self.tbds),
+                len(self.requirements), len(self.principles), len(self.decisions),
                 len(self.modules), len(self.products),
             )
 
@@ -252,8 +254,11 @@ class Store:
     def get_principle(self, uid: str) -> Optional[dict]:
         return self.principles.get(uid)
 
+    def get_decision(self, uid: str) -> Optional[dict]:
+        return self.decisions.get(uid)
+
     def get_tbd(self, uid: str) -> Optional[dict]:
-        return self.tbds.get(uid)
+        return self.get_decision(uid)
 
     def merged_enums(self) -> dict[str, Any]:
         """Return core + repo enums merged."""
@@ -281,8 +286,14 @@ class Store:
     def principle_path(self, uid: str) -> Path:
         return self.root / "principles" / f"{uid}.yaml"
 
+    def decision_path(self, uid: str) -> Path:
+        tbd_p = self.root / "tbds" / f"{uid}.yaml"
+        if tbd_p.exists():
+            return tbd_p
+        return self.root / "decisions" / f"{uid}.yaml"
+
     def tbd_path(self, uid: str) -> Path:
-        return self.root / "tbds" / f"{uid}.yaml"
+        return self.decision_path(uid)
 
     # ------------------------------------------------------------------
     # Tree construction
@@ -670,25 +681,33 @@ class Store:
         return data
 
     # ------------------------------------------------------------------
-    # Write helpers: TBD
+    # Write helpers: Decision Record (ADR) & TBD
     # ------------------------------------------------------------------
 
-    def create_tbd(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
+    def create_decision(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
         uid = uuid7()
         now = utcnow_iso()
+        item_type = fields.get("type", "decision")
+        prefix = "DEC" if item_type == "decision" else "TBD"
         data: dict[str, Any] = {
             "schema_version": "1.0.0",
-            "type": "tbd",
+            "type": item_type,
             "tool_version": TOOL_VERSION,
             "uid": uid,
-            "id": fields.get("id", f"TBD-{uid[:8]}"),
+            "id": fields.get("id", f"{prefix}-{uid[:8]}"),
             "title": fields.get("title", ""),
             "version": "1.0.0",
-            "content": fields.get("content", {"description": "", "impact": "", "resolution_criteria": "", "resolution": None}),
+            "content": fields.get("content", {
+                "context": "", "description": "", "impact": "",
+                "resolution_criteria": "", "resolution": None,
+                "options": [], "chosen_option": None, "rationale": "",
+            }),
             "owner": fields.get("owner"),
             "due": fields.get("due"),
-            "status": fields.get("status", "open"),
+            "status": fields.get("status", "proposed" if item_type == "decision" else "open"),
             "priority": fields.get("priority", "medium"),
+            "supersedes": fields.get("supersedes"),
+            "superseded_by": fields.get("superseded_by"),
             "affected_requirements": fields.get("affected_requirements", []),
             "links": fields.get("links", []),
             "attachments": fields.get("attachments", []),
@@ -701,22 +720,45 @@ class Store:
                          "summary": "Initial draft.", "commit_sha": None, "change_ref": None}],
         }
         data["content_hash"] = compute_tbd_hash(data)
-        self.tbds[uid] = data
-        save_yaml(self.tbd_path(uid), data)
+        self.decisions[uid] = data
+
+        # Lineage: if this decision supersedes an older one, mark the old one as superseded
+        if data.get("supersedes"):
+            old_uid = data["supersedes"]
+            old_item = self.get_decision(old_uid)
+            if old_item:
+                old_item["status"] = "superseded"
+                old_item["superseded_by"] = uid
+                save_yaml(self.decision_path(old_uid), old_item)
+
+        save_yaml(self.decision_path(uid), data)
         return data
 
-    def update_tbd(
+    def create_tbd(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
+        return self.create_decision(fields, author=author)
+
+    def update_decision(
         self, uid: str, fields: dict[str, Any],
         increment: str = "patch", author: str = "reqtool",
         summary: str = "Updated.", change_ref: Optional[str] = None,
     ) -> Optional[dict[str, Any]]:
-        data = self.tbds.get(uid)
+        data = self.decisions.get(uid)
         if data is None:
             return None
         now = utcnow_iso()
         old_hash = data.get("content_hash", "")
         for key, value in fields.items():
             data[key] = value
+
+        # Lineage check
+        if fields.get("supersedes"):
+            old_uid = fields["supersedes"]
+            old_item = self.get_decision(old_uid)
+            if old_item:
+                old_item["status"] = "superseded"
+                old_item["superseded_by"] = uid
+                save_yaml(self.decision_path(old_uid), old_item)
+
         new_hash = compute_tbd_hash(data)
         if new_hash != old_hash:
             data["version"] = bump_version(data.get("version", "1.0.0"), increment)
@@ -727,17 +769,23 @@ class Store:
         history.append({"version": data["version"], "date": now, "modified_by": author,
                         "summary": summary, "commit_sha": None, "change_ref": change_ref})
         data["history"] = history
-        save_yaml(self.tbd_path(uid), data)
+        save_yaml(self.decision_path(uid), data)
         return data
 
-    def delete_tbd(self, uid: str) -> Optional[dict[str, Any]]:
-        data = self.tbds.get(uid)
+    def update_tbd(self, uid: str, fields: dict[str, Any], **kwargs) -> Optional[dict[str, Any]]:
+        return self.update_decision(uid, fields, **kwargs)
+
+    def delete_decision(self, uid: str) -> Optional[dict[str, Any]]:
+        data = self.decisions.get(uid)
         if data is None:
             return None
         data["deleted"] = True
         data["last_modified"] = utcnow_iso()
-        save_yaml(self.tbd_path(uid), data)
+        save_yaml(self.decision_path(uid), data)
         return data
+
+    def delete_tbd(self, uid: str) -> Optional[dict[str, Any]]:
+        return self.delete_decision(uid)
 
     # ------------------------------------------------------------------
     # Affected requirements for TBDs

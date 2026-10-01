@@ -14,12 +14,21 @@ from reqtool.models import ExportRequest, ExportMarkdownRequest, ExportCSVReques
 from reqtool.exports import (
     export_markdown_zip, export_csv, export_jsx,
     export_reqif_xml, export_coverage_matrix, export_gap_analysis,
+    export_adr_markdown,
 )
 from .deps import get_store
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["export"])
+
+
+@router.get("/export/adr")
+def export_adr_endpoint(store: Store = Depends(get_store)):
+    """Export all Decision Records as standard Nygard-style ADR Markdown format."""
+    md_content = export_adr_markdown(store)
+    return Response(content=md_content.encode("utf-8"), media_type="text/markdown",
+                    headers={"Content-Disposition": 'attachment; filename="architecture_decision_records.md"'})
 
 
 @router.post("/export/jsx")

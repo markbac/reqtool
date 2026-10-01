@@ -21,7 +21,7 @@ from fastapi.responses import HTMLResponse
 from . import __version__
 from .store import Store
 from .routers import (
-    system, requirements, principles, tbds, modules,
+    system, requirements, principles, decisions, tbds, modules,
     comments, attachments, analysis, exports, git_ops,
     imports, ws, auth, iterations, github, automation,
 )
@@ -87,7 +87,7 @@ def create_app(repo_root: Path) -> FastAPI:
                         store.reload_file(changed)
 
             observer = Observer()
-            for subdir in ("requirements", "principles", "tbds", "modules", "products", ".reqtool"):
+            for subdir in ("requirements", "principles", "decisions", "tbds", "modules", "products", ".reqtool"):
                 watch_path = repo_root / subdir
                 watch_path.mkdir(parents=True, exist_ok=True)
                 observer.schedule(ReloadHandler(), str(watch_path), recursive=True)
@@ -102,6 +102,7 @@ def create_app(repo_root: Path) -> FastAPI:
     app.include_router(system.router)
     app.include_router(requirements.router)
     app.include_router(principles.router)
+    app.include_router(decisions.router)
     app.include_router(tbds.router)
     app.include_router(modules.router)
     app.include_router(comments.router)

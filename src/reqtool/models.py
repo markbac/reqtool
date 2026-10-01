@@ -242,19 +242,74 @@ class Principle(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# TBD
+# ---------------------------------------------------------------------------
+# Decision Record (ADR) & TBD
 # ---------------------------------------------------------------------------
 
-class TBDContent(BaseModel):
+class DecisionOption(BaseModel):
+    name: str
+    pros: list[str] = Field(default_factory=list)
+    cons: list[str] = Field(default_factory=list)
+    risk_level: Optional[str] = None
+
+
+class DecisionContent(BaseModel):
+    context: str = ""
     description: str = ""
     impact: str = ""
     resolution_criteria: str = ""
     resolution: Optional[str] = None
+    options: list[DecisionOption] = Field(default_factory=list)
+    chosen_option: Optional[str] = None
+    rationale: str = ""
+
+
+class Decision(BaseModel):
+    schema_version: str = "1.0.0"
+    type: Literal["decision", "tbd"] = "decision"
+    tool_version: str = "0.1.0"
+
+    uid: str
+    id: str
+    title: str
+    version: str = "1.0.0"
+
+    content: DecisionContent = Field(default_factory=DecisionContent)
+
+    owner: Optional[str] = None
+    due: Optional[str] = None
+    status: str = "proposed"  # proposed | accepted | rejected | superseded | open | in_progress | resolved
+    priority: str = "medium"
+    supersedes: Optional[str] = None
+    superseded_by: Optional[str] = None
+    affected_requirements: list[str] = Field(default_factory=list)
+    links: list[Link] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+
+    content_hash: str = ""
+    created: datetime = Field(default_factory=datetime.utcnow)
+    last_modified: datetime = Field(default_factory=datetime.utcnow)
+    deleted: bool = False
+    history: list[HistoryEntry] = Field(default_factory=list)
+
+
+DecisionRecord = Decision
+
+
+class TBDContent(BaseModel):
+    context: str = ""
+    description: str = ""
+    impact: str = ""
+    resolution_criteria: str = ""
+    resolution: Optional[str] = None
+    options: list[DecisionOption] = Field(default_factory=list)
+    chosen_option: Optional[str] = None
+    rationale: str = ""
 
 
 class TBD(BaseModel):
     schema_version: str = "1.0.0"
-    type: Literal["tbd"] = "tbd"
+    type: Literal["tbd", "decision"] = "tbd"
     tool_version: str = "0.1.0"
 
     uid: str
@@ -268,6 +323,8 @@ class TBD(BaseModel):
     due: Optional[str] = None
     status: str = "open"
     priority: str = "medium"
+    supersedes: Optional[str] = None
+    superseded_by: Optional[str] = None
     affected_requirements: list[str] = Field(default_factory=list)
     links: list[Link] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
@@ -765,6 +822,7 @@ class CreateTBDRequest(BaseModel):
     priority: Optional[str] = None
     owner: Optional[str] = None
     due: Optional[str] = None
+    supersedes: Optional[str] = None
     tags: Optional[list[str]] = None
     links: Optional[list[dict[str, Any]]] = None
 
@@ -777,8 +835,14 @@ class UpdateTBDRequest(BaseModel):
     priority: Optional[str] = None
     owner: Optional[str] = None
     due: Optional[str] = None
+    supersedes: Optional[str] = None
+    superseded_by: Optional[str] = None
     tags: Optional[list[str]] = None
     links: Optional[list[dict[str, Any]]] = None
+
+
+CreateDecisionRequest = CreateTBDRequest
+UpdateDecisionRequest = UpdateTBDRequest
 
 
 class AddACRequest(BaseModel):
