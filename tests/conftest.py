@@ -88,3 +88,36 @@ def settle(ms: int = 60) -> None:
     Increase to 150+ ms if tests are flaky in environments with slow I/O.
     """
     time.sleep(ms / 1000)
+
+
+# ---------------------------------------------------------------------------
+# IoT Sensor Demo Repository Fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def demo_repo_root(tmp_path: Path) -> Path:
+    """Populated IoT Sensor demo repository root directory."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+    sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+    from scripts.create_demo_repo import build_demo_repository
+    demo_path = tmp_path / "demo_repo"
+    build_demo_repository(demo_path)
+    return demo_path
+
+
+@pytest.fixture
+def demo_store(demo_repo_root: Path):
+    """Loaded Store instance backed by the IoT Sensor demo repo."""
+    from reqtool.store import Store
+    s = Store(demo_repo_root)
+    s.load()
+    return s
+
+
+@pytest.fixture
+def demo_client(demo_repo_root: Path) -> TestClient:
+    """FastAPI TestClient backed by the IoT Sensor demo repo."""
+    from reqtool.api import create_app
+    app = create_app(demo_repo_root)
+    return TestClient(app, raise_server_exceptions=True)
