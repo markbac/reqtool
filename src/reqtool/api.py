@@ -61,6 +61,7 @@ def create_app(repo_root: Path) -> FastAPI:
 
     if not _under_test:
         try:
+            import threading
             from watchdog.observers import Observer
             from watchdog.events import FileSystemEventHandler
 
