@@ -243,8 +243,27 @@ class Principle(BaseModel):
 
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
-# Decision Record (ADR) & TBD
+# Decision Record (ADR), ATAM Analysis & TBD
 # ---------------------------------------------------------------------------
+
+class ATAMSensitivityPoint(BaseModel):
+    attribute: str
+    description: str
+
+
+class ATAMTradeoffPoint(BaseModel):
+    attributes: list[str] = Field(default_factory=list)
+    description: str
+
+
+class ATAMAnalysis(BaseModel):
+    enabled: bool = True
+    quality_attributes: list[str] = Field(default_factory=list)
+    sensitivity_points: list[ATAMSensitivityPoint] = Field(default_factory=list)
+    tradeoff_points: list[ATAMTradeoffPoint] = Field(default_factory=list)
+    risks: list[str] = Field(default_factory=list)
+    non_risks: list[str] = Field(default_factory=list)
+
 
 class DecisionOption(BaseModel):
     name: str
@@ -262,6 +281,7 @@ class DecisionContent(BaseModel):
     options: list[DecisionOption] = Field(default_factory=list)
     chosen_option: Optional[str] = None
     rationale: str = ""
+    atam: Optional[ATAMAnalysis] = None
 
 
 class Decision(BaseModel):
@@ -305,6 +325,7 @@ class TBDContent(BaseModel):
     options: list[DecisionOption] = Field(default_factory=list)
     chosen_option: Optional[str] = None
     rationale: str = ""
+    atam: Optional[ATAMAnalysis] = None
 
 
 class TBD(BaseModel):

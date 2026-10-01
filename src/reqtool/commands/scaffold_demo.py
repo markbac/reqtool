@@ -1185,7 +1185,7 @@ def populate_demo_data(root: Path, store) -> None:
 
     click.echo(click.style(f"Demo repository initialised at {root}", fg="green"))
     click.echo(f"  {r_count} systems requirements  |  {t_count} TBDs  |  {p_count} principles")
-    click.echo(f"  {agile_count} agile items (theme → epics → stories/tasks/bug/spike)")
+    click.echo(f"  {agile_count} agile items (theme -> epics -> stories/tasks/bug/spike)")
     click.echo(f"  1 module: comms-security ({len(MODULE_REQS)} pre-approved security requirements)")
     click.echo(f"  Product: env-sensor-v1 (includes comms-security module)")
     click.echo(f"  Cross-links: stories satisfy systems requirements via 'satisfies' relationships")

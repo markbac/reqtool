@@ -746,6 +746,44 @@ def export_adr_markdown(store: Store) -> str:
                 lines.append(f"* **Resolution Criteria**: {content['resolution_criteria'].strip()}")
             lines.append("")
 
+        atam = content.get("atam")
+        if atam and isinstance(atam, dict) and atam.get("enabled", True):
+            lines.append("### ATAM Architecture Tradeoff Analysis\n")
+            if atam.get("quality_attributes"):
+                lines.append(f"* **Evaluated Quality Attributes**: {', '.join(atam['quality_attributes'])}\n")
+            
+            sens = atam.get("sensitivity_points", [])
+            if sens:
+                lines.append("**Sensitivity Points**:")
+                for s in sens:
+                    attr = s.get("attribute", "")
+                    desc = s.get("description", "")
+                    lines.append(f"* `{attr}`: {desc}")
+                lines.append("")
+
+            tradeoffs = atam.get("tradeoff_points", [])
+            if tradeoffs:
+                lines.append("**Trade-Off Points**:")
+                for t in tradeoffs:
+                    attrs = ", ".join(t.get("attributes", []))
+                    desc = t.get("description", "")
+                    lines.append(f"* `{attrs}`: {desc}")
+                lines.append("")
+
+            risks = atam.get("risks", [])
+            if risks:
+                lines.append("**Architectural Risks**:")
+                for r in risks:
+                    lines.append(f"* ⚠️ {r}")
+                lines.append("")
+
+            non_risks = atam.get("non_risks", [])
+            if non_risks:
+                lines.append("**Architectural Non-Risks**:")
+                for nr in non_risks:
+                    lines.append(f"* ✅ {nr}")
+                lines.append("")
+
         lines.append("---\n")
 
     return "\n".join(lines)
