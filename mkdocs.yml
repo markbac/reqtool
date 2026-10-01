@@ -1,0 +1,45 @@
+site_name: reqtool Documentation
+site_description: Git-backed YAML Requirements Management Tool & OpenAPI 3.1 Specification
+site_author: reqtool contributors
+site_url: https://markbac.github.io/reqtool/
+
+repo_name: markbac/reqtool
+repo_url: https://github.com/markbac/reqtool
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: indigo
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+
+nav:
+  - Overview: index.md
+  - User Guide: docs/USER_GUIDE.md
+  - Product Datasheet: docs/PRODUCT_DATASHEET.md
+  - Architecture: docs/ARCHITECTURE.md
+  - Philosophy: docs/REQUIREMENTS_PHILOSOPHY.md
+  - Standalone Binaries: docs/STANDALONE_EXE_GUIDE.md
+  - Git LFS & Attachments: docs/GIT_ATTACHMENT_BEST_PRACTICES.md
+  - Contributing: docs/CONTRIBUTING.md
