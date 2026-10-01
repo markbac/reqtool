@@ -225,7 +225,6 @@ SITE_TEMPLATE = """<!DOCTYPE html>
         <li class="sidebar-item"><a href="https://github.com/markbac/reqtool/releases/latest" target="_blank">🚀 Latest Release Downloads ↗</a></li>
         <li class="sidebar-item"><a href="https://github.com/markbac/reqtool/releases/latest/download/reqtool-cli-windows-amd64.exe">🪟 Windows CLI (.exe)</a></li>
         <li class="sidebar-item"><a href="https://github.com/markbac/reqtool/releases/latest/download/reqtool-cli-linux-amd64">🐧 Linux CLI (amd64)</a></li>
-        <li class="sidebar-item"><a href="https://github.com/markbac/reqtool/releases/latest/download/reqtool-cli-macos-amd64">🍎 macOS CLI (amd64)</a></li>
         <li class="sidebar-item"><a href="https://github.com/markbac/reqtool/releases/latest/download/reqtool-documentation-and-user-guide.zip">📦 Docs Archive (.zip)</a></li>
       </ul>
 
