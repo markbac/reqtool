@@ -175,6 +175,177 @@ def create_app(repo_root: Path) -> FastAPI:
   </div>
 </body>
 </html>"""
-            return HTMLResponse(content=html)
+    # ------------------------------------------------------------------
+    # Custom OpenAPI Schema (Security schemes & OpenAPI 3.1 Webhooks)
+    # ------------------------------------------------------------------
+    from fastapi.openapi.utils import get_openapi
 
+    def custom_openapi():
+        if app.openapi_schema:
+            return app.openapi_schema
+        openapi_schema = get_openapi(
+            title="reqtool",
+            version=__version__,
+            description=(
+                "Git-backed YAML requirements management tool. "
+                "Requirements, principles, and TBDs live as individual YAML files; "
+                "the API handles hashing, versioning, validation, and export."
+            ),
+            routes=app.routes,
+        )
+        openapi_schema["components"]["securitySchemes"] = {
+            "HTTPBearer": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "JWT Bearer token acquired via POST /auth/login",
+            },
+            "APIKeyHeader": {
+                "type": "apiKey",
+                "name": "X-API-Key",
+                "in": "header",
+                "description": "API key passed in X-API-Key header",
+            },
+        }
+        openapi_schema["security"] = [
+            {"HTTPBearer": []},
+            {"APIKeyHeader": []},
+        ]
+        openapi_schema["webhooks"] = {
+            "requirement_created": {
+                "post": {
+                    "summary": "Outbound event fired when a requirement is created",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "event": {"type": "string", "example": "requirement_created"},
+                                        "repo_id": {"type": "string"},
+                                        "payload": {
+                                            "type": "object",
+                                            "properties": {
+                                                "uid": {"type": "string"},
+                                                "id": {"type": "string"},
+                                                "title": {"type": "string"},
+                                            },
+                                        },
+                                    },
+                                }
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "Webhook acknowledged"}},
+                }
+            },
+            "requirement_updated": {
+                "post": {
+                    "summary": "Outbound event fired when a requirement is updated",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "event": {"type": "string", "example": "requirement_updated"},
+                                        "repo_id": {"type": "string"},
+                                        "payload": {
+                                            "type": "object",
+                                            "properties": {
+                                                "uid": {"type": "string"},
+                                                "id": {"type": "string"},
+                                            },
+                                        },
+                                    },
+                                }
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "Webhook acknowledged"}},
+                }
+            },
+            "requirement_approved": {
+                "post": {
+                    "summary": "Outbound event fired when a requirement is approved",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "event": {"type": "string", "example": "requirement_approved"},
+                                        "repo_id": {"type": "string"},
+                                        "payload": {
+                                            "type": "object",
+                                            "properties": {
+                                                "uid": {"type": "string"},
+                                                "approved_by": {"type": "string"},
+                                            },
+                                        },
+                                    },
+                                }
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "Webhook acknowledged"}},
+                }
+            },
+            "attachment_added": {
+                "post": {
+                    "summary": "Outbound event fired when a file attachment is uploaded",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "event": {"type": "string", "example": "attachment_added"},
+                                        "repo_id": {"type": "string"},
+                                        "payload": {
+                                            "type": "object",
+                                            "properties": {
+                                                "uid": {"type": "string"},
+                                                "filename": {"type": "string"},
+                                            },
+                                        },
+                                    },
+                                }
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "Webhook acknowledged"}},
+                }
+            },
+            "comment_added": {
+                "post": {
+                    "summary": "Outbound event fired when a discussion comment is posted",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "event": {"type": "string", "example": "comment_added"},
+                                        "repo_id": {"type": "string"},
+                                        "payload": {
+                                            "type": "object",
+                                            "properties": {
+                                                "uid": {"type": "string"},
+                                                "comment_uid": {"type": "string"},
+                                            },
+                                        },
+                                    },
+                                }
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "Webhook acknowledged"}},
+                }
+            },
+        }
+        app.openapi_schema = openapi_schema
+        return app.openapi_schema
+
+    app.openapi = custom_openapi
     return app
