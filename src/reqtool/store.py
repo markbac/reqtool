@@ -293,7 +293,10 @@ class Store:
         return self.root / "decisions" / f"{uid}.yaml"
 
     def tbd_path(self, uid: str) -> Path:
-        return self.decision_path(uid)
+        dec_p = self.root / "decisions" / f"{uid}.yaml"
+        if dec_p.exists():
+            return dec_p
+        return self.root / "tbds" / f"{uid}.yaml"
 
     # ------------------------------------------------------------------
     # Tree construction
@@ -688,7 +691,8 @@ class Store:
         uid = uuid7()
         now = utcnow_iso()
         item_type = fields.get("type", "decision")
-        prefix = "DEC" if item_type == "decision" else "TBD"
+        prefix = "TBD" if item_type == "tbd" else "DEC"
+        default_status = "open" if item_type == "tbd" else "proposed"
         data: dict[str, Any] = {
             "schema_version": "1.0.0",
             "type": item_type,
@@ -704,7 +708,7 @@ class Store:
             }),
             "owner": fields.get("owner"),
             "due": fields.get("due"),
-            "status": fields.get("status", "proposed" if item_type == "decision" else "open"),
+            "status": fields.get("status", default_status),
             "priority": fields.get("priority", "medium"),
             "supersedes": fields.get("supersedes"),
             "superseded_by": fields.get("superseded_by"),
@@ -731,11 +735,15 @@ class Store:
                 old_item["superseded_by"] = uid
                 save_yaml(self.decision_path(old_uid), old_item)
 
-        save_yaml(self.decision_path(uid), data)
+        out_path = self.tbd_path(uid) if item_type == "tbd" else self.decision_path(uid)
+        save_yaml(out_path, data)
         return data
 
     def create_tbd(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
-        return self.create_decision(fields, author=author)
+        f = dict(fields)
+        f.setdefault("type", "tbd")
+        f.setdefault("status", "open")
+        return self.create_decision(f, author=author)
 
     def update_decision(
         self, uid: str, fields: dict[str, Any],

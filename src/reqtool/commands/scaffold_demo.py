@@ -919,6 +919,19 @@ def populate_demo_data(root: Path, store) -> None:
                         "implications": "", "exceptions": ""},
         })
 
+    DEMO_TBDS = [
+        {"id": "TBD-001", "title": "BOM Target Cost Allocation", "status": "open", "content": {"description": "Determine final BOM target allocation between sensor ICs, radio SoC, and battery.", "impact": "Affects SR-COST and component selection."}},
+        {"id": "TBD-002", "title": "Radio SoC Selection (Nordic vs Silicon Labs)", "status": "open", "content": {"description": "Select primary radio SoC vendor based on BLE/Matter stack maturity.", "impact": "Affects SR-CONN and HW design."}},
+        {"id": "TBD-003", "title": "Battery Chemistry: CR2477 vs 2x AAA", "status": "open", "content": {"description": "Evaluate coin cell vs AAA battery form factor for 2-year lifespan target.", "impact": "Affects SR-PWR and industrial design."}},
+        {"id": "TBD-004", "title": "Enclosure IP Rating: IP42 vs IP54", "status": "open", "content": {"description": "Define ingress protection requirement for bathroom/kitchen deployment.", "impact": "Affects SR-ENV and mechanical tooling."}},
+        {"id": "TBD-005", "title": "Cloud Telemetry Ingestion Architecture", "status": "open", "content": {"description": "Choose AWS IoT Core vs GCP Cloud IoT for global fleet ingestion.", "impact": "Affects SR-ECO and backend infrastructure."}},
+    ]
+    for t in DEMO_TBDS:
+        store.create_tbd({
+            "id": t["id"], "title": t["title"], "status": t["status"],
+            "content": t["content"],
+        })
+
     r_count = len(store.requirements)
     t_count = len(store.tbds)
     p_count = len(store.principles)
