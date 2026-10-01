@@ -123,7 +123,7 @@ def create_app(repo_root: Path) -> FastAPI:
     if ui_dist.exists():
         app.mount("/", StaticFiles(directory=str(ui_dist), html=True), name="ui")
     else:
-        @app.get("/", include_in_schema=False)
+        @app.get("/", response_class=HTMLResponse, include_in_schema=False)
         def landing():
             """Fallback landing page served when the React UI has not been built."""
             html = f"""<!DOCTYPE html>
@@ -175,6 +175,7 @@ def create_app(repo_root: Path) -> FastAPI:
   </div>
 </body>
 </html>"""
+            return HTMLResponse(content=html)
     # ------------------------------------------------------------------
     # Custom OpenAPI Schema (Security schemes & OpenAPI 3.1 Webhooks)
     # ------------------------------------------------------------------
