@@ -60,3 +60,4 @@ products/
 # Backup files created by tooling
 *.bak
 site/
+*.pdf

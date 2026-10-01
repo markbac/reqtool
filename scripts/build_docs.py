@@ -219,8 +219,9 @@ SITE_TEMPLATE = """<!DOCTYPE html>
         <li class="sidebar-item {active_contributing}"><a href="contributing.html">Contributing</a></li>
       </ul>
 
-      <div class="sidebar-section-title">Releases &amp; Binaries</div>
+      <div class="sidebar-section-title">Releases &amp; Downloads</div>
       <ul class="sidebar-menu">
+        <li class="sidebar-item"><a href="reqtool-user-guide.pdf" download style="color: var(--accent); font-weight: 600;">📄 PDF User Guide (.pdf)</a></li>
         <li class="sidebar-item"><a href="https://github.com/markbac/reqtool/releases/latest" target="_blank">🚀 Latest Release Downloads ↗</a></li>
         <li class="sidebar-item"><a href="https://github.com/markbac/reqtool/releases/latest/download/reqtool-cli-windows-amd64.exe">🪟 Windows CLI (.exe)</a></li>
         <li class="sidebar-item"><a href="https://github.com/markbac/reqtool/releases/latest/download/reqtool-cli-linux-amd64">🐧 Linux CLI (amd64)</a></li>
@@ -350,6 +351,19 @@ def build():
         )
         (SITE_DIR / out_name).write_text(full_html, encoding="utf-8")
         print(f"Rendered: {out_name}")
+
+    # Build PDF User Guide
+    pdf_file = ROOT / "reqtool-user-guide.pdf"
+    try:
+        import sys
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from generate_pdf_guide import build_pdf
+        build_pdf()
+        if pdf_file.exists():
+            shutil.copy(pdf_file, SITE_DIR / "reqtool-user-guide.pdf")
+            print("Copied reqtool-user-guide.pdf to site/")
+    except Exception as exc:
+        print(f"Warning: PDF generation failed or skipped: {exc}")
 
     # Copy openapi.yaml and write openapi.json
     openapi_yaml = ROOT / "openapi.yaml"

@@ -59,10 +59,16 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install PDF Generation Tools
+        run: pip install reportlab markdown
+
+      - name: Generate PDF User Guide
+        run: python scripts/generate_pdf_guide.py
+
       - name: Package Documentation Archive
         run: |
           mkdir -p docs-dist/docs
-          cp README.md ARCHITECTURE.md LICENSE docs-dist/
+          cp README.md ARCHITECTURE.md LICENSE reqtool-user-guide.pdf docs-dist/
           cp docs/*.md docs-dist/docs/
           cd docs-dist
           zip -r ../reqtool-documentation-and-user-guide.zip .
@@ -71,7 +77,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: documentation-dist
-          path: reqtool-documentation-and-user-guide.zip
+          path: |
+            reqtool-documentation-and-user-guide.zip
+            reqtool-user-guide.pdf
 
   build-standalone-binaries:
     name: Build Standalone Binary Executables (${{ matrix.os }})
@@ -181,7 +189,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install Documentation Dependencies
-        run: pip install markdown pyyaml
+        run: pip install markdown pyyaml reportlab
 
       - name: Build Static Documentation Portal & OpenAPI Spec
         run: python scripts/build_docs.py
