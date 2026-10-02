@@ -501,7 +501,10 @@ class CoreEnums(BaseModel):
     implementation_status: list[str] = [
         "not_started", "in_progress", "implemented", "verified", "deferred", "cancelled",
     ]
-    tbd_status: list[str] = ["open", "in_progress", "resolved", "cancelled"]
+    tbd_status: list[str] = [
+        "proposed", "accepted", "rejected", "superseded",
+        "open", "in_progress", "resolved", "cancelled",
+    ]
     risk_level: list[str] = ["critical", "high", "medium", "low", "none"]
     relationship_type: list[str] = [
         "relates_to", "depends_on", "depended_by", "satisfies", "implements",

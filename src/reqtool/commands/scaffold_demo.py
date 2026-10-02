@@ -1097,7 +1097,7 @@ def populate_demo_data(root: Path, store) -> None:
     p_count = len(store.principles)
 
     # -----------------------------------------------------------------------
-    # Add agile items (epics → stories/tasks) linked to systems requirements
+    # Add agile items (epics -> stories/tasks) linked to systems requirements
     # -----------------------------------------------------------------------
     import shutil
 
@@ -1376,10 +1376,14 @@ def populate_demo_data(root: Path, store) -> None:
 
     store._load_modules()
     store._load_products()
-    try:
-        store.import_module("sensor_pro", "comms-security")
-    except Exception:
-        pass
+    for pid, prod in list(store.products.items()):
+        for mod_ref in prod.get("modules", []):
+            mod_id = mod_ref.get("id")
+            if mod_id and mod_id in store.modules:
+                try:
+                    store.import_module(pid, mod_id)
+                except Exception:
+                    pass
 
     # Generate PDF export example
     try:
