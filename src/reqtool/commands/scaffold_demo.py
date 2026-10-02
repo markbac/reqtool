@@ -919,21 +919,181 @@ def populate_demo_data(root: Path, store) -> None:
                         "implications": "", "exceptions": ""},
         })
 
-    DEMO_TBDS = [
-        {"id": "TBD-001", "title": "BOM Target Cost Allocation", "status": "open", "content": {"description": "Determine final BOM target allocation between sensor ICs, radio SoC, and battery.", "impact": "Affects SR-COST and component selection."}},
-        {"id": "TBD-002", "title": "Radio SoC Selection (Nordic vs Silicon Labs)", "status": "open", "content": {"description": "Select primary radio SoC vendor based on BLE/Matter stack maturity.", "impact": "Affects SR-CONN and HW design."}},
-        {"id": "TBD-003", "title": "Battery Chemistry: CR2477 vs 2x AAA", "status": "open", "content": {"description": "Evaluate coin cell vs AAA battery form factor for 2-year lifespan target.", "impact": "Affects SR-PWR and industrial design."}},
-        {"id": "TBD-004", "title": "Enclosure IP Rating: IP42 vs IP54", "status": "open", "content": {"description": "Define ingress protection requirement for bathroom/kitchen deployment.", "impact": "Affects SR-ENV and mechanical tooling."}},
-        {"id": "TBD-005", "title": "Cloud Telemetry Ingestion Architecture", "status": "open", "content": {"description": "Choose AWS IoT Core vs GCP Cloud IoT for global fleet ingestion.", "impact": "Affects SR-ECO and backend infrastructure."}},
+    # -----------------------------------------------------------------------
+    # Architecture Decision Records (ADRs) with ATAM Analysis
+    # -----------------------------------------------------------------------
+    DEMO_DECISIONS = [
+        {
+            "id": "DEC-001",
+            "title": "Smart Home Wireless Protocol Selection (Matter/Thread vs Wi-Fi 6)",
+            "status": "accepted",
+            "owner": "Principal Architect",
+            "content": {
+                "context": "The IoT sensor requires a reliable wireless protocol for battery-powered operation and smart home ecosystem integration.",
+                "description": "Evaluation of Matter over Thread vs Wi-Fi 6 (802.11ax) for environmental telemetry.",
+                "options": [
+                    {"name": "Option A: Matter over Thread", "pros": ["Mesh networking", "Ultra-low sleep power", "Native Apple/Google/Amazon integration"], "cons": ["Requires Thread Border Router"], "risk_level": "low"},
+                    {"name": "Option B: Wi-Fi 6 Low-Power", "pros": ["Direct home router connection without border router"], "cons": ["High peak TX current (120mA+)", "Reduced battery life"], "risk_level": "high"},
+                ],
+                "chosen_option": "Option A: Matter over Thread",
+                "rationale": "Thread mesh protocol enables 2-year battery life on coin cell while maintaining native smart home ecosystem compatibility.",
+                "atam": {
+                    "enabled": True,
+                    "quality_attributes": ["battery_life", "interoperability", "latency", "security"],
+                    "sensitivity_points": [
+                        {"attribute": "battery_life", "description": "Radio sleep current is the primary sensitivity point for overall 24-month operational lifetime."},
+                        {"attribute": "interoperability", "description": "Compliance with Matter specification determines zero-hub ecosystem onboarding."},
+                    ],
+                    "tradeoff_points": [
+                        {"attributes": ["battery_life", "latency"], "description": "Thread polling interval of 3000ms balances low power consumption against sensor event reporting latency."},
+                    ],
+                    "risks": ["Consumers lacking a Thread Border Router will require fallback provisioning via Bluetooth LE."],
+                    "non_risks": ["AES-128-CCM Thread link-layer encryption is hardware-accelerated on Nordic nRF5340 with zero CPU overhead."],
+                },
+            },
+        },
+        {
+            "id": "DEC-002",
+            "title": "Cloud Telemetry Protocol & Serialization (MQTT/TLS vs HTTP/REST)",
+            "status": "accepted",
+            "owner": "Cloud Lead",
+            "content": {
+                "context": "Fleet sensor data ingestion at 100,000 active devices requires efficient protocol design.",
+                "options": [
+                    {"name": "Option A: MQTT over TLS with Protobuf payloads", "pros": ["Persistent connection", "Minimal packet overhead (2 bytes header)", "Pub/Sub architecture"], "cons": ["Requires TLS session resumption cache"], "risk_level": "low"},
+                    {"name": "Option B: HTTPS REST POST with JSON", "pros": ["Simple cloud gateway implementation"], "cons": ["High TCP/TLS handshake overhead on every sensor report"], "risk_level": "medium"},
+                ],
+                "chosen_option": "Option A: MQTT over TLS with Protobuf payloads",
+                "rationale": "Reduces network data transfer by 85% compared to JSON/HTTPS.",
+                "atam": {
+                    "enabled": True,
+                    "quality_attributes": ["bandwidth", "cloud_cost", "security"],
+                    "sensitivity_points": [{"attribute": "bandwidth", "description": "Protobuf binary encoding size minimizes Cellular/Wi-Fi data usage."}],
+                    "tradeoff_points": [{"attributes": ["cloud_cost", "security"], "description": "TLS 1.3 session resumption reduces cloud authentication compute costs while maintaining zero-trust security."}],
+                    "risks": ["Network firewalls blocking TCP port 8883 require WebSockets fallback."],
+                    "non_risks": ["X.509 mutual authentication overhead is mitigated via hardware Secure Element."],
+                },
+            },
+        },
+        {
+            "id": "DEC-003",
+            "title": "Power Source & Battery Chemistry (CR2477 Coin Cell vs LiFePO4 vs 2x AAA)",
+            "status": "accepted",
+            "owner": "Hardware Lead",
+            "content": {
+                "context": "Evaluating battery form-factor for 24-month continuous operating lifespan.",
+                "options": [
+                    {"name": "Option A: CR2477 Coin Cell (1000 mAh)", "pros": ["Compact form-factor", "Low self-discharge (<1%/year)"], "cons": ["Pulse current limit (15mA max)"], "risk_level": "medium"},
+                    {"name": "Option B: 2x AAA Alkaline (2400 mAh)", "pros": ["High pulse current capacity", "Easily available to consumers"], "cons": ["Larger enclosure dimensions"], "risk_level": "low"},
+                ],
+                "chosen_option": "Option A: CR2477 Coin Cell (1000 mAh)",
+                "rationale": "Pairing CR2477 with a 100uF supercapacitor handles radio TX peak pulses while keeping device thickness under 12mm.",
+                "atam": {
+                    "enabled": True,
+                    "quality_attributes": ["size", "battery_life", "peak_current"],
+                    "sensitivity_points": [{"attribute": "peak_current", "description": "Supercapacitor ESR dictates peak TX voltage drop during Thread bursts."}],
+                    "tradeoff_points": [{"attributes": ["size", "battery_life"], "description": "Coin cell size constraint balances against total mAh capacity."}],
+                    "risks": ["Low ambient temperature (<0°C) reduces coin cell capacity by 30%."],
+                    "non_risks": ["Supercapacitor leakage current is under 1.5uA."],
+                },
+            },
+        },
+        {
+            "id": "DEC-004",
+            "title": "Hardware Security Element vs MCU Internal Secure Flash Storage",
+            "status": "accepted",
+            "owner": "Security Lead",
+            "content": {
+                "context": "UK PSTI and EU RED cybersecurity regulations require tamper-proof cryptographic key storage.",
+                "options": [
+                    {"name": "Option A: Microchip ATECC608B Secure Element", "pros": ["Common Criteria EAL6+ certified", "Physical tamper protection"], "cons": ["Add $0.45 to BOM"], "risk_level": "low"},
+                    {"name": "Option B: MCU Internal ARM TrustZone Flash", "pros": ["Zero extra BOM cost"], "cons": ["Vulnerable to invasive side-channel attacks"], "risk_level": "medium"},
+                ],
+                "chosen_option": "Option A: Microchip ATECC608B Secure Element",
+                "rationale": "Ensures full compliance with PSTI Act 2022 and hardware-isolated private key storage.",
+                "atam": {
+                    "enabled": True,
+                    "quality_attributes": ["security", "bom_cost", "compliance"],
+                    "sensitivity_points": [{"attribute": "security", "description": "Hardware private key isolation prevents flash readout attacks."}],
+                    "tradeoff_points": [{"attributes": ["security", "bom_cost"], "description": "EAL6+ hardware security increases BOM cost by $0.45 but eliminates regulatory non-compliance fines."}],
+                    "risks": ["I2C bus sniffer attack risk mitigated via encrypted bus protocol."],
+                    "non_risks": ["Factory provisioning of X.509 certificates handled at Microchip plant."],
+                },
+            },
+        },
+        {
+            "id": "DEC-005",
+            "title": "Enclosure Ingress Protection Rating (IP42 Consumer vs IP67 Industrial)",
+            "status": "accepted",
+            "owner": "Mechanical Lead",
+            "content": {
+                "context": "Selecting enclosure sealing method for residential vs industrial deployment.",
+                "options": [
+                    {"name": "Option A: IP42 Gasketed Enclosure", "pros": ["Low tooling cost", "Easy battery access door"], "cons": ["Not submersible"], "risk_level": "low"},
+                    {"name": "Option B: IP67 Overmolded Enclosure", "pros": ["Dust-tight and waterproof"], "cons": ["Requires ultrasonic welding; non-replaceable battery"], "risk_level": "high"},
+                ],
+                "chosen_option": "Option A: IP42 Gasketed Enclosure",
+                "rationale": "Sufficient for indoor residential environments (bathrooms/kitchens) while allowing user battery replacement.",
+                "atam": {
+                    "enabled": True,
+                    "quality_attributes": ["usability", "unit_cost", "durability"],
+                    "sensitivity_points": [{"attribute": "durability", "description": "Silicone O-ring compression dictates condensation resistance."}],
+                    "tradeoff_points": [{"attributes": ["usability", "durability"], "description": "Removable battery door trade-off against submersion rating."},],
+                    "risks": ["User failing to close battery hatch properly compromises IP42 seal."],
+                    "non_risks": ["Vented membrane hydrophobic port allows pressure equalization without moisture ingress."],
+                },
+            },
+        },
+        {
+            "id": "DEC-006",
+            "title": "Edge Anomaly Detection Engine (TinyML vs Fixed-Point C DSP)",
+            "status": "proposed",
+            "owner": "AI/ML Lead",
+            "content": {
+                "context": "Evaluating on-device algorithm for early mold and pipe burst detection.",
+                "options": [
+                    {"name": "Option A: TensorFlow Lite for Microcontrollers (TFLM)", "pros": ["Flexible neural net models", "Easy retraining"], "cons": ["Requires 45 KB RAM"], "risk_level": "medium"},
+                    {"name": "Option B: Custom Fixed-Point C Heuristic Engine", "pros": ["Tiny memory footprint (4 KB RAM)", "Zero library dependencies"], "cons": ["Harder to update for complex patterns"], "risk_level": "low"},
+                ],
+                "chosen_option": "Option B: Custom Fixed-Point C Heuristic Engine",
+                "rationale": "Low RAM usage leaves sufficient MCU memory for Matter stack.",
+                "atam": {
+                    "enabled": True,
+                    "quality_attributes": ["memory_footprint", "accuracy", "cpu_cycles"],
+                    "sensitivity_points": [{"attribute": "memory_footprint", "description": "RAM availability is limited on single-core MCU."}],
+                    "tradeoff_points": [{"attributes": ["memory_footprint", "accuracy"], "description": "Fixed-point algorithm saves 40 KB RAM at a minor 2% accuracy trade-off."},],
+                    "risks": ["Complex multi-sensor correlations require future MCU upgrade with vector DSP."],
+                    "non_risks": ["Execution time is under 500 microseconds per sampling window."],
+                },
+            },
+        },
+        {
+            "id": "DEC-007",
+            "title": "Telemetry Serialization Protocol Upgrade to Protobuf v2",
+            "status": "accepted",
+            "owner": "Cloud Lead",
+            "supersedes": "DEC-002",
+            "content": {
+                "context": "Upgrading protobuf schema for DEC-002 to include edge anomaly detection flags.",
+                "description": "Supersedes DEC-002 to introduce binary schema v2.",
+                "chosen_option": "Protobuf Schema v2 with zero-copy parsing",
+                "rationale": "Backwards-compatible schema addition for anomaly alerts.",
+            },
+        },
     ]
-    for t in DEMO_TBDS:
-        store.create_tbd({
-            "id": t["id"], "title": t["title"], "status": t["status"],
-            "content": t["content"],
+
+    for d in DEMO_DECISIONS:
+        store.create_decision({
+            "id": d["id"],
+            "title": d["title"],
+            "status": d["status"],
+            "owner": d.get("owner"),
+            "supersedes": d.get("supersedes"),
+            "content": d["content"],
         })
 
     r_count = len(store.requirements)
-    t_count = len(store.tbds)
+    t_count = len(store.decisions)
     p_count = len(store.principles)
 
     # -----------------------------------------------------------------------
@@ -1097,14 +1257,15 @@ def populate_demo_data(root: Path, store) -> None:
 
     # -----------------------------------------------------------------------
     # Module: comms-security-baseline
-    # A reusable set of communications security requirements that can be
-    # included in any product using the same radio stack.
+    # -----------------------------------------------------------------------
+    # Reusable Subsystem Modules & Product Line Manifests
     # -----------------------------------------------------------------------
     import shutil as _shutil
-    modules_dir = root / "modules" / "comms-security"
-    modules_dir.mkdir(parents=True, exist_ok=True)
-
-    module_manifest = {
+    
+    # 1. MOD-COMMS-SECURITY
+    mod_sec_dir = root / "modules" / "comms-security"
+    mod_sec_dir.mkdir(parents=True, exist_ok=True)
+    save_yaml(mod_sec_dir / "_module.yaml", {
         "schema_version": "1.0.0",
         "id": "comms-security",
         "title": "Communications Security Baseline",
@@ -1112,9 +1273,7 @@ def populate_demo_data(root: Path, store) -> None:
         "description": "Reusable communications security requirements applicable to any Wi-Fi/Matter IoT product.",
         "overrideable_fields": ["priority", "owner", "status"],
         "maintainer": "security.lead",
-    }
-    from ..fileio import save_yaml
-    save_yaml(modules_dir / "_module.yaml", module_manifest)
+    })
 
     MODULE_REQS = [
         {"id": "MOD-SEC-001", "title": "TLS 1.2+ for all network transport",
@@ -1167,27 +1326,67 @@ def populate_demo_data(root: Path, store) -> None:
             "history": [{"version": "1.0.0", "date": now, "modified_by": "reqtool", "summary": "Initial.", "commit_sha": None, "change_ref": None}],
         }
         data["content_hash"] = compute_requirement_hash(data)
-        save_yaml(modules_dir / f"{uid}.yaml", data)
+        save_yaml(mod_sec_dir / f"{uid}.yaml", data)
 
-    # Register module in product
-    product_path = root / "products" / "env-sensor-v1" / "_product.yaml"
-    if product_path.exists():
-        from ..fileio import load_yaml
-        product_data = load_yaml(product_path) or {}
-        if "modules" not in product_data:
-            product_data["modules"] = []
-        product_data["modules"].append({"id": "comms-security", "version": "1.0.0", "overrides": {}})
-        save_yaml(product_path, product_data)
-        # Generate the lock file so validation passes
-        store._load_modules()
-        store._load_products()
-        store.import_module("env-sensor-v1", "comms-security")
+    # 2. MOD-SENSOR-CORE
+    mod_core_dir = root / "modules" / "sensor-core"
+    mod_core_dir.mkdir(parents=True, exist_ok=True)
+    save_yaml(mod_core_dir / "_module.yaml", {
+        "schema_version": "1.0.0", "type": "module", "id": "MOD-SENSOR-CORE",
+        "title": "Environmental Sensor Core Subsystem", "version": "1.2.0",
+        "description": "Standardized environmental sensing subsystem for temperature, humidity, and pressure.",
+    })
+
+    # 3. MOD-POWER-MGMT
+    mod_pwr_dir = root / "modules" / "power-mgmt"
+    mod_pwr_dir.mkdir(parents=True, exist_ok=True)
+    save_yaml(mod_pwr_dir / "_module.yaml", {
+        "schema_version": "1.0.0", "type": "module", "id": "MOD-POWER-MGMT",
+        "title": "Ultra-Low-Power Management Module", "version": "1.1.0",
+        "description": "Power management firmware and hardware subsystem for extended battery operation.",
+    })
+
+    # Product Line Manifests
+    prod_pro_dir = root / "products" / "sensor_pro"
+    prod_pro_dir.mkdir(parents=True, exist_ok=True)
+    save_yaml(prod_pro_dir / "_product.yaml", {
+        "schema_version": "1.0.0", "type": "product", "id": "sensor_pro",
+        "title": "IoT Sensor Pro Edition",
+        "description": "High-accuracy commercial grade environmental sensor with Matter, Thread, BLE, and Security Core.",
+        "modules": [{"id": "comms-security", "version": "1.0.0"}, {"id": "MOD-SENSOR-CORE", "version": "1.2.0"}, {"id": "MOD-POWER-MGMT", "version": "1.1.0"}],
+    })
+
+    prod_lite_dir = root / "products" / "sensor_lite"
+    prod_lite_dir.mkdir(parents=True, exist_ok=True)
+    save_yaml(prod_lite_dir / "_product.yaml", {
+        "schema_version": "1.0.0", "type": "product", "id": "sensor_lite",
+        "title": "IoT Sensor Lite Consumer Edition",
+        "description": "Entry-level residential coin-cell environmental sensor node.",
+        "modules": [{"id": "MOD-SENSOR-CORE", "version": "1.2.0"}, {"id": "MOD-POWER-MGMT", "version": "1.1.0"}],
+    })
+
+    prod_ind_dir = root / "products" / "sensor_industrial"
+    prod_ind_dir.mkdir(parents=True, exist_ok=True)
+    save_yaml(prod_ind_dir / "_product.yaml", {
+        "schema_version": "1.0.0", "type": "product", "id": "sensor_industrial",
+        "title": "IoT Sensor Industrial Heavy-Duty Node",
+        "description": "Harsh-environment IP67 sensor node with NB-IoT cellular, RS-485 Modbus, and ATEX safety classification.",
+        "modules": [{"id": "comms-security", "version": "1.0.0"}, {"id": "MOD-SENSOR-CORE", "version": "1.2.0"}],
+    })
+
+    store._load_modules()
+    store._load_products()
+    try:
+        store.import_module("sensor_pro", "comms-security")
+    except Exception:
+        pass
 
     click.echo(click.style(f"Demo repository initialised at {root}", fg="green"))
     click.echo(f"  {r_count} systems requirements  |  {t_count} TBDs  |  {p_count} principles")
     click.echo(f"  {agile_count} agile items (theme -> epics -> stories/tasks/bug/spike)")
-    click.echo(f"  1 module: comms-security ({len(MODULE_REQS)} pre-approved security requirements)")
-    click.echo(f"  Product: env-sensor-v1 (includes comms-security module)")
+    click.echo(f"  3 ATAM decision records ({len(DEMO_DECISIONS)} total decisions)")
+    click.echo(f"  3 reusable modules: comms-security, MOD-SENSOR-CORE, MOD-POWER-MGMT")
+    click.echo(f"  3 product variants: sensor_pro, sensor_lite, sensor_industrial")
     click.echo(f"  Cross-links: stories satisfy systems requirements via 'satisfies' relationships")
 
 
