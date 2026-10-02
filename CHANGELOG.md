@@ -4,6 +4,16 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.5.0] -- 2026-10-02
+
+### Added
+- **Full Repository PDF Exporter (`req export pdf`)**: Export requirements, decision records, modules, products, and traceability matrices to professional ReportLab PDFs with clickable anchors, interactive Table of Contents, and Outline bookmarks.
+- **ATAM Architecture Tradeoff Analysis in Decision Records**: Integrated ATAM scenarios (quality attributes, sensitivity points, trade-offs, risks, non-risks) into Decision Records (`req decision create --atam`).
+- **IoT Sensor Demo Repository (`req init demo`)**: Enterprise-grade IoT Sensor multi-product, multi-module demonstration repository and test fixture suite.
+- **Overarching Repository Title & Description**: Viewable and editable repository title and description in Web UI (`RepoModal.jsx`) and exported in PDF summaries.
+- **GitHub Pages Environment Deployment**: Fixed deployment branch protection policies for tag releases on GitHub Actions.
+
+
 ## [0.3.20] -- 2025-06-08
 
 ### UX improvements
