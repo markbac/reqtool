@@ -14,13 +14,32 @@ from reqtool.models import ExportRequest, ExportMarkdownRequest, ExportCSVReques
 from reqtool.exports import (
     export_markdown_zip, export_csv, export_jsx,
     export_reqif_xml, export_coverage_matrix, export_gap_analysis,
-    export_adr_markdown,
+    export_adr_markdown, export_pdf,
 )
 from .deps import get_store
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["export"])
+
+
+@router.get("/export/pdf")
+def export_pdf_get_endpoint(product: str = None, store: Store = Depends(get_store)):
+    """Export the complete repository specification as a PDF document."""
+    pdf_bytes = export_pdf(store, product_id=product)
+    filename = f"{store.config.repo_id or 'specification'}.pdf"
+    return Response(content=pdf_bytes, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.post("/export/pdf")
+def export_pdf_post_endpoint(body: ExportRequest, store: Store = Depends(get_store)):
+    """Export the complete repository specification as a PDF document."""
+    pdf_bytes = export_pdf(store, product_id=body.product)
+    filename = f"{store.config.repo_id or 'specification'}.pdf"
+    return Response(content=pdf_bytes, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
 
 
 @router.get("/export/adr")

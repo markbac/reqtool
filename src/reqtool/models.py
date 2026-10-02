@@ -640,6 +640,7 @@ class RepoConfig(BaseModel):
     schema_version: str = "1.0.0"
     repo_id: str = ""
     repo_title: str = ""
+    repo_description: str = ""
     git: GitConfig = Field(default_factory=GitConfig)
     ui: UIConfig = Field(default_factory=UIConfig)
     export: ExportConfig = Field(default_factory=ExportConfig)

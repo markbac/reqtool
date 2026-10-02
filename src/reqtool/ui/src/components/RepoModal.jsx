@@ -23,15 +23,38 @@ export function RepoModal({ onClose, onRepoChanged }) {
   const [initTitle, setInitTitle] = useState('');
   const [initMode, setInitMode] = useState('defaults');
 
+  // Edit Details state
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+
   useEffect(() => {
     api.repo.get()
       .then(info => {
         setRepoInfo(info);
         setSwitchPath(info.path || '');
+        setEditTitle(info.repo_title || '');
+        setEditDesc(info.repo_description || '');
       })
       .catch(err => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleSaveDetails = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      await api.config.update({ repo_title: editTitle.trim(), repo_description: editDesc.trim() });
+      toast.success('Repository title and overarching description updated!');
+      const updatedInfo = await api.repo.get();
+      setRepoInfo(updatedInfo);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
 
   const handleSwitch = async (e) => {
     e.preventDefault();
@@ -112,6 +135,13 @@ export function RepoModal({ onClose, onRepoChanged }) {
             {/* Sub-navigation tabs */}
             <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border-color)', marginBottom: 16 }}>
               <button
+                className={`btn ${tab === 'details' ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ borderRadius: '4px 4px 0 0', fontSize: 12 }}
+                onClick={() => { setTab('details'); setError(null); }}
+              >
+                Repo Details & Description
+              </button>
+              <button
                 className={`btn ${tab === 'switch' ? 'btn-primary' : 'btn-ghost'}`}
                 style={{ borderRadius: '4px 4px 0 0', fontSize: 12 }}
                 onClick={() => { setTab('switch'); setError(null); }}
@@ -140,7 +170,40 @@ export function RepoModal({ onClose, onRepoChanged }) {
               </div>
             )}
 
-            {tab === 'switch' ? (
+            {tab === 'details' ? (
+              <form onSubmit={handleSaveDetails} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <label style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span>Repository Title:</span>
+                  <input
+                    type="text"
+                    className="input-text"
+                    value={editTitle}
+                    onChange={e => setEditTitle(e.target.value)}
+                    placeholder="e.g. IoT Environmental Sensor Platform"
+                    required
+                  />
+                </label>
+
+                <label style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <span>Overarching Repository Description (Start of PDF Export):</span>
+                  <textarea
+                    className="input-text"
+                    rows={5}
+                    value={editDesc}
+                    onChange={e => setEditDesc(e.target.value)}
+                    placeholder="Enter an overarching summary of this repository, its architecture, business goals, and operational scope..."
+                    style={{ resize: 'vertical' }}
+                  />
+                </label>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+                  <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={submitting}>
+                    {submitting ? 'Saving…' : 'Save Details'}
+                  </button>
+                </div>
+              </form>
+            ) : tab === 'switch' ? (
               <form onSubmit={handleSwitch} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <label style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <span>Target Repository Path:</span>

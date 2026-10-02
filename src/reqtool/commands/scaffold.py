@@ -27,6 +27,7 @@ def _write_base_repo(root: Path, repo_id: str, title: str, theme: str = "dark") 
         "schema_version": "1.0.0",
         "repo_id": repo_id,
         "repo_title": title,
+        "repo_description": "",
         "git": {
             "default_branch": "main",
             "commit_name": "Requirements Tool",
@@ -295,8 +296,13 @@ def init_demo(repo: Optional[str]):
         click.echo(f"Repository already initialised at {root}", err=True)
         sys.exit(1)
 
-    _write_base_repo(root, "iot-sensor", "IoT Environmental Sensor")
+    _write_base_repo(root, "iot-sensor", "IoT Environmental Sensor Platform")
     _cfg = load_yaml(root / ".reqtool" / "config.yaml") or {}
+    _cfg["repo_description"] = (
+        "Production-grade IoT Environmental Sensor Platform supporting Matter over Thread, Wi-Fi 6, "
+        "and MQTT/TLS cloud telemetry. Features ultra-low-power coin-cell power management, UK PSTI / EU RED "
+        "cybersecurity baselines, ISO 26262 safety classifications, and ATAM Architecture Tradeoff Analysis."
+    )
     _cfg.setdefault("validation", {}).update({
         "require_owner": False,
         "warn_on_missing_test_ref": False,

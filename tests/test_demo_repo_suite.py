@@ -10,12 +10,12 @@ from fastapi.testclient import TestClient
 
 
 def test_demo_repo_store_counts(demo_store):
-    """Verify demo store has expected full dataset counts."""
+    """Verify demo store has expected full dataset counts for multiple product lines and modules."""
     assert len(demo_store.requirements) > 200
     assert len(demo_store.principles) >= 10
-    assert len(demo_store.decisions) >= 5
-    assert len(demo_store.modules) >= 1
-    assert len(demo_store.products) >= 1
+    assert len(demo_store.decisions) >= 7
+    assert len(demo_store.modules) >= 3
+    assert len(demo_store.products) >= 3
 
 
 def test_demo_repo_api_requirements(demo_client: TestClient):

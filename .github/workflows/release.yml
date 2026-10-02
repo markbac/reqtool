@@ -59,16 +59,19 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install PDF Generation Tools
-        run: pip install reportlab markdown
+      - name: Install PDF Generation Tools & Package
+        run: pip install reportlab markdown pydantic click -e .
 
-      - name: Generate PDF User Guide
-        run: python scripts/generate_pdf_guide.py
+      - name: Generate PDF User Guide & Demo Specification Example
+        run: |
+          python scripts/generate_pdf_guide.py
+          python scripts/create_demo_repo.py --out-dir ./demo-iot-repo
+          cp demo-iot-repo/exports/demo-iot-sensor-specification.pdf reqtool-demo-iot-sensor-specification.pdf
 
       - name: Package Documentation Archive
         run: |
           mkdir -p docs-dist/docs
-          cp README.md ARCHITECTURE.md LICENSE reqtool-user-guide.pdf docs-dist/
+          cp README.md ARCHITECTURE.md LICENSE reqtool-user-guide.pdf reqtool-demo-iot-sensor-specification.pdf docs-dist/
           cp docs/*.md docs-dist/docs/
           cd docs-dist
           zip -r ../reqtool-documentation-and-user-guide.zip .
@@ -80,6 +83,7 @@ jobs:
           path: |
             reqtool-documentation-and-user-guide.zip
             reqtool-user-guide.pdf
+            reqtool-demo-iot-sensor-specification.pdf
 
   build-standalone-binaries:
     name: Build Standalone Binary Executables (${{ matrix.os }})

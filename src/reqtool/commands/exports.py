@@ -92,6 +92,32 @@ def export_adr_cmd(repo: Optional[str]):
     click.echo(f"Written: {out_path}")
 
 
+@export.command("pdf")
+@click.option("--product", default=None, help="Product ID filter.")
+@click.option("--output", "-o", default=None, help="Custom output PDF path.")
+@click.option("--repo", default=None)
+def export_pdf_cmd(product: Optional[str], output: Optional[str], repo: Optional[str]):
+    """Export complete repository as a PDF specification document."""
+    root = Path(repo).resolve() if repo else _repo_root()
+    from ..store import Store
+    from ..exports import export_pdf
+    store = Store(root)
+    store.load()
+    pdf_bytes = export_pdf(store, product_id=product)
+    
+    if output:
+        out_path = Path(output).resolve()
+    else:
+        out_dir = root / store.config.export.output_dir
+        out_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{store.config.repo_id or 'specification'}.pdf"
+        out_path = out_dir / filename
+        
+    out_path.write_bytes(pdf_bytes)
+    click.echo(click.style(f"Written PDF specification: {out_path} ({len(pdf_bytes)} bytes)", fg="green"))
+
+
+
 @cli.command("import")
 @click.argument("module_id")
 @click.option("--product", default="", help="Product ID to lock against (default: all referencing products)")

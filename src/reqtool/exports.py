@@ -787,3 +787,14 @@ def export_adr_markdown(store: Store) -> str:
         lines.append("---\n")
 
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# PDF Document Exporter
+# ---------------------------------------------------------------------------
+
+def export_pdf(store: Store, product_id: Optional[str] = None) -> bytes:
+    """Export the entire requirements repository as a formatted PDF specification."""
+    from .pdf import generate_pdf_bytes
+    return generate_pdf_bytes(store, product_id=product_id)
+

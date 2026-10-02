@@ -53,15 +53,29 @@ def get_config(store: Store = Depends(get_store)):
     return store.config.model_dump()
 
 
+@router.put("/config", tags=["meta"])
+def update_config(body: dict[str, Any], store: Store = Depends(get_store)):
+    config_path = store.root / ".reqtool" / "config.yaml"
+    cfg = load_yaml(config_path) if config_path.exists() else {}
+    cfg.update(body)
+    save_yaml(config_path, cfg)
+    from reqtool.models import RepoConfig
+    store.config = RepoConfig.model_validate(cfg)
+    return store.config.model_dump()
+
+
+
 @router.get("/repo", tags=["meta"])
 def get_repo_info(store: Store = Depends(get_store)):
     return {
         "path": str(store.root),
         "repo_id": store.config.repo_id,
         "repo_title": store.config.repo_title,
+        "repo_description": store.config.repo_description,
         "requirements_count": len(store.requirements),
         "principles_count": len(store.principles),
         "tbds_count": len(store.tbds),
+        "decisions_count": len(store.decisions),
     }
 
 

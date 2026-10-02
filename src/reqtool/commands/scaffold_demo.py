@@ -1381,12 +1381,26 @@ def populate_demo_data(root: Path, store) -> None:
     except Exception:
         pass
 
+    # Generate PDF export example
+    try:
+        from ..exports import export_pdf
+        pdf_bytes = export_pdf(store)
+        exports_dir = root / "exports"
+        exports_dir.mkdir(parents=True, exist_ok=True)
+        pdf_path = exports_dir / "demo-iot-sensor-specification.pdf"
+        pdf_path.write_bytes(pdf_bytes)
+        pdf_info = f" ({len(pdf_bytes)} bytes written to exports/demo-iot-sensor-specification.pdf)"
+    except Exception as exc:
+        pdf_info = f" (pdf export skipped: {exc})"
+
     click.echo(click.style(f"Demo repository initialised at {root}", fg="green"))
     click.echo(f"  {r_count} systems requirements  |  {t_count} TBDs  |  {p_count} principles")
     click.echo(f"  {agile_count} agile items (theme -> epics -> stories/tasks/bug/spike)")
     click.echo(f"  3 ATAM decision records ({len(DEMO_DECISIONS)} total decisions)")
     click.echo(f"  3 reusable modules: comms-security, MOD-SENSOR-CORE, MOD-POWER-MGMT")
     click.echo(f"  3 product variants: sensor_pro, sensor_lite, sensor_industrial")
+    click.echo(f"  PDF Specification Export: exports/demo-iot-sensor-specification.pdf{pdf_info}")
     click.echo(f"  Cross-links: stories satisfy systems requirements via 'satisfies' relationships")
+
 
 
