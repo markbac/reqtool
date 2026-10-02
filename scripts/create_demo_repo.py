@@ -135,47 +135,96 @@ def build_demo_repository(out_dir: Path) -> Path:
         },
     })
 
-    # 4. Create Reusable Modules
-    print("[*] Creating Reusable Modules...")
-    (out_dir / "modules").mkdir(parents=True, exist_ok=True)
-    save_yaml(out_dir / "modules" / "sensor_core.yaml", {
+    # 4. Create Multiple Reusable Modules
+    print("[*] Creating Reusable Subsystem Modules...")
+    
+    mod_core_dir = out_dir / "modules" / "sensor-core"
+    mod_core_dir.mkdir(parents=True, exist_ok=True)
+    save_yaml(mod_core_dir / "_module.yaml", {
         "schema_version": "1.0.0",
         "type": "module",
         "id": "MOD-SENSOR-CORE",
-        "name": "Environmental Sensor Core Module",
+        "name": "Environmental Sensor Core Subsystem",
         "version": "1.2.0",
-        "content": {
-            "description": "Standardized environmental sensing subsystem for temperature, humidity, and pressure.",
-            "scope": "Hardware drivers, sampling scheduler, calibration offsets, and self-diagnostics.",
-        },
-        "requirements": [
-            {"uid": store.create_requirement({"id": "SYS-SEN-1", "title": "Temperature Measurement", "req_type": "functional"})["uid"], "id": "SYS-SEN-1"},
-            {"uid": store.create_requirement({"id": "SYS-SEN-2", "title": "Humidity Measurement", "req_type": "functional"})["uid"], "id": "SYS-SEN-2"},
-        ],
+        "description": "Standardized environmental sensing subsystem for temperature, humidity, and pressure.",
     })
 
-    # 5. Create Product Variants
-    print("[*] Creating Product Manifests...")
-    (out_dir / "products").mkdir(parents=True, exist_ok=True)
-    save_yaml(out_dir / "products" / "sensor_pro.yaml", {
+    mod_sec_dir = out_dir / "modules" / "comms-security"
+    mod_sec_dir.mkdir(parents=True, exist_ok=True)
+    save_yaml(mod_sec_dir / "_module.yaml", {
+        "schema_version": "1.0.0",
+        "type": "module",
+        "id": "MOD-COMMS-SECURITY",
+        "name": "Communications Cybersecurity Baseline",
+        "version": "1.0.0",
+        "description": "Reusable communications security requirements enforcing UK PSTI Act 2022 and EU RED compliance.",
+    })
+
+    mod_pwr_dir = out_dir / "modules" / "power-mgmt"
+    mod_pwr_dir.mkdir(parents=True, exist_ok=True)
+    save_yaml(mod_pwr_dir / "_module.yaml", {
+        "schema_version": "1.0.0",
+        "type": "module",
+        "id": "MOD-POWER-MGMT",
+        "name": "Ultra-Low-Power Management Module",
+        "version": "1.1.0",
+        "description": "Power management firmware and hardware subsystem for extended battery operation.",
+    })
+
+    # 5. Create Multiple Product Manifests
+    print("[*] Creating Product Line Manifests...")
+    
+    prod_pro_dir = out_dir / "products" / "sensor_pro"
+    prod_pro_dir.mkdir(parents=True, exist_ok=True)
+    save_yaml(prod_pro_dir / "_product.yaml", {
         "schema_version": "1.0.0",
         "type": "product",
         "id": "sensor_pro",
         "name": "IoT Sensor Pro Edition",
-        "description": "High-accuracy commercial grade environmental sensor with Matter, Thread and BLE.",
+        "description": "High-accuracy commercial grade environmental sensor with Matter, Thread, BLE, and Security Core.",
         "modules": [
             {"id": "MOD-SENSOR-CORE", "version": "1.2.0"},
+            {"id": "MOD-COMMS-SECURITY", "version": "1.0.0"},
+            {"id": "MOD-POWER-MGMT", "version": "1.1.0"},
+        ],
+    })
+
+    prod_lite_dir = out_dir / "products" / "sensor_lite"
+    prod_lite_dir.mkdir(parents=True, exist_ok=True)
+    save_yaml(prod_lite_dir / "_product.yaml", {
+        "schema_version": "1.0.0",
+        "type": "product",
+        "id": "sensor_lite",
+        "name": "IoT Sensor Lite Consumer Edition",
+        "description": "Entry-level residential coin-cell environmental sensor node.",
+        "modules": [
+            {"id": "MOD-SENSOR-CORE", "version": "1.2.0"},
+            {"id": "MOD-POWER-MGMT", "version": "1.1.0"},
+        ],
+    })
+
+    prod_ind_dir = out_dir / "products" / "sensor_industrial"
+    prod_ind_dir.mkdir(parents=True, exist_ok=True)
+    save_yaml(prod_ind_dir / "_product.yaml", {
+        "schema_version": "1.0.0",
+        "type": "product",
+        "id": "sensor_industrial",
+        "name": "IoT Sensor Industrial Heavy-Duty Node",
+        "description": "Harsh-environment IP67 sensor node with NB-IoT cellular, RS-485 Modbus, and ATEX safety classification.",
+        "modules": [
+            {"id": "MOD-SENSOR-CORE", "version": "1.2.0"},
+            {"id": "MOD-COMMS-SECURITY", "version": "1.0.0"},
         ],
     })
 
     # Reload store & summarize
     store.load()
-    print("\n[+] Demo Repository Successfully Created!")
+    print("\n[+] Production Demo Repository Successfully Created!")
     print(f"  - Requirements: {len(store.requirements)}")
     print(f"  - Architecture Principles: {len(store.principles)}")
     print(f"  - ATAM Decision Records: {len(store.decisions)}")
     print(f"  - Reusable Modules: {len(store.modules)}")
-    print(f"  - Products: {len(store.products)}")
+    print(f"  - Product Line Manifests: {len(store.products)}")
     return out_dir
 
 
