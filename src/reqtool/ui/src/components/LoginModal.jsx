@@ -37,7 +37,9 @@ export function LoginModal({ onClose, onLoginSuccess }) {
       }
 
       const res = await api.auth.login(username.trim(), password.trim());
-      localStorage.setItem('reqtool:auth_token', res.access_token);
+      // Same-origin sessions use HttpOnly cookies. Only a custom server URL keeps a bearer token in the browser.
+      if (serverUrl.trim()) localStorage.setItem('reqtool:auth_token', res.access_token);
+      else localStorage.removeItem('reqtool:auth_token');
       localStorage.setItem('reqtool:username', res.user.username);
       toast.success(`Logged in successfully as ${res.user.full_name || res.user.username}`);
       if (onLoginSuccess) onLoginSuccess(res.user);
@@ -50,7 +52,8 @@ export function LoginModal({ onClose, onLoginSuccess }) {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try { await api.auth.logout(); } catch { /* the cookies expire on their own */ }
     localStorage.removeItem('reqtool:auth_token');
     toast.info('Logged out');
     setCurrentUser(null);

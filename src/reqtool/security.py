@@ -26,13 +26,15 @@ from typing import Any, Optional
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from .auth import CSRF_HEADER, SESSION_COOKIE
+
 log = logging.getLogger(__name__)
 
 LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost", "testclient"}
 MODES = ("local", "required")
 
 # Reachable without a token in `required` mode.
-PUBLIC_PATHS = {"/health", "/version", "/auth/login"}
+PUBLIC_PATHS = {"/health", "/version", "/auth/login", "/auth/refresh", "/auth/logout"}
 # Authenticated by its own HMAC signature instead of a login token.
 SIGNED_PATHS = {"/webhooks/github"}
 PUBLIC_PREFIXES = ("/badge/", "/assets/")
@@ -70,16 +72,27 @@ def is_public_path(method: str, path: str) -> bool:
     return False
 
 
-def extract_token(request_headers, query_params, method: str) -> Optional[str]:
+def extract_credentials(request_headers, query_params, method: str, cookies=None) -> tuple[Optional[str], str]:
+    """The token a request carries and where it came from: ``header``, ``query``, ``cookie`` or ``none``."""
     auth = request_headers.get("authorization")
     if auth and auth.startswith("Bearer "):
-        return auth[7:].strip()
+        return auth[7:].strip(), "header"
     key = request_headers.get("x-api-key")
     if key:
-        return key.strip()
-    if method in ("GET", "HEAD"):
-        return query_params.get("access_token")
-    return None
+        return key.strip(), "header"
+    if method in ("GET", "HEAD") and query_params.get("access_token"):
+        return query_params.get("access_token"), "query"
+    if cookies and cookies.get(SESSION_COOKIE):
+        return cookies.get(SESSION_COOKIE), "cookie"
+    return None, "none"
+
+
+def extract_token(request_headers, query_params, method: str, cookies=None) -> Optional[str]:
+    return extract_credentials(request_headers, query_params, method, cookies)[0]
+
+
+def csrf_header_present(headers) -> bool:
+    return bool(headers.get(CSRF_HEADER))
 
 
 def user_for_token(token: Optional[str], root: Path) -> Optional[dict[str, Any]]:
@@ -129,9 +142,14 @@ def install(app, mode: str) -> None:
             return await call_next(request)
         if is_public_path(method, path):
             return await call_next(request)
-        user = user_for_token(extract_token(request.headers, request.query_params, method), app.state.store.root)
+        token, source = extract_credentials(request.headers, request.query_params, method, request.cookies)
+        user = user_for_token(token, app.state.store.root)
         if user is None:
             return _deny(401, "unauthorized", "Authentication required")
+        if source == "cookie" and method not in ("GET", "HEAD") and not csrf_header_present(request.headers):
+            # Browser sessions ride on a cookie, so a state-changing request must also carry the custom header
+            # that only our own pages can add. Bearer-token clients are not affected.
+            return _deny(403, "csrf", f"Cookie sessions need the {CSRF_HEADER} header on {method} requests")
         if user["role"] == "viewer" and method not in ("GET", "HEAD"):
             return _deny(403, "forbidden", "Your role is read-only")
         if user["role"] != "admin":
@@ -151,5 +169,11 @@ def websocket_allowed(websocket, mode: str, root: Path) -> bool:
     host = websocket.client.host if websocket.client else ""
     if mode == "local":
         return host in LOCAL_HOSTS or is_loopback_host(host)
-    token = extract_token(websocket.headers, websocket.query_params, "GET") or websocket.query_params.get("token")
+    token, source = extract_credentials(websocket.headers, websocket.query_params, "GET", websocket.cookies)
+    token = token or websocket.query_params.get("token")
+    if source == "cookie":
+        # Browsers do not apply the same-origin policy to WebSockets: refuse a page on another origin.
+        origin, host = websocket.headers.get("origin"), websocket.headers.get("host")
+        if origin and host and origin.split("://", 1)[-1] != host:
+            return False
     return user_for_token(token, root) is not None

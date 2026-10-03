@@ -7,15 +7,20 @@ Covers: /auth/login, /auth/me, /auth/users
 
 import re
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Header, Request, Response, status
+from fastapi.responses import JSONResponse
 from reqtool.store import Store
 from reqtool.routers.deps import get_store
-from reqtool.auth import UserStore, create_token, login_throttle
+from reqtool.auth import (
+    CSRF_HEADER, REFRESH_COOKIE, REFRESH_LIFETIME, SESSION_COOKIE, SESSION_LIFETIME,
+    UserStore, create_token, login_throttle,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def get_current_user(
+    request: Request,
     authorization: str | None = Header(None, alias="Authorization"),
     x_api_key: str | None = Header(None, alias="X-API-Key"),
     store: Store = Depends(get_store),
@@ -27,6 +32,8 @@ def get_current_user(
     elif x_api_key:
         token = x_api_key.strip()
 
+    if not token:
+        token = request.cookies.get(SESSION_COOKIE)
     if token:
         user = UserStore(store.root).resolve_token(token)
         if user:
@@ -48,8 +55,31 @@ def get_current_user(
     }
 
 
+def _secure(request: Request) -> bool:
+    return request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+
+
+def _set_session(response: Response, request: Request, user: dict[str, Any], store: Store,
+                 auth_at: int | None = None) -> None:
+    """Browser session: a short-lived access cookie and a longer refresh cookie, both HttpOnly and SameSite=Strict."""
+    tv = user.get("token_version", 0)
+    common = dict(httponly=True, samesite="strict", secure=_secure(request))
+    response.set_cookie(SESSION_COOKIE, create_token(user["username"], user["role"], store.root, SESSION_LIFETIME,
+                                                     tv, "access", auth_at),
+                        max_age=SESSION_LIFETIME, path="/", **common)
+    # The refresh cookie is only sent to /auth, so ordinary requests never carry it.
+    response.set_cookie(REFRESH_COOKIE, create_token(user["username"], user["role"], store.root, REFRESH_LIFETIME,
+                                                     tv, "refresh", auth_at),
+                        max_age=REFRESH_LIFETIME, path="/auth", **common)
+
+
+def _require_csrf_header(request: Request) -> None:
+    if not request.headers.get(CSRF_HEADER):
+        raise HTTPException(status_code=403, detail={"error": "csrf", "message": f"Missing {CSRF_HEADER} header"})
+
+
 @router.post("/login")
-def login(body: dict[str, Any], request: Request, store: Store = Depends(get_store)):
+def login(body: dict[str, Any], request: Request, response: Response, store: Store = Depends(get_store)):
     username = str(body.get("username", "")).strip()
     password = str(body.get("password", ""))  # passwords are used exactly as typed
 
@@ -76,7 +106,9 @@ def login(body: dict[str, Any], request: Request, store: Store = Depends(get_sto
         )
 
     login_throttle.reset(keys[0])  # a success clears the account's counter (the address keeps its own)
+    # Bearer token for scripts and API clients. The browser UI ignores it and uses the cookies set here.
     token = create_token(user["username"], user["role"], store.root, token_version=user.get("token_version", 0))
+    _set_session(response, request, user, store)
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -87,6 +119,31 @@ def login(body: dict[str, Any], request: Request, store: Store = Depends(get_sto
             "role": user["role"],
         },
     }
+
+
+@router.post("/refresh")
+def refresh(request: Request, response: Response, store: Store = Depends(get_store)):
+    """Exchange the refresh cookie for a new access cookie (and a rotated refresh cookie)."""
+    _require_csrf_header(request)
+    found = UserStore(store.root).resolve_refresh(request.cookies.get(REFRESH_COOKIE))
+    if not found:
+        expired = JSONResponse(status_code=401, content={"detail": {"error": "unauthorized",
+                               "message": "Session expired, please log in again"}})
+        expired.delete_cookie(SESSION_COOKIE, path="/")
+        expired.delete_cookie(REFRESH_COOKIE, path="/auth")
+        return expired
+    user, claims = found
+    _set_session(response, request, user, store, auth_at=int(claims.get("auth_at", 0)) or None)
+    return {"status": "refreshed"}
+
+
+@router.post("/logout")
+def logout(request: Request, response: Response):
+    """End the browser session by clearing both cookies."""
+    _require_csrf_header(request)
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    response.delete_cookie(REFRESH_COOKIE, path="/auth")
+    return {"status": "logged_out"}
 
 
 @router.get("/me")

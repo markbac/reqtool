@@ -75,7 +75,13 @@ def _get_secret_key(repo_root: Path) -> bytes:
 
 PBKDF2_ITERATIONS = 600_000        # current OWASP guidance for PBKDF2-HMAC-SHA256
 LEGACY_ITERATIONS = 100_000        # hashes written before the count was stored
-TOKEN_LIFETIME = 12 * 3600         # seconds
+TOKEN_LIFETIME = 12 * 3600         # seconds; bearer tokens for scripts and API clients
+SESSION_LIFETIME = 30 * 60         # browser access cookie
+REFRESH_LIFETIME = 7 * 24 * 3600   # browser refresh cookie
+SESSION_MAX_AGE = 30 * 24 * 3600   # refreshing never extends a login beyond this
+SESSION_COOKIE = "reqtool_session"
+REFRESH_COOKIE = "reqtool_refresh"
+CSRF_HEADER = "x-reqtool-csrf"     # browser clients send it on every request; cross-site pages cannot
 TOKEN_ISSUER = "reqtool"
 TOKEN_AUDIENCE = "reqtool-api"
 
@@ -95,12 +101,13 @@ def verify_password(password: str, password_hash: str, salt_hex: str, iterations
 
 
 def create_token(username: str, role: str, repo_root: Path, expires_in: int = TOKEN_LIFETIME,
-                 token_version: int = 0) -> str:
+                 token_version: int = 0, kind: str = "access", auth_at: Optional[int] = None) -> str:
+    """Sign a token. ``kind`` is ``access`` or ``refresh``; ``auth_at`` is when the password was entered."""
     import jwt
     now = int(time.time())
     return jwt.encode(
         {"sub": username, "role": role, "tv": token_version, "iat": now, "exp": now + expires_in,
-         "iss": TOKEN_ISSUER, "aud": TOKEN_AUDIENCE},
+         "iss": TOKEN_ISSUER, "aud": TOKEN_AUDIENCE, "typ": kind, "auth_at": auth_at or now},
         _get_secret_key(repo_root), algorithm="HS256")
 
 
@@ -247,8 +254,21 @@ class UserStore:
 
     def resolve_token(self, token: Optional[str]) -> Optional[dict[str, Any]]:
         """The current user record for a valid token, or None (unknown user or revoked version)."""
+        return self._resolve(token, "access")
+
+    def resolve_refresh(self, token: Optional[str]) -> Optional[tuple[dict[str, Any], dict[str, Any]]]:
+        """(user, claims) for a valid refresh token that is still within the maximum session age."""
         payload = verify_token(token, self.root) if token else None
-        if not payload:
+        if not payload or payload.get("typ") != "refresh":
+            return None
+        if time.time() - int(payload.get("auth_at", 0)) > SESSION_MAX_AGE:
+            return None
+        user = self._resolve(token, "refresh")
+        return (user, payload) if user else None
+
+    def _resolve(self, token: Optional[str], kind: str) -> Optional[dict[str, Any]]:
+        payload = verify_token(token, self.root) if token else None
+        if not payload or payload.get("typ", "access") != kind:  # a refresh token is never an access token
             return None
         user = self.load_users().get(payload.get("sub", ""))
         if not user or payload.get("tv", 0) != user.get("token_version", 0):

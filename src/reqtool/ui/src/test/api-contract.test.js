@@ -58,10 +58,39 @@ describe('authentication handling (SEC-01)', () => {
     window.removeEventListener('reqtool:unauthorized', seen);
   });
 
-  it('audit package URL carries the token for browser navigation', () => {
+  it('audit package URL relies on the session cookie when same-origin', () => {
+    localStorage.setItem('reqtool:auth_token', 'tok123');
+    expect(api.exports.auditPackage({ a: '1' })).not.toContain('access_token');
+  });
+
+  it('audit package URL carries the token for a custom server', () => {
+    localStorage.setItem('reqtool:server_url', 'http://other.example');
     localStorage.setItem('reqtool:auth_token', 'tok123');
     expect(api.exports.auditPackage({ a: '1' })).toContain('access_token=tok123');
+    localStorage.removeItem('reqtool:server_url');
     localStorage.removeItem('reqtool:auth_token');
-    expect(api.exports.auditPackage({ a: '1' })).not.toContain('access_token');
+  });
+
+  it('sends the CSRF header and never a stored token when same-origin', async () => {
+    localStorage.setItem('reqtool:auth_token', 'stale');
+    const f = vi.fn(() => Promise.resolve({ ok: true, status: 200, headers: { get: () => 'application/json' }, json: () => Promise.resolve({}) }));
+    vi.stubGlobal('fetch', f);
+    await api.requirements.list();
+    const h = f.mock.calls[0][1].headers;
+    expect(h['X-Reqtool-CSRF']).toBe('1');
+    expect(h.Authorization).toBeUndefined();
+    localStorage.removeItem('reqtool:auth_token');
+  });
+
+  it('refreshes the session once on 401 and retries', async () => {
+    const ok = { ok: true, status: 200, headers: { get: () => 'application/json' }, json: () => Promise.resolve({ ok: 1 }) };
+    const f = vi.fn()
+      .mockResolvedValueOnce({ ok: false, status: 401, statusText: 'x', headers: { get: () => 'application/json' }, json: () => Promise.resolve({}) })
+      .mockResolvedValueOnce({ ok: true, status: 200 })   // /auth/refresh
+      .mockResolvedValueOnce(ok);
+    vi.stubGlobal('fetch', f);
+    await expect(api.requirements.list()).resolves.toEqual({ ok: 1 });
+    expect(f.mock.calls[1][0]).toContain('/auth/refresh');
+    expect(f).toHaveBeenCalledTimes(3);
   });
 });

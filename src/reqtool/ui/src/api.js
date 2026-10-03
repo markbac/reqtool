@@ -11,21 +11,39 @@ function getBaseUrl() {
   return import.meta.env.VITE_API_BASE ?? '';
 }
 
-async function request(method, path, body = null) {
-  const base = getBaseUrl();
-  const token = localStorage.getItem('reqtool:auth_token');
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+// Same-origin sessions live in HttpOnly cookies (SEC-19). Only a custom server URL (cross-origin) falls back to a stored bearer token.
+const isCrossOrigin = () => Boolean((localStorage.getItem('reqtool:server_url') || '').trim());
+const bearerToken = () => (isCrossOrigin() ? localStorage.getItem('reqtool:auth_token') : null);
+
+let refreshing = null;
+
+/** Ask the server for a new access cookie. Concurrent callers share one request. */
+function refreshSession() {
+  if (!refreshing) {
+    refreshing = fetch(`${getBaseUrl()}/auth/refresh`, { method: 'POST', headers: { 'X-Reqtool-CSRF': '1' } })
+      .then(r => r.ok, () => false)
+      .finally(() => { refreshing = null; });
   }
-  const opts = {
-    method,
-    headers,
-  };
+  return refreshing;
+}
+
+async function send(method, path, body) {
+  const headers = { 'Content-Type': 'application/json', 'X-Reqtool-CSRF': '1' };
+  const token = bearerToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const opts = { method, headers };
   if (body !== null) opts.body = JSON.stringify(body);
-  const res = await fetch(`${base}${path}`, opts);
+  return fetch(`${getBaseUrl()}${path}`, opts);
+}
+
+async function request(method, path, body = null) {
+  let res = await send(method, path, body);
+  const authPath = path === '/auth/login' || path === '/auth/refresh' || path === '/auth/logout';
+  if (res.status === 401 && !authPath && !bearerToken() && await refreshSession()) {
+    res = await send(method, path, body);
+  }
   if (res.status === 401 && path !== '/auth/login') {
-    // Server requires authentication (or the token expired): ask the app to show the login dialog.
+    // Server requires authentication (or the session expired): ask the app to show the login dialog.
     try { window.dispatchEvent(new CustomEvent('reqtool:unauthorized')); } catch { /* non-browser */ }
   }
   if (!res.ok) {
@@ -107,6 +125,7 @@ export const api = {
     me:        ()                   => get('/auth/me'),
     listUsers: ()                   => get('/auth/users'),
     createUser:(body)               => post('/auth/users', body),
+    logout:    ()                   => post('/auth/logout'),
   },
   attachments: {
     list:     (uid)                         => get(`/artefacts/${uid}/attachments`),
@@ -231,8 +250,8 @@ export const api = {
     reqif:        () => get('/export/reqif'),
     pdf:          (body) => post('/export/pdf', body),
     auditPackage: (params = {}) => {
-      // Browser navigations cannot send an Authorization header, so pass the token as a query parameter.
-      const token = localStorage.getItem('reqtool:auth_token');
+      // Same-origin navigations carry the session cookie. A cross-origin server needs the token as a query parameter.
+      const token = bearerToken();
       return `${getBaseUrl()}/export/audit-package?${new URLSearchParams(token ? { ...params, access_token: token } : params)}`;
     },
   },
