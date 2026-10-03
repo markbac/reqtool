@@ -157,6 +157,7 @@ Saving a change to a requirement marks every relationship that points at it as *
 
 ### 3.6 Robustness and panels
 - **Duplicate Detector** (**⋯ More > Duplicate Detector**) lists likely duplicate pairs with both IDs, both titles and the similarity score. Click either side to open that requirement.
+- **Iteration metrics** (`GET /iterations/{id}/metrics`) count the requirements whose **Iteration** field equals the iteration's id or title (deleted ones are excluded), so assigning a requirement changes the totals, approved/draft counts and completion percentage. The older `iteration_id` field was removed; existing files that have it are read as `iteration`.
 - **Iterations** created without a methodology (for example through the API or CLI) are shown and returned as `scrum`.
 - If a panel hits an unexpected error it is closed and a dismissable message shows the error. If the whole interface fails, a **Try again / Reload** screen is shown instead of a blank page.
 

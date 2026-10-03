@@ -180,6 +180,11 @@ class Store:
             self._load_enums()
             self._load_hierarchy()
             self._load_dir(self.root / "requirements", self.requirements)
+            for req in self.requirements.values():
+                # Older files used `iteration_id`; `iteration` is the one field the editor and filters use.
+                legacy = req.pop("iteration_id", None)
+                if legacy and not req.get("iteration"):
+                    req["iteration"] = legacy
             self._load_dir(self.root / "principles", self.principles)
             self._load_dir(self.root / "decisions", self.decisions)
             self._load_dir(self.root / "tbds", self.decisions)
