@@ -1269,12 +1269,12 @@ class Store:
     def check_transition_guard(
         self, req: dict[str, Any], to_state: str
     ) -> Optional[str]:
-        return hierarchy_store.check_transition_guard(self.hierarchy, req, to_state)
+        return hierarchy_store.check_transition_guard(self.hierarchy, req, to_state, self.requirements)
 
     def validate_transition(
         self, req: dict[str, Any], to_state: str
     ) -> Optional[str]:
-        return hierarchy_store.validate_transition(self.hierarchy, self.config.workflow, req, to_state)
+        return hierarchy_store.validate_transition(self.hierarchy, self.config.workflow, req, to_state, self.requirements)
 
     @_locked
     def next_id_for_type(self, req_type: str) -> str:

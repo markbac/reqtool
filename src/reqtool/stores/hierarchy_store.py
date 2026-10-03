@@ -138,10 +138,29 @@ def get_allowed_children(hierarchy: HierarchyConfig, req_type: str) -> list[str]
     return rule.allowed_children
 
 
+def open_children(
+    hierarchy: HierarchyConfig,
+    requirements: dict[str, dict[str, Any]],
+    req: dict[str, Any],
+    state: str,
+) -> list[str]:
+    """Ids of live direct children not in a state the guard for ``state`` allows (empty if no such guard)."""
+    wf = get_workflow_for_type(hierarchy, req.get("req_type", "functional"))
+    guard = wf.guards.get(state) if wf else None
+    if not guard or not guard.requires_children_in or guard.children_enforce == "off":
+        return []
+    uid = req.get("uid")
+    return sorted(
+        c.get("id", c_uid) for c_uid, c in requirements.items()
+        if not c.get("deleted") and c.get("parentId") == uid and uid
+        and c.get("status") not in guard.requires_children_in)
+
+
 def check_transition_guard(
     hierarchy: HierarchyConfig,
     req: dict[str, Any],
     to_state: str,
+    requirements: Optional[dict[str, dict[str, Any]]] = None,
 ) -> Optional[str]:
     req_type = req.get("req_type", "functional")
     wf = get_workflow_for_type(hierarchy, req_type)
@@ -166,6 +185,12 @@ def check_transition_guard(
     if guard.requires_ac and not req.get("acceptance_criteria"):
         return guard.message or f"At least one acceptance criterion is required before transitioning to '{to_state}'."
 
+    if requirements is not None and guard.children_enforce == "error":
+        blocking = open_children(hierarchy, requirements, req, to_state)
+        if blocking:
+            return (f"Cannot move to '{to_state}' while child items are not in "
+                    f"{'/'.join(guard.requires_children_in)}: {', '.join(blocking)}")
+
     return None
 
 
@@ -174,6 +199,7 @@ def validate_transition(
     fallback_workflow: Any,
     req: dict[str, Any],
     to_state: str,
+    requirements: Optional[dict[str, dict[str, Any]]] = None,
 ) -> Optional[str]:
     req_type = req.get("req_type", "functional")
     current = req.get("status", "draft")
@@ -186,7 +212,7 @@ def validate_transition(
     allowed = wf.transitions.get(current, [])
     if to_state not in allowed and to_state != current:
         return f"Transition from '{current}' to '{to_state}' is not permitted for type '{req_type}'."
-    return check_transition_guard(hierarchy, req, to_state)
+    return check_transition_guard(hierarchy, req, to_state, requirements)
 
 
 def next_id_for_type(hierarchy: HierarchyConfig, requirements: dict[str, dict[str, Any]], req_type: str) -> str:

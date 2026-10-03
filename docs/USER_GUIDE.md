@@ -178,6 +178,10 @@ The editor shows the workflow of the item's own type (for example Themes, Initia
 - **Definition of Ready (DoR):** Enforces mandatory checklist items (e.g. rationale present, acceptance criteria written) before transitioning to `in_review`.
 - **Definition of Done (DoD):** Enforces verification completion checklist items before transitioning to `done`.
 
+#### Closing a parent with open children
+
+The `done` transition of the `lightweight` (theme, initiative) and `sprint` (epic, feature, story, task, bug, spike) workflows has a guard `requires_children_in: [done, cancelled]`. By default (`children_enforce: warn`) a parent can still be closed, and `req validate` warns (`open_children`) about it. Set `children_enforce: error` in `hierarchy.yaml` to refuse the transition with `409 workflow_guard` listing the open children, or `off` to switch the check off. Only direct, non-deleted children are checked.
+
 ### 4.1 Parent/child type rules
 
 `hierarchy.yaml` lists which item types may sit under which (`allowed_children`). The top-level `enforce` key controls how strictly this is applied:

@@ -264,6 +264,18 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
                     (_err if store.hierarchy.enforce == "error" else _warn)(
                         "hierarchy_violation", problem, uid, "parentId"))
 
+    from .stores import hierarchy_store as _hs
+    # Parents already in a guarded state (e.g. done) while children are still open
+    for uid, req in store.requirements.items():
+        if req.get("deleted"):
+            continue
+        blocking = _hs.open_children(store.hierarchy, store.requirements, req, req.get("status", ""))
+        if blocking:
+            warnings.append(_warn(
+                "open_children",
+                f"Status '{req.get('status')}' needs all children closed, but these are not: {', '.join(blocking)}",
+                uid, "status"))
+
     # Approved items whose upstream changed after approval need review
     for uid, req in store.requirements.items():
         if req.get("deleted") or req.get("approval", {}).get("status") != "approved":
