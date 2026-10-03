@@ -869,6 +869,7 @@ paths:
       tags:
       - requirements
       summary: Get Requirement
+      description: Fetch by UID or by human ID (for example ``FR-042``).
       operationId: get_requirement_requirements__uid__get
       parameters:
       - name: uid

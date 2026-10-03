@@ -45,6 +45,10 @@ class ParentCycle(ValueError):
     """Re-parenting would make an item its own ancestor."""
 
 
+class DuplicateId(ValueError):
+    """Another requirement already uses this human-readable ID."""
+
+
 class RelationshipViolation(ValueError):
     """A relationship type is not allowed between these item types (hierarchy.enforce: error)."""
 
@@ -554,6 +558,8 @@ class Store:
         req_type = fields.get("req_type", "functional")
         self._check_hierarchy(req_type, fields.get("parentId"))
         self._check_relationships(req_type, fields.get("relationships") or [], [])
+        if fields.get("id"):
+            self._check_id(fields["id"], None)
 
         # Determine default status from workflow initial state
         wf = self.get_workflow_for_type(req_type)
@@ -636,6 +642,8 @@ class Store:
         fields = self._sanitise_requirement(fields)
         if fields.get("parentId"):
             self._check_parent(uid, fields["parentId"])
+        if "id" in fields and fields["id"] != data.get("id"):
+            self._check_id(fields["id"], uid)
         if "parentId" in fields or "req_type" in fields:
             self._check_hierarchy(fields.get("req_type", data.get("req_type", "functional")),
                                   fields.get("parentId", data.get("parentId")))
@@ -706,6 +714,20 @@ class Store:
             problem = self.relationship_problem(source_type, rel)
             if problem:
                 raise RelationshipViolation(problem)
+
+    def _check_id(self, rid: Any, own_uid: Optional[str]) -> None:
+        """A human ID must be a safe single segment and unused by any other live requirement."""
+        validate_id(rid, "requirement id")
+        for other_uid, other in self.requirements.items():
+            if other_uid != own_uid and not other.get("deleted") and other.get("id") == rid:
+                raise DuplicateId(f"ID '{rid}' is already used by another requirement")
+
+    def resolve_uid(self, key: str) -> Optional[str]:
+        """Accept a UID or a human ID (unique, non-deleted) and return the UID."""
+        if key in self.requirements:
+            return key
+        hits = [u for u, r in self.requirements.items() if r.get("id") == key and not r.get("deleted")]
+        return hits[0] if len(hits) == 1 else None
 
     def _check_parent(self, uid: str, new_parent: str) -> None:
         """Raise ParentCycle if parenting ``uid`` under ``new_parent`` closes a loop."""
