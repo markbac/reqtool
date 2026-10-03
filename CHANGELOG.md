@@ -25,6 +25,7 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 - **PlantUML sandbox (SEC-10)**: `/render/plantuml` runs with `PLANTUML_SECURITY_PROFILE=SANDBOX`, rejects `!include*`, `!import` and `!theme ... from` directives (422), limits source to 100 KB (413), and keeps render errors as 400.
 
 ### Fixed
+- **Suspect propagation (DAT-08)**: flags now spread transitively (loop-safe), each newly flagged item gets a history entry, and `suspect` / `_display` are excluded from the content hash. Previously flagging a link left the downstream item's stored hash stale, so `req validate` reported `hash_mismatch` for it. Items that were edited while carrying a suspect flag may show one `hash_mismatch` until they are re-saved.
 - **Merge guard on every write (DAT-10)**: one middleware now rejects all write requests with `409 conflict` while a merge/rebase/cherry-pick/revert is in progress or files are unmerged (previously only some routes checked). `has_conflicts` uses Git's markers and `git ls-files -u` instead of parsing `git status`.
 - **Baselines on a dirty tree (DAT-15)**: `POST /baselines` returns `409 dirty_working_tree` with the uncommitted item IDs unless `allow_dirty: true` is passed, in which case the IDs are recorded in the tag message.
 - **GET never writes (DAT-17)**: `GET /iterations` and `GET /automation/rules` serve their example data from memory instead of creating files on first read; they are written on the first save. The example automation rules are shown but do not run until you save rules.
