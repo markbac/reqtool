@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -689,7 +689,17 @@ class RelationshipTypeDef(BaseModel):
 class WorkflowGuard(BaseModel):
     requires_fields: list[str] = Field(default_factory=list)
     requires_ac: bool = False
+    # Direct children must all be in one of these states before the item may enter the guarded state.
+    requires_children_in: list[str] = Field(default_factory=list)
+    # off | warn | error. warn only reports `open_children` in validation; error also blocks the transition.
+    children_enforce: str = "warn"
     message: str = ""
+
+    @field_validator("children_enforce", mode="before")
+    @classmethod
+    def _valid_children_enforce(cls, v):
+        v = str(v or "warn").strip().lower()
+        return v if v in ("off", "warn", "error") else "warn"
 
 
 class HierarchyWorkflowState(BaseModel):

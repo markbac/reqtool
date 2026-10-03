@@ -143,6 +143,19 @@ workflows:
         message: "Safety requirements must have description, rationale, ACs, and safety_classification."
 ```
 
+A guard can also require the direct children to be closed first, so a parent cannot be marked done while its children are still open:
+
+```yaml
+workflows:
+  sprint:
+    guards:
+      done:
+        requires_children_in: [done, cancelled]
+        children_enforce: warn      # off | warn | error
+```
+
+With `error` the transition is refused (`409 workflow_guard`, naming the open children). With `warn`, the default shipped for the `lightweight` and `sprint` workflows, the transition succeeds and `req validate` reports an `open_children` warning for the parent. `off` disables the check.
+
 Use `POST /requirements/{uid}/transition` for explicit transitions, or `PUT /requirements/{uid}` (which also enforces guards when `status` changes).
 
 ---

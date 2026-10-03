@@ -231,6 +231,10 @@ workflows:
       active: [done, cancelled, draft]
       done: [active]
       cancelled: []
+    guards:
+      done:
+        requires_children_in: [done, cancelled]
+        children_enforce: warn      # off | warn | error
 
   sprint:
     initial: backlog
@@ -266,6 +270,10 @@ workflows:
       in_review: [done, in_progress, cancelled]
       done: []
       cancelled: []
+    guards:
+      done:
+        requires_children_in: [done, cancelled]
+        children_enforce: warn      # off | warn | error
 
   formal:
     initial: draft
