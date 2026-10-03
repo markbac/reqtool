@@ -70,9 +70,10 @@ class AutomationEngine:
         self.root = root
         self.rules_file = root / ".reqtool" / "automation_rules.yaml"
 
-    def load_rules(self) -> list[dict[str, Any]]:
+    def load_rules(self, include_defaults: bool = True) -> list[dict[str, Any]]:
         if not self.rules_file.exists():
-            self._seed_default_rules()
+            # Example rules are shown from memory until the first explicit save; they never run before that.
+            return self._default_rules() if include_defaults else []
         data = load_yaml(self.rules_file)
         if isinstance(data, list):
             return data
@@ -82,7 +83,8 @@ class AutomationEngine:
         self.rules_file.parent.mkdir(parents=True, exist_ok=True)
         save_yaml(self.rules_file, rules)
 
-    def _seed_default_rules(self) -> None:
+    @staticmethod
+    def _default_rules() -> list[dict[str, Any]]:
         defaults = [
             {
                 "id": "rule-auto-assign-qa",
@@ -104,12 +106,12 @@ class AutomationEngine:
                 "enabled": True,
             },
         ]
-        self.save_rules(defaults)
+        return defaults
 
     def execute_event_rules(self, store: Store, event_name: str, payload: dict[str, Any]) -> list[dict[str, Any]]:
         """Evaluate and execute automation actions matching an event."""
         executed = []
-        rules = self.load_rules()
+        rules = self.load_rules(include_defaults=False)
         for rule in rules:
             if not rule.get("enabled", True):
                 continue
