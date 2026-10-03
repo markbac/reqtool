@@ -269,6 +269,10 @@ Send the token returned by `POST /auth/login` as `Authorization: Bearer <token>`
 
 Passwords are stored as PBKDF2-HMAC-SHA256 with 600,000 iterations (the count is stored with each hash). Older, weaker hashes keep working and are upgraded automatically at the user's next login. Passwords are used exactly as typed, including leading and trailing spaces. After five failed logins within a minute for the same account or from the same address, `POST /auth/login` answers `429` with a `Retry-After` header. The counters are kept in memory, so they reset when the server restarts and are per process.
 
+### 6.2c Merges in progress
+
+While a Git merge, rebase, cherry-pick or revert is in progress, or any file is unmerged, every write request (`POST`, `PUT`, `PATCH`, `DELETE`) returns `409 conflict`. Reads still work, and the `/git/`, `/repo/` and `/auth/` routes stay available so the conflict can be resolved. The check looks for Git's in-progress markers and unmerged index entries, so it costs a few milliseconds regardless of repository size.
+
 ### 6.2b Baselines
 
 `POST /baselines` tags the last commit. If requirements, principles, decisions, TBDs, modules or products have uncommitted changes, it answers `409 dirty_working_tree` and lists the affected IDs, because the tag would not contain them. Commit first, or pass `allow_dirty: true` to proceed anyway. The tag message then records which items were left out. The Baselines panel asks for confirmation in the same situation.
