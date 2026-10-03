@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from reqtool.store import Store
 from reqtool.stores.attachment_store import _sanitize_filename
-from .deps import get_store, not_found, fire_webhook
+from .deps import get_store, not_found, publish_event
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ async def upload_artefact_attachment(uid: str, request: Request, author: str = "
     description = request.headers.get("x-description", "")
     filename = re.sub(r'[^\w\-_\. ]', '_', filename)[:200]
     record = store.add_attachment(uid, filename, data, author=author, description=description)
-    fire_webhook(store, "attachment_added", {"uid": uid, "filename": filename})
+    publish_event(store, "attachment_added", {"uid": uid, "filename": filename})
     return record
 
 
@@ -92,7 +92,7 @@ async def upload_attachment(uid: str, request: Request, author: str = "reqtool",
     description = request.headers.get("x-description", "")
     filename = re.sub(r'[^\w\-_\. ]', '_', filename)[:200]
     record = store.add_attachment(uid, filename, data, author=author, description=description)
-    fire_webhook(store, "attachment_added", {"uid": uid, "filename": filename})
+    publish_event(store, "attachment_added", {"uid": uid, "filename": filename})
     return record
 
 

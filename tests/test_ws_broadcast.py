@@ -15,9 +15,10 @@ def test_server_event_reaches_client_from_sync_handler(client):
         assert trans, "workflow should offer a transition"
         r = client.post(f"/requirements/{uid}/transition", json={"to_state": trans[0]})
         assert r.status_code == 200, r.text
-        msg = json.loads(ws.receive_text())
-        assert msg["event"] == "status_changed"
-        assert msg["uid"] == uid
+        # one event per mutation, in order (EVT-02): create, edit, then the transition
+        msgs = [json.loads(ws.receive_text()) for _ in range(3)]
+        assert [m["event"] for m in msgs] == ["requirement_created", "requirement_updated", "status_changed"]
+        assert all(m["uid"] == uid for m in msgs)
 
 
 def test_client_relay_is_broadcast(client):

@@ -15,6 +15,9 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 - **Hierarchy enforcement (MOD-01)**: `allowed_children` is now applied on create, re-parent and type change. `hierarchy.yaml` gains `enforce: off|warn|error` (default `warn`: validation warning; `error`: `409 hierarchy_violation` and a validation error).
 - **Cross-layer relationship rules (MOD-02)**: `cross_layer_rules` are enforced on write and in validation under the same `hierarchy.enforce` setting (`relationship_violation`). Shipped rules now let themes, initiatives and epics trace to stakeholder needs and themes/initiatives link to systems requirements.
 
+### Changed
+- **One event publisher (EVT-02)**: a single catalogue (`reqtool/events.py`) and publisher now feed webhooks and WebSocket clients. Create, clone, edit, bulk edit, acceptance-criteria edits and delete publish `requirement_created` / `requirement_updated` / `requirement_deleted`; status changes publish `status_changed` exactly once (the duplicate WebSocket frame from `/transition` is gone). Approval is still sent as `approved` on the wire. README's event list now matches what the server sends.
+
 ### Fixed
 - **Automation panel (UI-12)**: the panel now lists, saves and reloads rules using the engine's schema (`event`, `condition`, `action`, `target_field`, `target_value`), with dropdowns fed by new `GET /automation/schema`. `PUT /automation/rules` validates each rule (422 identifies the rule) and generates ids. The `add_tag` action seeded by default is now implemented. Rules are still not executed on events (INT-02).
 - **Suspect links are visible (UI-03)**: tree nodes show a suspect count and relationship rows show a suspect tag with Review and Clear suspect actions. Validation warns (`suspect_link`) for approved items with suspect links; `GET /requirements/tree` nodes carry `suspect_count` and `GET /metrics` reports `totals.suspect_links`.
