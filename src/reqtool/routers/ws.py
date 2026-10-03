@@ -28,8 +28,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 msg = json.loads(data)
                 msg_type = msg.get("type", "")
                 if msg_type in ("PRESENCE", "CURSOR", "LOCK_FIELD", "UNLOCK_FIELD", "CO_EDIT"):
-                    await ws_manager.broadcast(msg_type, msg.get("payload", {}))
+                    await ws_manager.broadcast({"event": msg_type, "payload": msg.get("payload", {})})
             except Exception:
-                pass
+                log.debug("Ignoring malformed WebSocket message", exc_info=True)
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket)

@@ -40,8 +40,13 @@ class ConnectionManager:
     def __init__(self):
         self.active: list[WebSocket] = []
         self._lock = threading.RLock()
+        # The server's event loop, captured when the first socket connects, so
+        # synchronous handlers (which run in worker threads) can schedule sends.
+        self.loop = None
 
     async def connect(self, ws: WebSocket):
+        import asyncio
+        self.loop = asyncio.get_running_loop()
         await ws.accept()
         with self._lock:
             self.active.append(ws)
@@ -72,17 +77,25 @@ ws_manager = ConnectionManager()
 
 
 def broadcast_sync(event: str, payload: dict) -> None:
+    """Broadcast to WebSocket clients from sync or async code.
+
+    Sync route handlers run in a worker thread with no running loop, so the
+    send is scheduled onto the server loop captured in ConnectionManager.connect.
+    """
     import asyncio
     msg = {"event": event, **payload}
-    async def _do():
-        await ws_manager.broadcast(msg)
+    loop = ws_manager.loop
+    if loop is None or loop.is_closed() or not ws_manager.active:
+        return
     try:
-        loop = asyncio.get_running_loop()
+        running = asyncio.get_running_loop()
     except RuntimeError:
-        loop = None
-
-    if loop is not None and loop.is_running():
-        loop.create_task(_do())
+        running = None
+    if running is loop:
+        loop.create_task(ws_manager.broadcast(msg))
+    else:
+        fut = asyncio.run_coroutine_threadsafe(ws_manager.broadcast(msg), loop)
+        fut.add_done_callback(lambda f: f.exception() and log.warning("WS broadcast failed: %s", f.exception()))
 
 
 from concurrent.futures import ThreadPoolExecutor
