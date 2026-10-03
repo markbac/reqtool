@@ -40,6 +40,10 @@ from . import __version__ as TOOL_VERSION
 import functools
 import threading
 
+
+class ParentCycle(ValueError):
+    """Re-parenting would make an item its own ancestor."""
+
 from .stores import attachment_store, comment_store, hierarchy_store
 
 
@@ -432,8 +436,9 @@ class Store:
             parent = req.get("parentId")
             children_map.setdefault(parent, []).append(req)
 
-        def node(req: dict) -> dict:
+        def node(req: dict, path: frozenset = frozenset()) -> dict:
             uid = req["uid"]
+            path = path | {uid}  # guard against parentId cycles in existing data
             return {
                 "uid": uid,
                 "id": req.get("id", ""),
@@ -444,8 +449,8 @@ class Store:
                 "domain": req.get("domain"),
                 "module": req.get("_module"),
                 "owner": req.get("owner"),
-                "children": [node(c) for c in sorted(
-                    children_map.get(uid, []),
+                "children": [node(c, path) for c in sorted(
+                    (c for c in children_map.get(uid, []) if c["uid"] not in path),
                     key=lambda r: r.get("id", r.get("uid", "")),
                 )],
             }
@@ -618,6 +623,8 @@ class Store:
             return None
 
         fields = self._sanitise_requirement(fields)
+        if fields.get("parentId"):
+            self._check_parent(uid, fields["parentId"])
         now = utcnow_iso()
         old_hash = data.get("content_hash", "")
 
@@ -645,6 +652,18 @@ class Store:
 
         save_yaml(self.req_path(uid), data)
         return data
+
+    def _check_parent(self, uid: str, new_parent: str) -> None:
+        """Raise ParentCycle if parenting ``uid`` under ``new_parent`` closes a loop."""
+        seen: set[str] = set()
+        cur: Optional[str] = new_parent
+        while cur and cur not in seen:
+            if cur == uid:
+                raise ParentCycle(
+                    "An item cannot be its own parent" if new_parent == uid
+                    else f"Parent {new_parent} is a descendant of {uid}; this would create a cycle")
+            seen.add(cur)
+            cur = (self.requirements.get(cur) or {}).get("parentId")
 
     def _mark_downstream_suspect(self, upstream_uid: str) -> None:
         """Mark downstream requirements linked to upstream_uid as suspect upon upstream update."""

@@ -125,7 +125,7 @@ Launching `reqtool serve` opens the interactive web workstation in your browser 
 ### 3.1 Multi-Level Tree Explorer View
 - Located in the left sidebar.
 - Displays nested requirement hierarchies (Themes → Initiatives → Epics → Features → Stories).
-- **Drag-and-Drop Re-parenting:** Click and drag any node to re-parent it under a new parent requirement.
+- **Drag-and-Drop Re-parenting:** Click and drag any node to re-parent it under a new parent requirement. Moving an item under itself or one of its own descendants is refused (`409 parent_cycle`). If a loop already exists in the files, validation reports `parent_cycle` and the tree shows each item once.
 
 ### 3.2 High-Density Bulk Grid View (Spreadsheet Mode)
 - Access via **Tools** → **Bulk Editing Grid**.

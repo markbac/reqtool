@@ -33,6 +33,7 @@ import CommitModal from './CommitModal';
 import { AttachmentsSection, DiscussionSection as CommentsSection } from './Advanced';
 import './Editor.css';
 import { safeHtml } from '../sanitize';
+import { buildBreadcrumb } from '../breadcrumb';
 
 // Domain colours matching the JSX viewer
 const DOMAIN_COLOURS = {
@@ -891,16 +892,7 @@ function RequirementEditor({ uid }) {
       .then(data => {
         setReq(data); setDraft(data);
         // Build breadcrumb by walking parentId chain
-        const crumbs = [];
-        const buildCrumbs = async (parentId) => {
-          if (!parentId) return;
-          try {
-            const parent = await api.requirements.get(parentId);
-            crumbs.unshift({ uid: parent.uid, id: parent.id, title: parent.title });
-            if (parent.parentId) await buildCrumbs(parent.parentId);
-          } catch { /* parent may not exist */ }
-        };
-        buildCrumbs(data.parentId).then(() => setBreadcrumb(crumbs));
+        buildBreadcrumb(data.parentId, api.requirements.get, data.uid).then(setBreadcrumb);
       })
       .catch(err => toast(err.message, 'error'))
       .finally(() => setLoading(false));
