@@ -59,6 +59,14 @@ def has_conflicts(path: Path) -> bool:
     return False
 
 
+def dirty_paths(path: Path, prefixes: tuple[str, ...]) -> list[str]:
+    """Paths with uncommitted changes (staged, unstaged or untracked) under any of ``prefixes``."""
+    rc, out, _ = _run_git(["status", "--porcelain", "-uall", "--", *prefixes], path)
+    if rc != 0:
+        return []
+    return [line[3:].split(" -> ")[-1].strip().strip('"') for line in out.splitlines() if line.strip()]
+
+
 def git_status(path: Path) -> dict[str, list[str]]:
     """Return staged, unstaged, and untracked file lists."""
     rc, out, _ = _run_git(["status", "--porcelain"], path)
