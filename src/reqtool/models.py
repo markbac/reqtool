@@ -547,6 +547,8 @@ class WebhookConfig(BaseModel):
     events: list[str] = Field(default_factory=lambda: ["status_changed", "approved", "comment_added"])
     secret: Optional[str] = None
     enabled: bool = True
+    # Allow targets on loopback/private/link-local networks (off by default: SSRF guard)
+    allow_private: bool = False
 
 
 class CustomFieldDef(BaseModel):
