@@ -342,6 +342,15 @@ def _attach_commit_shas(history: list[dict], git_entries: list[dict]) -> list[di
     return list(reversed(out))
 
 
+@router.get("/requirements/{uid}/commits")
+def requirement_commits(uid: str, store: Store = Depends(get_store)):
+    """Development commits linked to this requirement from GitHub push webhooks (not part of its content)."""
+    if store.get_requirement(uid) is None:
+        raise not_found(uid)
+    from reqtool.github_sync import load_commit_links
+    return load_commit_links(store, uid)
+
+
 @router.get("/requirements/{uid}/history")
 def requirement_history(uid: str, store: Store = Depends(get_store)):
     req = store.get_requirement(uid)

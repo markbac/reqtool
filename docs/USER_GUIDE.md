@@ -309,6 +309,10 @@ While a Git merge, rebase, cherry-pick or revert is in progress, or any file is 
 
 A requirement's human ID (for example `FR-042`) is generated automatically, or you can supply one. Supplied IDs may contain letters, digits, `_`, `.` and `-` (up to 64 characters, not starting with `.` or `-`). Creating or renaming an item to an ID that another live item already uses returns `409 duplicate_id`; deleted items release their ID. `GET /requirements/{id}` accepts either the UID or the human ID, and `req validate` reports an error `duplicate_id` if duplicates arrive another way (for example a Git merge). Cloning picks `-COPY`, `-COPY2`, ... so clones never collide.
 
+### 6.2e GitHub commit links
+
+With `REQTOOL_GITHUB_WEBHOOK_SECRET` set, a signed push webhook to `POST /webhooks/github` links each commit to the requirements its message mentions, by human ID (`Fixes FR-001`, case-insensitive) or UID. Only references that match an existing, non-deleted requirement are used, so `UTF-8` or `CVE-2024-1234` in a message link nothing. Links are stored in `.reqtool/commit_links.yaml`, not in the requirement: linking a commit does not change the requirement's version, history, hash or suspect flags. Read them with `GET /requirements/{uid}/commits`. The same commit is never linked twice.
+
 ### 6.3 Approvals and signatures
 - The approver is the logged-in user. Sending a different `approved_by` returns 403, and viewers cannot approve. In `local` mode the name in the request is recorded with `identity_verified: false`.
 - Approval signatures (`SIG-v2`) cover the approved content, not only the version and user. `reqtool validate` reports:
