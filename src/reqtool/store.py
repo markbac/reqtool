@@ -570,7 +570,7 @@ class Store:
 
         data["last_modified"] = now
         history = data.get("history", [])
-        history = history[-19:]  # Keep max 19 + this new entry = 20
+        history = list(history)  # append-only audit trail: never truncate
         history.append({"version": data["version"], "date": now, "modified_by": author,
                         "summary": summary, "commit_sha": None, "change_ref": change_ref})
         data["history"] = history
@@ -667,7 +667,7 @@ class Store:
             data["content_hash"] = new_hash
         data["last_modified"] = now
         history = data.get("history", [])
-        history = history[-19:]
+        history = list(history)  # append-only audit trail: never truncate
         history.append({"version": data["version"], "date": now, "modified_by": author,
                         "summary": summary, "commit_sha": None, "change_ref": change_ref})
         data["history"] = history
@@ -773,7 +773,7 @@ class Store:
             data["content_hash"] = new_hash
         data["last_modified"] = now
         history = data.get("history", [])
-        history = history[-19:]
+        history = list(history)  # append-only audit trail: never truncate
         history.append({"version": data["version"], "date": now, "modified_by": author,
                         "summary": summary, "commit_sha": None, "change_ref": change_ref})
         data["history"] = history
