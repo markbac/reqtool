@@ -264,6 +264,17 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
                     (_err if store.hierarchy.enforce == "error" else _warn)(
                         "hierarchy_violation", problem, uid, "parentId"))
 
+    # Approved items whose upstream changed after approval need review
+    for uid, req in store.requirements.items():
+        if req.get("deleted") or req.get("approval", {}).get("status") != "approved":
+            continue
+        n = sum(1 for rel in req.get("relationships") or [] if rel.get("suspect"))
+        if n:
+            warnings.append(_warn(
+                "suspect_link",
+                f"Approved item has {n} suspect link(s): an upstream item changed after the link was made",
+                uid, "relationships"))
+
     # Workflow definitions must be coherent
     for code, wf_id, message in check_workflow_graph(store.hierarchy):
         warnings.append(_warn(code, message, "", f"workflows.{wf_id}"))

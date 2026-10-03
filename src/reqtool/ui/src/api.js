@@ -62,6 +62,7 @@ export const api = {
     deleteAc:      (uid, acUid)  => del(`/requirements/${uid}/ac/${acUid}`),
     clone:         (uid, newId = '') => post(`/requirements/${uid}/clone${newId ? '?new_id=' + encodeURIComponent(newId) : ''}`),
     bulk:          (body)        => post('/requirements/bulk', body),
+    clearSuspect:  (uid, idx)    => post(`/requirements/${uid}/relationships/${idx}/clear-suspect`),
   },
   principles: {
     list:   ()          => get('/principles'),

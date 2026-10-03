@@ -128,6 +128,9 @@ function TreeNode({ node, depth = 0, onContextMenu, forceOpen = false }) {
         {isModule && <span className="tree-module-pill">mod</span>}
         <span className="tree-node-id mono">{node.id}</span>
         <span className="tree-node-title">{node.title}</span>
+        {node.suspect_count > 0 && (
+          <span className="tree-node-suspect" title={`${node.suspect_count} suspect link(s): an upstream item changed`}>⚠ {node.suspect_count}</span>
+        )}
         {isDirty && <span className="tree-node-dirty" title="Unsaved">●</span>}
         {!isModule && <StatusBadge status={node.status} />}
       </div>
@@ -200,6 +203,10 @@ function RequirementsPanel() {
   }, [activeProduct, activeVariant]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    window.addEventListener('reqtool:tree-changed', load);
+    return () => window.removeEventListener('reqtool:tree-changed', load);
+  }, [load]);
 
   const openModulePanel = async () => {
     try { const mods = await api.modules.list(); setAvailableModules(Array.isArray(mods) ? mods : []); }

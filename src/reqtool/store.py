@@ -457,6 +457,7 @@ class Store:
                 "domain": req.get("domain"),
                 "module": req.get("_module"),
                 "owner": req.get("owner"),
+                "suspect_count": sum(1 for r in req.get("relationships") or [] if r.get("suspect")),
                 "children": [node(c, path) for c in sorted(
                     (c for c in children_map.get(uid, []) if c["uid"] not in path),
                     key=lambda r: r.get("id", r.get("uid", "")),
@@ -732,6 +733,7 @@ class Store:
             if updated:
                 save_yaml(self.req_path(req_uid), req)
 
+    @_locked
     def clear_suspect_link(self, req_uid: str, rel_index: int) -> bool:
         """Clear suspect flag on a relationship link."""
         req = self.requirements.get(req_uid)

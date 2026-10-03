@@ -442,6 +442,7 @@ def get_metrics(store: Store = Depends(get_store)):
     no_verification = sum(1 for r in reqs if r.get("verification", {}).get("status", "not_started") == "not_started")
     safety_related = sum(1 for r in reqs if r.get("safety_related"))
     open_tbds = sum(1 for t in tbds if t.get("status") in ("open", "in_progress"))
+    suspect_links = sum(1 for r in reqs for rel in r.get("relationships") or [] if rel.get("suspect"))
 
     approved = status_counts.get("approved", 0)
     in_review = status_counts.get("in_review", 0) + status_counts.get("reviewed", 0)
@@ -469,6 +470,7 @@ def get_metrics(store: Store = Depends(get_store)):
             "tbds": len(tbds),
             "open_tbds": open_tbds,
             "safety_related": safety_related,
+            "suspect_links": suspect_links,
         },
         "status": dict(status_counts),
         "domain": dict(domain_counts),
