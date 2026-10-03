@@ -890,21 +890,30 @@ class Store:
         self.load()
 
     def compute_affected_requirements(self, tbd_uid: str) -> list[str]:
-        """Return UIDs of requirements that reference this TBD in their links or relationships."""
+        """Return UIDs of live requirements that reference ``tbd_uid``.
+
+        A requirement is affected if it has a ``tbd`` link whose ``ref`` is the
+        UID, or a relationship that points at it via ``target.uid``, ``uid`` or
+        ``ref``. (Also used for decisions, which are referenced the same way.)
+        """
         affected = []
         for uid, req in self.requirements.items():
             if req.get("deleted"):
                 continue
-            for link in req.get("links", []):
+            hit = False
+            for link in req.get("links") or []:
                 if link.get("type") == "tbd" and link.get("ref") == tbd_uid:
-                    affected.append(uid)
+                    hit = True
                     break
-            else:
-                for rel in req.get("relationships", []):
-                    tgt = rel.get("target", {})
-                    if isinstance(tgt, dict) and tgt.get("uid") == tbd_uid:
-                        affected.append(uid)
+            if not hit:
+                for rel in req.get("relationships") or []:
+                    tgt = rel.get("target")
+                    if (isinstance(tgt, dict) and tgt.get("uid") == tbd_uid) \
+                            or rel.get("uid") == tbd_uid or rel.get("ref") == tbd_uid:
+                        hit = True
                         break
+            if hit:
+                affected.append(uid)
         return affected
 
     # ------------------------------------------------------------------
@@ -1343,18 +1352,6 @@ class Store:
     # ------------------------------------------------------------------
     # UID search (for relationships editor)
     # ------------------------------------------------------------------
-
-    def compute_affected_requirements(self, tbd_uid: str) -> list[str]:
-        """Return UIDs of requirements that reference this TBD in their relationships."""
-        affected = []
-        for uid, req in self.requirements.items():
-            if req.get("deleted"):
-                continue
-            for rel in req.get("relationships", []):
-                if rel.get("uid") == tbd_uid or rel.get("ref") == tbd_uid:
-                    affected.append(uid)
-                    break
-        return affected
 
     def compute_progress_rollup(self, uid: str) -> dict[str, Any]:
         """Compute hierarchical estimate progress percentage and completed item counts."""
