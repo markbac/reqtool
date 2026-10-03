@@ -45,6 +45,19 @@ npm run build # writes src/reqtool/ui/dist/
 
 See `tests/README.md` for details on what each suite covers.
 
+## Static checks
+
+CI runs `ruff`, `mypy` and `import-linter` in the lint job. To run them locally:
+
+```bash
+pip install -e ".[lint]"
+ruff check src tests --select E9,F63,F7,F82
+mypy
+lint-imports
+```
+
+`mypy` covers every module under `src/reqtool` except the legacy modules listed with `ignore_errors` in `pyproject.toml`; new modules must type-check cleanly, and a legacy module should be removed from that list once it does. `lint-imports` enforces that the core modules (store, validation, models, exports and similar) never import `fastapi`, `starlette` or the web layer.
+
 ## Project layout
 
 ```

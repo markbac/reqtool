@@ -223,7 +223,7 @@ class UserStore:
     def has_default_credentials(self) -> bool:
         """True if a legacy ``admin`` / ``admin123`` account (seeded by v0.5.0 and earlier) exists."""
         u = self.load_users().get(LEGACY_DEFAULT_USER)
-        return bool(u) and verify_password(
+        return u is not None and verify_password(
             LEGACY_DEFAULT_PASSWORD, u.get("password_hash", ""), u.get("salt", "") or "00", u.get("iterations"))
 
     def save_users(self, users: dict[str, dict[str, Any]]):

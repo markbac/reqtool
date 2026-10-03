@@ -37,6 +37,12 @@ jobs:
           pip install ruff
           ruff check src tests --select E9,F63,F7,F82
 
+      - name: Type check (mypy) and import boundaries (import-linter)
+        run: |
+          pip install mypy import-linter types-PyYAML
+          mypy
+          lint-imports
+
       - name: Verify all modules import cleanly
         run: |
           python -c "from reqtool.models   import HierarchyConfig, Requirement, ChecklistItem"
