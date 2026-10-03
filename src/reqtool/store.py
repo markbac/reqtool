@@ -1226,6 +1226,7 @@ class Store:
     ) -> Optional[str]:
         return hierarchy_store.validate_transition(self.hierarchy, self.config.workflow, req, to_state)
 
+    @_locked
     def next_id_for_type(self, req_type: str) -> str:
         return hierarchy_store.next_id_for_type(self.hierarchy, self.requirements, req_type)
 

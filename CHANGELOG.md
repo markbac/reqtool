@@ -25,6 +25,7 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 - **PlantUML sandbox (SEC-10)**: `/render/plantuml` runs with `PLANTUML_SECURITY_PROFILE=SANDBOX`, rejects `!include*`, `!import` and `!theme ... from` directives (422), limits source to 100 KB (413), and keeps render errors as 400.
 
 ### Fixed
+- **Concurrent ID allocation (DAT-11)**: ID allocation happens under the store lock (create has been locked since the DAT-01 fix, and `next_id_for_type` is now locked too); tests prove 20 parallel creates yield 20 distinct IDs and that readers no longer hit "dictionary changed size during iteration".
 - **Automation rules now run (INT-02)**: the engine subscribes to the event publisher and executes matching rules when `requirement_created`, `requirement_updated`, `requirement_approved` or `status_changed` is published. Actions are idempotent and logged; rule-made changes do not publish events.
 
 ### Changed
