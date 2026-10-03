@@ -163,7 +163,7 @@ stateDiagram-v2
     done --> [*]
 ```
 
-The editor shows the workflow of the item's own type (for example Themes, Initiatives and Stakeholder Needs use `draft -> active -> done`; sprint types use `backlog -> ready -> in_progress -> ...`), exactly as the server enforces it.
+The editor shows the workflow of the item's own type (for example Themes, Initiatives and Stakeholder Needs use `draft -> active -> done`; sprint types use `backlog -> ready -> in_progress -> ...`), exactly as the server enforces it. Open sprint states can be moved to `cancelled`. `req validate` checks each workflow definition and warns about states that are unreachable, dead ends, or transitions to undefined states.
 
 - **Definition of Ready (DoR):** Enforces mandatory checklist items (e.g. rationale present, acceptance criteria written) before transitioning to `in_review`.
 - **Definition of Done (DoD):** Enforces verification completion checklist items before transitioning to `done`.

@@ -105,6 +105,48 @@ def _warn(code: str, message: str, uid: str = "", field: str = "") -> dict[str, 
     return {"code": code, "message": message, "uid": uid, "field": field}
 
 
+def check_workflow_graph(hierarchy) -> list[tuple[str, str, str]]:
+    """Return (code, workflow_id, message) problems in the workflow definitions.
+
+    Every state must be reachable from ``initial``, every transition must point at a
+    defined state, and every non-terminal state must be able to reach a terminal one.
+    """
+    problems: list[tuple[str, str, str]] = []
+    for wf_id, wf in hierarchy.workflows.items():
+        ids = {s.id if hasattr(s, "id") else s["id"] for s in wf.states}
+        terminal = {(s.id if hasattr(s, "id") else s["id"]) for s in wf.states
+                    if (s.terminal if hasattr(s, "terminal") else s.get("terminal"))}
+        if not ids:
+            continue
+        for src, targets in wf.transitions.items():
+            for t in [src, *targets]:
+                if t not in ids:
+                    problems.append(("workflow_unknown_state", wf_id,
+                                     f"Workflow '{wf_id}' transitions mention undefined state '{t}'"))
+        seen, stack = set(), [wf.initial]
+        while stack:
+            cur = stack.pop()
+            if cur in seen:
+                continue
+            seen.add(cur)
+            stack.extend(wf.transitions.get(cur, []))
+        for sid in sorted(ids - seen):
+            problems.append(("workflow_unreachable_state", wf_id,
+                             f"State '{sid}' in workflow '{wf_id}' cannot be reached from '{wf.initial}'"))
+        for sid in sorted(ids - terminal):
+            reach, stack = set(), [sid]
+            while stack:
+                cur = stack.pop()
+                if cur in reach:
+                    continue
+                reach.add(cur)
+                stack.extend(wf.transitions.get(cur, []))
+            if not (reach & terminal) and terminal:
+                problems.append(("workflow_dead_end", wf_id,
+                                 f"State '{sid}' in workflow '{wf_id}' can never reach a terminal state"))
+    return problems
+
+
 def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
     """Run full validation. Returns {"errors": [...], "warnings": [...]}."""
     errors: list[dict[str, str]] = []
@@ -221,6 +263,10 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
                 (errors if store.hierarchy.enforce == "error" else warnings).append(
                     (_err if store.hierarchy.enforce == "error" else _warn)(
                         "hierarchy_violation", problem, uid, "parentId"))
+
+    # Workflow definitions must be coherent
+    for code, wf_id, message in check_workflow_graph(store.hierarchy):
+        warnings.append(_warn(code, message, "", f"workflows.{wf_id}"))
 
     # Cross-layer relationship rules
     if store.hierarchy.enforce != "off":
