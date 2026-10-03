@@ -30,6 +30,9 @@ from .routers import (
 
 log = logging.getLogger(__name__)
 
+# http(s)://localhost, 127.0.0.1 or [::1] on any port.
+LOCAL_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
+
 
 def create_app(repo_root: Path) -> FastAPI:
     store = Store(repo_root)
@@ -49,11 +52,16 @@ def create_app(repo_root: Path) -> FastAPI:
 
     app.state.store = store
 
+    # Only the local UI (and any origins the operator lists) may call the API
+    # from a browser. A wildcard lets any web page the user visits drive the API.
+    extra_origins = [o.strip() for o in os.environ.get("REQTOOL_CORS_ORIGINS", "").split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=extra_origins,
+        allow_origin_regex=LOCAL_ORIGIN_REGEX,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-API-Key", "If-Match"],
     )
 
     # ------------------------------------------------------------------
