@@ -24,7 +24,8 @@ class IterationStore:
             return self._default_iterations()  # served from memory; written on the first explicit save
         data = load_yaml(self.iterations_file)
         if isinstance(data, list):
-            return data
+            # Rows written by hand, the CLI or older versions may lack the methodology.
+            return [{"methodology": "scrum", **it} if isinstance(it, dict) else it for it in data]
         return []
 
     def save_iterations(self, iterations: list[dict[str, Any]]) -> None:

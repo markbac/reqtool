@@ -4,6 +4,7 @@
  * global Ctrl+K command palette, and all overlay panel wiring.
  */
 
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { useEffect, useState, useCallback } from 'react';
 import { AppProvider, useApp } from './AppContext';
 import Header from './components/Header';
@@ -178,7 +179,8 @@ function AppShell() {
         </main>
       </div>
 
-      {/* Overlay panels */}
+      {/* Overlay panels: a crash in one closes the panels instead of blanking the app */}
+      <ErrorBoundary scope="panel" onReset={() => dispatch({ type: 'CLOSE_PANELS' })}>
       {state._showIterations   && <IterationsPanel   onClose={() => toggle('_showIterations',   false)} />}
       {state._showDiagram      && <DiagramPanel      onClose={() => toggle('_showDiagram',      false)} />}
       {state._showAutomation   && <AutomationRulesPanel onClose={() => toggle('_showAutomation', false)} />}
@@ -217,6 +219,7 @@ function AppShell() {
           onDone={handleGlobalCommitDone}
         />
       )}
+      </ErrorBoundary>
 
       <div className="toast-container">
         {toasts.map(t => (
