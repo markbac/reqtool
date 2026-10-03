@@ -8,6 +8,7 @@ Provides lookup by UID, tree construction, validation, and mutation helpers.
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import Any, Optional
 
@@ -57,6 +58,56 @@ def substitute_template_variables(val: Any, variables: dict[str, Any]) -> Any:
     if isinstance(val, list):
         return [substitute_template_variables(item, variables) for item in val]
     return val
+
+
+_REMOTE_SCHEMES = ("http", "https", "ssh", "git")
+_SCP_LIKE_RE = re.compile(r"^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[A-Za-z0-9._~/-]+$")
+_REMOTE_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$")
+
+
+def _validate_remote_url(url: str) -> None:
+    """Allow only plain http(s)/ssh/git URLs or scp-style ``user@host:path``.
+
+    Rejects option-like values (leading ``-``, e.g. ``--upload-pack=...``),
+    whitespace/control characters, ``ext::``/``file:`` transports and local paths.
+    """
+    from urllib.parse import urlparse
+
+    if not url or url.startswith("-") or any(c.isspace() or ord(c) < 32 for c in url):
+        raise ValueError("Unsupported git remote")
+    if _SCP_LIKE_RE.match(url):
+        return
+    parsed = urlparse(url)
+    if parsed.scheme not in _REMOTE_SCHEMES or not parsed.hostname:
+        raise ValueError(f"Unsupported git remote URI scheme for '{url}'")
+
+
+def _validate_remote_ref(ref: str) -> None:
+    if not _REMOTE_REF_RE.match(ref) or ".." in ref:
+        raise ValueError(f"Invalid git_ref '{ref}'")
+
+
+def _git_remote(args: list[str], cwd: Path) -> None:
+    """Run git for a network operation: restricted transports, no prompts, timeout."""
+    import os
+    import subprocess
+
+    cmd = [
+        "git",
+        "-c", "protocol.allow=never",
+        "-c", "protocol.https.allow=always",
+        "-c", "protocol.http.allow=always",
+        "-c", "protocol.ssh.allow=always",
+        "-c", "protocol.git.allow=always",
+        *args,
+    ]
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    try:
+        res = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, env=env, timeout=180)
+    except subprocess.TimeoutExpired:
+        raise ValueError(f"git {args[0]} timed out")
+    if res.returncode != 0:
+        raise ValueError(f"git {args[0]} failed: {(res.stderr or res.stdout).strip()[:500]}")
 
 
 class Store:
@@ -1434,9 +1485,6 @@ class Store:
 
     def fetch_remote_module(self, module_id: str) -> dict[str, Any]:
         """Fetch an external Git repository module into modules/<module_id>/."""
-        import re
-        from urllib.parse import urlparse
-
         validate_id(module_id, "module id")
 
         manifest_path = self.root / "modules" / module_id / "_module.yaml"
@@ -1448,18 +1496,16 @@ class Store:
         if not git_remote:
             raise ValueError(f"Module '{module_id}' does not specify 'git_remote'")
 
-        parsed = urlparse(git_remote)
-        if parsed.scheme and parsed.scheme not in ("http", "https", "ssh", "git"):
-            raise ValueError(f"Unsupported git remote URI scheme for '{git_remote}'")
+        _validate_remote_url(git_remote)
+        _validate_remote_ref(git_ref)
 
         target_dir = self.root / "modules" / module_id / "remote"
         target_dir.mkdir(parents=True, exist_ok=True)
-        from .git_ops import _run_git
         if (target_dir / ".git").exists():
-            _run_git(["fetch", "origin"], target_dir)
-            _run_git(["checkout", git_ref], target_dir)
+            _git_remote(["fetch", "origin"], target_dir)
+            _git_remote(["checkout", git_ref, "--"], target_dir)
         else:
-            _run_git(["clone", "--branch", git_ref, git_remote, str(target_dir)], self.root)
+            _git_remote(["clone", "--branch", git_ref, "--", git_remote, str(target_dir)], self.root)
 
         self._load_modules()
         return {"status": "fetched", "module_id": module_id, "git_remote": git_remote, "git_ref": git_ref}
