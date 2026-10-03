@@ -53,6 +53,12 @@ test = [
     "pypdf>=4.0",
     "fonttools>=4.40",
 ]
+lint = [
+    "ruff",
+    "mypy>=1.10",
+    "import-linter>=2.0",
+    "types-PyYAML",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -78,3 +84,36 @@ addopts = "-v --tb=short"
 #   pytest tests/test_store.py tests/test_validation.py tests/test_cli.py   (~20s)
 #   pytest tests/test_features_v03.py                                        (~30s)
 #   pytest tests/test_api.py tests/test_regression.py                        (~2 min)
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src/reqtool"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+# Legacy modules with known type errors. Remove an entry once its module is clean;
+# every other module is held to a clean mypy run in CI.
+[[tool.mypy.overrides]]
+module = [
+    "reqtool.__main_app__", "reqtool.__main_client__", "reqtool.__main_server__", "reqtool.__main_web__",
+    "reqtool.api", "reqtool.commands.scaffold", "reqtool.exports", "reqtool.store",
+    "reqtool.stores.hierarchy_store", "reqtool.stores.comment_store", "reqtool.validation",
+    "reqtool.routers.comments", "reqtool.routers.deps", "reqtool.routers.exports",
+    "reqtool.routers.imports", "reqtool.routers.requirements", "reqtool.routers.system",
+    "reqtool.automation",
+]
+ignore_errors = true
+
+[tool.importlinter]
+root_package = "reqtool"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Core modules do not import the web layer"
+type = "forbidden"
+source_modules = [
+    "reqtool.store", "reqtool.stores", "reqtool.models", "reqtool.validation", "reqtool.fileio",
+    "reqtool.git_ops", "reqtool.events", "reqtool.automation", "reqtool.iterations",
+    "reqtool.github_sync", "reqtool.pdf", "reqtool.exports", "reqtool.intelligence",
+]
+forbidden_modules = ["reqtool.routers", "reqtool.api", "reqtool.security", "fastapi", "starlette"]

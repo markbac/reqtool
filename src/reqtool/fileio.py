@@ -100,7 +100,7 @@ def load_yaml(path: Path) -> dict[str, Any]:
     return _to_plain(data)
 
 
-def save_yaml(path: Path, data: dict[str, Any]) -> None:
+def save_yaml(path: Path, data: Any) -> None:
     """Write a dict to YAML atomically. Creates parent directories if needed.
 
     The document is serialised in memory first, written to a temporary file in

@@ -54,6 +54,7 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 - **Automation rules now run (INT-02)**: the engine subscribes to the event publisher and executes matching rules when `requirement_created`, `requirement_updated`, `requirement_approved` or `status_changed` is published. Actions are idempotent and logged; rule-made changes do not publish events.
 
 ### Changed
+- **Static checks (QA-03)**: CI now runs `mypy` (all modules except a documented legacy allowlist in `pyproject.toml`) and `import-linter` (core modules must not import FastAPI or the routers). New `lint` extra installs the tooling. Two small typing fixes in `auth.py` and `fileio.save_yaml`.
 - **One event publisher (EVT-02)**: a single catalogue (`reqtool/events.py`) and publisher now feed webhooks and WebSocket clients. Create, clone, edit, bulk edit, acceptance-criteria edits and delete publish `requirement_created` / `requirement_updated` / `requirement_deleted`; status changes publish `status_changed` exactly once (the duplicate WebSocket frame from `/transition` is gone). Approval is still sent as `approved` on the wire. README's event list now matches what the server sends.
 
 ### Fixed

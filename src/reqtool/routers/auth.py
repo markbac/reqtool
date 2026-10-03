@@ -63,14 +63,14 @@ def _set_session(response: Response, request: Request, user: dict[str, Any], sto
                  auth_at: int | None = None) -> None:
     """Browser session: a short-lived access cookie and a longer refresh cookie, both HttpOnly and SameSite=Strict."""
     tv = user.get("token_version", 0)
-    common = dict(httponly=True, samesite="strict", secure=_secure(request))
+    secure = _secure(request)
     response.set_cookie(SESSION_COOKIE, create_token(user["username"], user["role"], store.root, SESSION_LIFETIME,
                                                      tv, "access", auth_at),
-                        max_age=SESSION_LIFETIME, path="/", **common)
+                        max_age=SESSION_LIFETIME, path="/", httponly=True, samesite="strict", secure=secure)
     # The refresh cookie is only sent to /auth, so ordinary requests never carry it.
     response.set_cookie(REFRESH_COOKIE, create_token(user["username"], user["role"], store.root, REFRESH_LIFETIME,
                                                      tv, "refresh", auth_at),
-                        max_age=REFRESH_LIFETIME, path="/auth", **common)
+                        max_age=REFRESH_LIFETIME, path="/auth", httponly=True, samesite="strict", secure=secure)
 
 
 def _require_csrf_header(request: Request) -> None:
