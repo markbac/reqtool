@@ -21,13 +21,49 @@ from reqtool.fileio import load_yaml, save_yaml, utcnow_iso
 SECRET_FILE = ".secret_key"
 
 
+SECRET_IGNORE_ENTRIES = (".reqtool/.secret_key", ".reqtool/users.yaml")
+
+
+def ensure_secrets_ignored(repo_root: Path) -> None:
+    """Make sure the key and user store can never be committed by accident.
+
+    Appends any missing entries to ``<repo_root>/.gitignore`` (creating it if needed).
+    """
+    gi = repo_root / ".gitignore"
+    try:
+        existing = gi.read_text(encoding="utf-8") if gi.exists() else ""
+        lines = {ln.strip() for ln in existing.splitlines()}
+        missing = [e for e in SECRET_IGNORE_ENTRIES if e not in lines]
+        if missing:
+            prefix = "" if not existing or existing.endswith("\n") else "\n"
+            gi.write_text(existing + prefix + "\n".join(missing) + "\n", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _restrict(path: Path) -> None:
+    """Best-effort owner-only permissions (no-op where unsupported)."""
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
+
+
 def _get_secret_key(repo_root: Path) -> bytes:
     sec_path = repo_root / ".reqtool" / SECRET_FILE
     if sec_path.exists():
+        _restrict(sec_path)
         return sec_path.read_bytes()
     sec_path.parent.mkdir(parents=True, exist_ok=True)
+    ensure_secrets_ignored(repo_root)
     key = os.urandom(32)
-    sec_path.write_bytes(key)
+    try:
+        # O_EXCL + 0600: never world-readable, and two creators cannot clobber each other.
+        fd = os.open(sec_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        return sec_path.read_bytes()
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(key)
     return key
 
 
@@ -130,11 +166,14 @@ class UserStore:
                 }
             }
         }
+        ensure_secrets_ignored(self.root)
         save_yaml(self.users_file, default_data)
+        _restrict(self.users_file)
 
     def save_users(self, users: dict[str, dict[str, Any]]):
         self.users_file.parent.mkdir(parents=True, exist_ok=True)
         save_yaml(self.users_file, {"users": users})
+        _restrict(self.users_file)
 
     def authenticate(self, username: str, password: str) -> Optional[dict[str, Any]]:
         users = self.load_users()
