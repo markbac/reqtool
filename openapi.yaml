@@ -3387,6 +3387,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /auth/refresh:
+    post:
+      tags:
+      - auth
+      summary: Refresh
+      description: Exchange the refresh cookie for a new access cookie (and a rotated refresh cookie).
+      operationId: refresh_auth_refresh_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /auth/logout:
+    post:
+      tags:
+      - auth
+      summary: Logout
+      description: End the browser session by clearing both cookies.
+      operationId: logout_auth_logout_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
   /auth/me:
     get:
       tags:

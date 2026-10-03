@@ -59,7 +59,8 @@ def test_valid_token_works_via_header_apikey_and_query(secured):
     assert secured.get("/requirements", headers=h).status_code == 200
     assert secured.get("/requirements", headers={"X-API-Key": tok}).status_code == 200
     assert secured.get(f"/requirements?access_token={tok}").status_code == 200
-    # query-string tokens are for GET downloads only
+    # query-string tokens are for GET downloads only (drop the session cookie login set)
+    secured.cookies.clear()
     assert secured.post(f"/requirements?access_token={tok}", json={"title": "x"}).status_code == 401
 
 

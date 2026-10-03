@@ -414,7 +414,9 @@ POST /baselines                          Create baseline tag
 GET  /baselines/{name}/diff              Diff against baseline
 GET  /diff                               Requirement diff since ref
 POST /render/markdown                    Render Markdown to HTML
-POST /auth/login                         Obtain a token (public)
+POST /auth/login                         Obtain a token and set session cookies (public)
+POST /auth/refresh                       Renew the session cookies (needs X-Reqtool-CSRF)
+POST /auth/logout                        Clear the session cookies (needs X-Reqtool-CSRF)
 GET  /auth/me                            Current user
 GET  /auth/users                         List users (login required)
 POST /auth/users                         Create a user (admin; first account from localhost)
