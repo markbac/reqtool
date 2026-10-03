@@ -352,6 +352,7 @@ POST   /requirements/{uid}/transition    Explicit workflow transition with guard
 GET    /requirements/{uid}/impact        Transitive downstream impact closure
 GET    /requirements/{uid}/rollup        Computed estimate rollup for children
 GET    /requirements/{uid}/history       In-file + git history
+GET    /requirements/{uid}/commits       GitHub commits linked via the push webhook
 GET    /requirements/{uid}/relationships Outgoing + incoming relationship links
 POST   /requirements/bulk                Bulk field update across multiple UIDs
 POST   /requirements/{uid}/clone         Clone a requirement

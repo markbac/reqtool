@@ -1171,6 +1171,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/commits:
+    get:
+      tags:
+      - requirements
+      summary: Requirement Commits
+      description: Development commits linked to this requirement from GitHub push webhooks (not part of its content).
+      operationId: requirement_commits_requirements__uid__commits_get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /requirements/{uid}/history:
     get:
       tags:
