@@ -22,7 +22,7 @@ from . import __version__
 from .store import Store
 from .fileio import InvalidId
 from .git_ops import InvalidRef
-from .store import ParentCycle, HierarchyViolation
+from .store import ParentCycle, HierarchyViolation, RelationshipViolation
 from .routers import (
     system, requirements, principles, decisions, tbds, modules,
     comments, attachments, analysis, exports, git_ops,
@@ -138,6 +138,10 @@ def create_app(repo_root: Path, auth_mode: str | None = None) -> FastAPI:
     @app.exception_handler(HierarchyViolation)
     async def _hierarchy_violation_handler(request, exc):
         return JSONResponse(status_code=409, content={"detail": {"error": "hierarchy_violation", "message": str(exc)}})
+
+    @app.exception_handler(RelationshipViolation)
+    async def _relationship_violation_handler(request, exc):
+        return JSONResponse(status_code=409, content={"detail": {"error": "relationship_violation", "message": str(exc)}})
 
     app.include_router(system.router)
     app.include_router(requirements.router)

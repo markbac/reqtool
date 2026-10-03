@@ -178,6 +178,15 @@ stateDiagram-v2
 
 A parent type with no entry in `hierarchy` is unconstrained.
 
+### 4.2 Relationship rules between layers
+
+`cross_layer_rules` in `hierarchy.yaml` say which relationship types may link which item types. They follow the same `enforce` setting as 4.1:
+
+- A pair of types is *governed* when a rule covers it in either direction. Only the relationship types listed for the exact direction are allowed, so a `physical` requirement cannot `satisfies` a `story` (the story satisfies the requirement).
+- Pairs no rule mentions are unconstrained, and `relates_to` is always allowed.
+- `warn` reports `relationship_violation` in validation; `error` also rejects *new* offending relationships with `409 relationship_violation` (relationships already stored never block unrelated edits).
+- Themes, initiatives and epics may `traces_to` / `derived_from` stakeholder needs, and themes and initiatives may link to systems requirements like other agile items.
+
 ---
 
 ## 5. Modules, Variant Overlays & Parameter Substitution

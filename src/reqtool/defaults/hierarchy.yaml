@@ -413,10 +413,15 @@ dod:
 # Cross-layer relationship rules
 # ---------------------------------------------------------------------------
 cross_layer_rules:
-  - source_types: [story, task, feature, epic]
+  - source_types: [theme, initiative, epic, feature, story, task]
     target_types: [functional, performance, security, safety, interface, compliance, constraint, operational, physical]
     allowed_rel_types: [satisfies, implements, traces_to]
     note: "Agile items link to systems requirements via explicit relationship types."
+
+  - source_types: [theme, initiative, epic]
+    target_types: [stakeholder_need]
+    allowed_rel_types: [traces_to, derived_from]
+    note: "Strategic items trace to stakeholder needs."
 
   - source_types: [functional, performance, security, safety, interface, compliance, constraint, operational, physical]
     target_types: [stakeholder_need]

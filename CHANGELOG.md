@@ -13,6 +13,7 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 
 ### Added
 - **Hierarchy enforcement (MOD-01)**: `allowed_children` is now applied on create, re-parent and type change. `hierarchy.yaml` gains `enforce: off|warn|error` (default `warn`: validation warning; `error`: `409 hierarchy_violation` and a validation error).
+- **Cross-layer relationship rules (MOD-02)**: `cross_layer_rules` are enforced on write and in validation under the same `hierarchy.enforce` setting (`relationship_violation`). Shipped rules now let themes, initiatives and epics trace to stakeholder needs and themes/initiatives link to systems requirements.
 
 ### Fixed
 - **Parent cycles (MOD-03)**: setting a requirement's parent to itself or to one of its own descendants is rejected with `409 parent_cycle` (bulk updates report it per item). `req validate` reports `parent_cycle` for loops already in the data, and the tree and editor breadcrumb no longer recurse forever on them.

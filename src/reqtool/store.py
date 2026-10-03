@@ -45,6 +45,10 @@ class ParentCycle(ValueError):
     """Re-parenting would make an item its own ancestor."""
 
 
+class RelationshipViolation(ValueError):
+    """A relationship type is not allowed between these item types (hierarchy.enforce: error)."""
+
+
 class HierarchyViolation(ValueError):
     """The child type is not allowed under the parent type (hierarchy.enforce: error)."""
 
@@ -548,6 +552,7 @@ class Store:
         now = utcnow_iso()
         req_type = fields.get("req_type", "functional")
         self._check_hierarchy(req_type, fields.get("parentId"))
+        self._check_relationships(req_type, fields.get("relationships") or [], [])
 
         # Determine default status from workflow initial state
         wf = self.get_workflow_for_type(req_type)
@@ -633,6 +638,10 @@ class Store:
         if "parentId" in fields or "req_type" in fields:
             self._check_hierarchy(fields.get("req_type", data.get("req_type", "functional")),
                                   fields.get("parentId", data.get("parentId")))
+        if "relationships" in fields or "req_type" in fields:
+            self._check_relationships(fields.get("req_type", data.get("req_type", "functional")),
+                                      fields.get("relationships", data.get("relationships")) or [],
+                                      data.get("relationships") or [])
         now = utcnow_iso()
         old_hash = data.get("content_hash", "")
 
@@ -675,6 +684,27 @@ class Store:
         problem = self.hierarchy_problem(child_type, parent_uid)
         if problem:
             raise HierarchyViolation(problem)
+
+    def relationship_problem(self, source_type: str, rel: dict) -> Optional[str]:
+        """Message if ``rel`` breaks cross_layer_rules for a source of ``source_type`` (ignores enforce)."""
+        target = self.requirements.get((rel.get("target") or {}).get("uid", ""))
+        if not target or not rel.get("type"):
+            return None
+        return hierarchy_store.check_relationship(
+            self.hierarchy, source_type, target.get("req_type", "functional"), rel["type"])
+
+    def _check_relationships(self, source_type: str, rels: list, existing: list) -> None:
+        """Reject relationships that are new (not already stored) and break cross_layer_rules."""
+        if self.hierarchy.enforce != "error":
+            return
+        key = lambda r: (r.get("type"), (r.get("target") or {}).get("uid"))
+        have = {key(r) for r in existing}
+        for rel in rels:
+            if key(rel) in have:
+                continue
+            problem = self.relationship_problem(source_type, rel)
+            if problem:
+                raise RelationshipViolation(problem)
 
     def _check_parent(self, uid: str, new_parent: str) -> None:
         """Raise ParentCycle if parenting ``uid`` under ``new_parent`` closes a loop."""
