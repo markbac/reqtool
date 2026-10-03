@@ -48,20 +48,53 @@ def search_uids(q: str = "", limit: int = 20, store: Store = Depends(get_store))
     return store.search_uids(q, limit)
 
 
+REDACTED = "********"
+
+
+def _redact_hook(hook: dict[str, Any]) -> dict[str, Any]:
+    out = dict(hook)
+    out["has_secret"] = bool(out.get("secret"))
+    if out.get("secret"):
+        out["secret"] = REDACTED
+    return out
+
+
+def redact_config(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of a config dump that is safe to send to a client."""
+    out = dict(cfg)
+    if isinstance(out.get("webhooks"), list):
+        out["webhooks"] = [_redact_hook(h) for h in out["webhooks"]]
+    return out
+
+
+def _restore_redacted_secrets(incoming: dict[str, Any], current_hooks: list[dict[str, Any]]) -> None:
+    """If a client echoes back the redacted placeholder, keep the stored secret."""
+    hooks = incoming.get("webhooks")
+    if not isinstance(hooks, list):
+        return
+    by_url = {h.get("url"): h.get("secret") for h in current_hooks}
+    for h in hooks:
+        if isinstance(h, dict):
+            h.pop("has_secret", None)
+            if h.get("secret") == REDACTED:
+                h["secret"] = by_url.get(h.get("url"))
+
+
 @router.get("/config", tags=["meta"])
 def get_config(store: Store = Depends(get_store)):
-    return store.config.model_dump()
+    return redact_config(store.config.model_dump())
 
 
 @router.put("/config", tags=["meta"])
 def update_config(body: dict[str, Any], store: Store = Depends(get_store)):
     config_path = store.root / ".reqtool" / "config.yaml"
     cfg = load_yaml(config_path) if config_path.exists() else {}
+    _restore_redacted_secrets(body, cfg.get("webhooks") or [])
     cfg.update(body)
     save_yaml(config_path, cfg)
     from reqtool.models import RepoConfig
     store.config = RepoConfig.model_validate(cfg)
-    return store.config.model_dump()
+    return redact_config(store.config.model_dump())
 
 
 
@@ -211,7 +244,7 @@ def save_custom_field_schema(body: list[dict[str, Any]], store: Store = Depends(
 
 @router.get("/webhooks", tags=["webhooks"])
 def list_webhooks(store: Store = Depends(get_store)):
-    return [w.model_dump() for w in store.config.webhooks]
+    return [_redact_hook(w.model_dump()) for w in store.config.webhooks]
 
 
 @router.post("/webhooks", status_code=201, tags=["webhooks"])
@@ -225,7 +258,7 @@ def add_webhook(body: dict[str, Any], store: Store = Depends(get_store)):
     cfg["webhooks"] = hooks
     save_yaml(config_path, cfg)
     store.config.webhooks.append(hook)
-    return hook.model_dump()
+    return _redact_hook(hook.model_dump())
 
 
 @router.delete("/webhooks/{idx}", tags=["webhooks"])
