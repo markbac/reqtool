@@ -84,18 +84,18 @@ def broadcast_sync(event: str, payload: dict) -> None:
     """
     import asyncio
     msg = {"event": event, **payload}
-    loop = ws_manager.loop
-    if loop is None or loop.is_closed() or not ws_manager.active:
-        return
     try:
         running = asyncio.get_running_loop()
     except RuntimeError:
         running = None
-    if running is loop:
-        loop.create_task(ws_manager.broadcast(msg))
-    else:
-        fut = asyncio.run_coroutine_threadsafe(ws_manager.broadcast(msg), loop)
-        fut.add_done_callback(lambda f: f.exception() and log.warning("WS broadcast failed: %s", f.exception()))
+    if running is not None:
+        running.create_task(ws_manager.broadcast(msg))
+        return
+    loop = ws_manager.loop
+    if loop is None or loop.is_closed() or not ws_manager.active:
+        return
+    fut = asyncio.run_coroutine_threadsafe(ws_manager.broadcast(msg), loop)
+    fut.add_done_callback(lambda f: f.exception() and log.warning("WS broadcast failed: %s", f.exception()))
 
 
 from concurrent.futures import ThreadPoolExecutor
