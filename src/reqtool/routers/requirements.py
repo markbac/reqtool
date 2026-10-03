@@ -11,7 +11,7 @@ import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from reqtool.store import Store, ParentCycle, HierarchyViolation, RelationshipViolation
+from reqtool.store import Store, ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId
 from reqtool.git_ops import has_conflicts, stage_file, commit as git_commit, git_log
 from reqtool.models import (
     CommitRequest, ApproveRequest, BulkUpdateRequest,
@@ -83,7 +83,8 @@ def requirements_tree(
 
 @router.get("/requirements/{uid}")
 def get_requirement(uid: str, store: Store = Depends(get_store)):
-    req = store.get_requirement(uid)
+    """Fetch by UID or by human ID (for example ``FR-042``)."""
+    req = store.get_requirement(store.resolve_uid(uid) or uid)
     if req is None:
         raise not_found(uid)
     return req
@@ -142,7 +143,7 @@ def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get
                     increment=body.increment,
                     summary=body.summary,
                 )
-            except (ParentCycle, HierarchyViolation, RelationshipViolation) as exc:
+            except (ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId) as exc:
                 failed.append(uid)
                 errors[uid] = str(exc)
                 continue
@@ -171,7 +172,11 @@ def clone_requirement(uid: str, new_id: str = "", store: Store = Depends(get_sto
     if new_id:
         fields["id"] = new_id
     else:
-        fields["id"] = src.get("id", "REQ") + "-COPY"
+        base = src.get("id", "REQ") + "-COPY"
+        fields["id"], n = base, 1
+        while store.resolve_uid(fields["id"]):  # keep clones unique
+            n += 1
+            fields["id"] = f"{base}{n}"
     fields["title"] = src.get("title", "") + " (copy)"
     fields["status"] = "draft"
     fields["approval"] = {"status": "draft", "approved_by": None, "approved_date": None}

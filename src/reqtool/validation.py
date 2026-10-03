@@ -291,6 +291,17 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
                     errors.append(_err("relationship_violation", problem, uid, "relationships")) if as_error \
                         else warnings.append(_warn("relationship_violation", problem, uid, "relationships"))
 
+    # Human IDs must be unique within requirements and within decisions/TBDs
+    for label, table in (("requirement", store.requirements), ("decision", getattr(store, "decisions", {}))):
+        owners: dict[str, list[str]] = {}
+        for uid, item in table.items():
+            if not item.get("deleted") and item.get("id"):
+                owners.setdefault(item["id"], []).append(uid)
+        for rid, uids in owners.items():
+            if len(uids) > 1:
+                for uid in uids:
+                    errors.append(_err("duplicate_id", f"{label} ID '{rid}' is used by {len(uids)} items", uid, "id"))
+
     # parentId cycles (reported on each member of the loop)
     for uid, req in store.requirements.items():
         if req.get("deleted"):

@@ -267,6 +267,10 @@ Send the token returned by `POST /auth/login` as `Authorization: Bearer <token>`
 
 Passwords are stored as PBKDF2-HMAC-SHA256 with 600,000 iterations (the count is stored with each hash). Older, weaker hashes keep working and are upgraded automatically at the user's next login. Passwords are used exactly as typed, including leading and trailing spaces. After five failed logins within a minute for the same account or from the same address, `POST /auth/login` answers `429` with a `Retry-After` header. The counters are kept in memory, so they reset when the server restarts and are per process.
 
+### 6.2a Item IDs
+
+A requirement's human ID (for example `FR-042`) is generated automatically, or you can supply one. Supplied IDs may contain letters, digits, `_`, `.` and `-` (up to 64 characters, not starting with `.` or `-`). Creating or renaming an item to an ID that another live item already uses returns `409 duplicate_id`; deleted items release their ID. `GET /requirements/{id}` accepts either the UID or the human ID, and `req validate` reports an error `duplicate_id` if duplicates arrive another way (for example a Git merge). Cloning picks `-COPY`, `-COPY2`, ... so clones never collide.
+
 ### 6.3 Approvals and signatures
 - The approver is the logged-in user. Sending a different `approved_by` returns 403, and viewers cannot approve. In `local` mode the name in the request is recorded with `identity_verified: false`.
 - Approval signatures (`SIG-v2`) cover the approved content, not only the version and user. `reqtool validate` reports:
