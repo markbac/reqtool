@@ -111,8 +111,8 @@ estimates:
     The `estimate` field holds a numeric effort estimate.
     Units (points, days, hours) are configured at repo level via `estimate_unit` in `enums.yaml`.
 
-    **Rollup:** `estimate_rollup` is a read-only computed field showing the sum of all
-    direct children's estimates. It is shown in the editor as non-editable.
+    **Rollup:** `estimate_rollup` is a read-only computed field showing the sum of the
+    estimates of all leaf descendants (cancelled items excluded). It is shown in the editor as non-editable.
 
 dor_dod:
   overview: |

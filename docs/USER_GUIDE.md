@@ -150,6 +150,10 @@ Saving a change to a requirement marks every relationship that points at it as *
 - View requirements organized by workflow states (`Draft`, `In Review`, `Approved`, `Done`) or target release milestones.
 - Drag-and-drop cards between columns to transition workflow states.
 
+#### Progress and estimate rollups
+- **Progress** (`GET /requirements/{uid}/progress`) is measured over the leaf items beneath a parent. The parent itself and any `cancelled` items are left out. An item counts as done when it is in a terminal state of its own type's workflow (for example `done`), so `active` does not count. Progress is weighted by estimate when the leaves have estimates, otherwise by item count.
+- **Estimate rollup** (`GET /requirements/{uid}/rollup`) is the sum of the estimates of all leaf descendants, at any depth, excluding cancelled items. A parent's own estimate is never added, so nothing is double counted.
+
 ---
 
 ## 4. Workflows, State Transitions & Checklists

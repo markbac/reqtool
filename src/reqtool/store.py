@@ -1365,18 +1365,37 @@ class Store:
     # Estimate rollup
     # ------------------------------------------------------------------
 
+    def _live_descendants(self, uid: str) -> list[dict[str, Any]]:
+        """All non-deleted descendants of ``uid`` (cycle-safe), excluding ``uid`` itself."""
+        kids: dict[str, list[str]] = {}
+        for r_uid, r in self.requirements.items():
+            if not r.get("deleted") and r.get("parentId"):
+                kids.setdefault(r["parentId"], []).append(r_uid)
+        seen = {uid}
+        out: list[dict[str, Any]] = []
+        stack = list(kids.get(uid, []))
+        while stack:
+            cur = stack.pop()
+            if cur in seen:
+                continue
+            seen.add(cur)
+            out.append(self.requirements[cur])
+            stack.extend(kids.get(cur, []))
+        return out
+
+    def _rollup_leaves(self, uid: str) -> list[dict[str, Any]]:
+        """Descendants of ``uid`` that have no live children of their own (cancelled items excluded)."""
+        desc = self._live_descendants(uid)
+        parents = {r.get("parentId") for r in desc}
+        return [r for r in desc if r.get("uid") not in parents and r.get("status") != "cancelled"]
+
     def compute_estimate_rollup(self, uid: str) -> Optional[float]:
-        """Sum of direct children's estimate values, or None if no children have estimates."""
-        children = [
-            r for r in self.requirements.values()
-            if not r.get("deleted") and r.get("parentId") == uid
-        ]
-        if not children:
-            return None
-        estimates = [r.get("estimate") for r in children if r.get("estimate") is not None]
-        if not estimates:
-            return None
-        return sum(estimates)
+        """Sum of the estimates of all leaf descendants (a parent's own estimate is never double counted).
+
+        None if there are no descendants or none of the leaves has an estimate.
+        """
+        estimates = [r["estimate"] for r in self._rollup_leaves(uid) if r.get("estimate") is not None]
+        return sum(estimates) if estimates else None
 
     # ------------------------------------------------------------------
     # Kanban
@@ -1583,46 +1602,43 @@ class Store:
     # UID search (for relationships editor)
     # ------------------------------------------------------------------
 
+    def _done_states(self, req_type: str) -> set[str]:
+        """Terminal workflow states other than ``cancelled`` for the type (falls back to the global workflow)."""
+        wf = self.get_workflow_for_type(req_type)
+        states = wf.states if wf and wf.states else self.config.workflow.states
+        return {s.id for s in states if s.terminal and s.id != "cancelled"}
+
     def compute_progress_rollup(self, uid: str) -> dict[str, Any]:
-        """Compute hierarchical estimate progress percentage and completed item counts."""
+        """Progress of ``uid`` over its leaf descendants.
+
+        An item is done when it is in a terminal state of its own workflow (``cancelled`` is not
+        completion and is left out of the totals). The root is excluded; ``active`` is not done.
+        With no descendants the item's own state decides.
+        """
         target = self.requirements.get(uid)
         if not target:
             return {"uid": uid, "total_items": 0, "done_items": 0, "total_estimate": 0.0, "done_estimate": 0.0, "progress_pct": 0.0}
 
-        descendants: list[dict] = []
-        visited = set()
+        items = self._rollup_leaves(uid)
+        if not items and target.get("status") != "cancelled":
+            items = [target]
 
-        def _collect(parent_uid: str):
-            for r_uid, r in self.requirements.items():
-                if r.get("deleted") or r_uid in visited:
-                    continue
-                if r.get("parentId") == parent_uid:
-                    visited.add(r_uid)
-                    descendants.append(r)
-                    _collect(r_uid)
-
-        _collect(uid)
-        items = [target] + descendants
-
-        total_items = len(items)
+        total_estimate = done_estimate = 0.0
         done_items = 0
-        total_estimate = 0.0
-        done_estimate = 0.0
-        _DONE_STATES = {"done", "approved", "verified", "active", "resolved"}
-
+        done_cache: dict[str, set[str]] = {}
         for item in items:
             est = float(item.get("estimate") or 0.0)
-            status = item.get("status", "")
-            is_done = status in _DONE_STATES
+            rt = item.get("req_type", "")
+            if rt not in done_cache:
+                done_cache[rt] = self._done_states(rt)
             total_estimate += est
-            if is_done:
+            if item.get("status") in done_cache[rt]:
                 done_items += 1
                 done_estimate += est
 
-        pct = round((done_estimate / total_estimate * 100.0), 1) if total_estimate > 0 else (
-            round((done_items / total_items * 100.0), 1) if total_items > 0 else 0.0
-        )
-
+        total_items = len(items)
+        pct = round(done_estimate / total_estimate * 100.0, 1) if total_estimate > 0 else (
+            round(done_items / total_items * 100.0, 1) if total_items else 0.0)
         return {
             "uid": uid,
             "id": target.get("id", ""),
