@@ -51,7 +51,7 @@ export const api = {
     commit:        (uid, body)   => post(`/requirements/${uid}/commit`, body),
     approve:       (uid, body)   => post(`/requirements/${uid}/approve`, body),
     history:       (uid)           => get(`/requirements/${uid}/history`),
-    transition:    (uid, status)   => post(`/requirements/${uid}/transition`, { status }),
+    transition:    (uid, status)   => post(`/requirements/${uid}/transition`, { to_state: status }),
     relationships: (uid)         => get(`/requirements/${uid}/relationships`),
     addAc:         (uid, body)   => post(`/requirements/${uid}/ac`, body),
     updateAc:      (uid, acUid, body) => put(`/requirements/${uid}/ac/${acUid}`, body),
@@ -74,7 +74,7 @@ export const api = {
     update:  (uid, body)   => put(`/tbds/${uid}`, body),
     delete:  (uid)         => del(`/tbds/${uid}`),
     commit:  (uid, body)   => post(`/tbds/${uid}/commit`, body),
-    resolve: (uid, body)   => post(`/tbds/${uid}/resolve`, body),
+    resolve: (uid, body)   => post(`/tbds/${uid}/resolve`, { resolved_by: localStorage.getItem('reqtool:username') || 'user', ...body }),
   },
   products: {
     list:   ()      => get('/products'),
@@ -215,7 +215,7 @@ export const api = {
     jsx:          (body) => post('/export/jsx', body),
     markdown:     (body) => post('/export/markdown', body),
     csv:          (body) => post('/export/csv', body),
-    reqif:        (body = {}) => post('/export/reqif', body),
+    reqif:        () => get('/export/reqif'),
     auditPackage: (params = {}) => `${getBaseUrl()}/export/audit-package?${new URLSearchParams(params)}`,
   },
 };

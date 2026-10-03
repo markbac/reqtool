@@ -37,49 +37,37 @@ jobs:
         run: pip install -e ".[test]"
 
       - name: Run Test Suite
-        run: pytest -v
+        id: tests
+        run: pytest -q --timeout=60
 
-      - name: Run reqtool & Vale Prose Validation
+      - name: Validate a freshly initialised demo repository
         id: validate
         run: |
-          python - <<'EOF'
-          import json
-          from pathlib import Path
-          from reqtool.store import Store
-          from reqtool.validation import validate_all
-
-          store = Store(Path("."))
-          store.load()
-          res = validate_all(store)
-
-          errors = res.get("errors", [])
-          warnings = res.get("warnings", [])
-
-          print(f"::notice::Validation complete: {len(errors)} errors, {len(warnings)} warnings.")
-          if errors:
-              print(f"::error::Validation failed with {len(errors)} blocking errors.")
-              for e in errors:
-                  print(f"ERROR ({e.get('uid')}): {e.get('message')}")
-              exit(1)
-          EOF
+          mkdir /tmp/demo-repo && cd /tmp/demo-repo
+          git init -q
+          git config user.email "ci@reqtool"
+          git config user.name  "reqtool CI"
+          req init demo --repo .
+          req validate --repo .
 
       - name: Comment PR Review Summary
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
+        env:
+          TESTS: ${{ steps.tests.outcome }}
+          VALIDATE: ${{ steps.validate.outcome }}
         with:
           script: |
-            const reviewComment = `## 🤖 Automated PR Code Review & Quality Summary
+            const icon = (o) => o === 'success' ? '✅ Passed' : o === 'skipped' ? '⏭️ Skipped' : '❌ ' + o;
+            const body = `## Automated PR check summary
 
-            - **Test Suite Status:** ✅ Passed (410 unit & integration tests)
-            - **INCOSE & Vale Prose Linter:** Verified
-            - **Copilot Review Rules Applied:** \`.github/copilot-instructions.md\`
+            - **Test suite:** ${icon(process.env.TESTS)}
+            - **Demo repository validation:** ${icon(process.env.VALIDATE)}
 
-            ### Guidance for Reviewers:
-            This PR has been automatically validated against \`reqtool\` domain schemas, safety standards (ISO 26262 / DO-178C), thread-safety constraints, and INCOSE requirements prose guidelines.`;
-            
-            github.rest.issues.createComment({
+            Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: reviewComment
+              body
             });

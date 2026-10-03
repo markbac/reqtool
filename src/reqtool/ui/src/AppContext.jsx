@@ -3,7 +3,7 @@
  * Global state: products, selection, enums, workflow, templates, panels, theme, toasts.
  */
 
-import { createContext, useContext, useReducer, useCallback } from 'react';
+import { createContext, useContext, useReducer, useMemo } from 'react';
 
 const initialState = {
   products: [], activeProduct: null, activeVariant: null,
@@ -60,10 +60,17 @@ let toastSeq = 0;
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const toast = useCallback((message, kind = 'info', duration = 3000) => {
-    const id = ++toastSeq;
-    dispatch({ type: 'TOAST_ADD', payload: { id, message, kind } });
-    setTimeout(() => dispatch({ type: 'TOAST_REMOVE', id }), duration);
+  const toast = useMemo(() => {
+    const fn = (message, kind = 'info', duration = 3000) => {
+      const id = ++toastSeq;
+      dispatch({ type: 'TOAST_ADD', payload: { id, message, kind } });
+      setTimeout(() => dispatch({ type: 'TOAST_REMOVE', id }), duration);
+    };
+    // Convenience helpers: toast.success(msg), toast.error(msg), ...
+    for (const kind of ['success', 'error', 'info', 'warn']) {
+      fn[kind] = (message, duration) => fn(message, kind, duration);
+    }
+    return fn;
   }, []);
   return (
     <AppContext.Provider value={{ state, dispatch, toast }}>
