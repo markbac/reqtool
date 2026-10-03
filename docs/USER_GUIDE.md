@@ -283,6 +283,7 @@ Send the token returned by `POST /auth/login` as `Authorization: Bearer <token>`
 |---|---|
 | `REQTOOL_AUTH` | `local` or `required`. Same as `--auth`. |
 | `REQTOOL_GITHUB_WEBHOOK_SECRET` | Shared secret for `POST /webhooks/github`. Requests must carry a matching `X-Hub-Signature-256` (HMAC-SHA256 of the body), otherwise `401`. Without a secret the endpoint is disabled (`503`). The endpoint is authenticated by its signature, not by a login. |
+| `REQTOOL_MAX_UPLOAD_MB` | Largest attachment upload in megabytes (default `25`). Larger bodies get `413` and nothing is stored. Each item holds at most 100 attachments (`409` beyond that). |
 | `REQTOOL_CORS_ORIGINS` | Comma-separated extra browser origins allowed to call the API. Localhost origins are always allowed. |
 | `REQTOOL_REPO_ROOTS` | Path-separator-separated directories that `/repo/init` and `/repo/switch` may use. Unset means any directory. |
 | `REQTOOL_DISABLE_REPO_SWITCH` | Set to `1` to disable `/repo/init` and `/repo/switch`. |
