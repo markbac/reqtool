@@ -53,7 +53,9 @@ def iteration_metrics(iteration_id: str, store: Store = Depends(get_store)):
         raise HTTPException(status_code=404, detail=f"Iteration '{iteration_id}' not found")
 
     # Calculate assigned requirements and burndown metrics
-    reqs = [r for r in store.requirements.values() if r.get("iteration_id") == iteration_id]
+    # Requirements record their sprint in `iteration`, which holds the iteration's id (or its title).
+    names = {iteration_id, it.get("title")} - {None, ""}
+    reqs = [r for r in store.requirements.values() if not r.get("deleted") and r.get("iteration") in names]
     total_assigned = len(reqs)
     approved_count = len([r for r in reqs if r.get("status") == "approved"])
     draft_count = len([r for r in reqs if r.get("status") == "draft"])

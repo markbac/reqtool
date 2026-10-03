@@ -147,7 +147,6 @@ class Requirement(BaseModel):
     req_type: str = "functional"
     domain: Optional[str] = None
     feature: Optional[str] = None
-    iteration_id: Optional[str] = None
 
     owner: Optional[str] = None
     assignee: Optional[str] = None
