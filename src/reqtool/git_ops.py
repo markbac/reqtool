@@ -67,6 +67,10 @@ def stage_file(repo_root: Path, file_path: Path) -> None:
         raise RuntimeError(f"git add failed: {err}")
 
 
+class NothingToCommit(RuntimeError):
+    """Raised by commit() when there is nothing staged."""
+
+
 def commit(
     repo_root: Path,
     message: str,
@@ -88,7 +92,10 @@ def commit(
         env=env,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"git commit failed: {result.stderr}")
+        detail = (result.stderr or result.stdout).strip()
+        if "nothing to commit" in detail or "no changes added to commit" in detail:
+            raise NothingToCommit("Nothing staged to commit")
+        raise RuntimeError(f"git commit failed: {detail}")
     # Extract SHA
     rc, sha, _ = _run_git(["rev-parse", "HEAD"], repo_root)
     return sha if rc == 0 else ""
