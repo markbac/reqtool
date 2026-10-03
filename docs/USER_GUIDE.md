@@ -163,6 +163,17 @@ Saving a change to a requirement marks every relationship that points at it as *
 
 ### 3.7 Export and Templates
 - **Export** (top bar) offers CSV, Markdown, JSX, ReqIF 1.2, PDF and the Audit Package. PDF downloads the whole specification (or one product if you enter its id) as `specification.pdf`, the same document as `GET`/`POST /export/pdf`.
+- **PDF details:** the PDF embeds DejaVu Sans, so Latin, Greek, Cyrillic and many technical symbols print correctly. The cover shows the **Source Revision**: the Git commit it was generated from, whether the working tree was `clean` or had `uncommitted changes`, and any `baseline/*` tag on that commit. The table of contents has page numbers and the PDF has an outline. The running header and the footer (for example the classification label) are set in `.reqtool/config.yaml`:
+
+```yaml
+export:
+  pdf:
+    header_text: "ACME Product Specification"
+    footer_text: "ACME RESTRICTED"
+    fallback_font: /usr/share/fonts/truetype/wqy/wqy-microhei.ttc   # for Chinese, Japanese and Korean text
+```
+
+  Chinese, Japanese and Korean text needs a TrueType font with glyph outlines: set `fallback_font` to a `.ttf` or `.ttc` file, or install one that is found automatically (WenQuanYi, Droid Sans Fallback, Arial Unicode, Microsoft YaHei and SimSun are tried). Noto Sans CJK in its usual OpenType (CFF) form cannot be embedded and is skipped with a warning; without a usable font those characters are not drawn.
 - **Templates:** open **⋯ More > Templates** to view and manage the requirement templates used by the empty editor and the **+ New** button.
 
 #### Progress and estimate rollups
