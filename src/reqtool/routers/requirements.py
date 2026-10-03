@@ -20,6 +20,7 @@ from reqtool.models import (
 )
 from reqtool.fileio import utcnow_iso, uuid7, save_yaml
 from .deps import get_store, not_found, conflict, fire_webhook, broadcast_sync
+from .auth import get_current_user
 
 log = logging.getLogger(__name__)
 
@@ -252,32 +253,40 @@ def commit_requirement(uid: str, body: CommitRequest, store: Store = Depends(get
 
 
 @router.post("/requirements/{uid}/approve")
-def approve_requirement(uid: str, body: ApproveRequest, store: Store = Depends(get_store)):
+def approve_requirement(
+    uid: str, body: ApproveRequest,
+    user: dict = Depends(get_current_user),
+    store: Store = Depends(get_store),
+):
     req = store.get_requirement(uid)
     if req is None:
         raise not_found(uid)
     if has_conflicts(store.root):
         raise conflict("Working tree has unresolved merge conflicts")
+    # Who approves is decided by the login, never by the request body.
+    if user["authenticated"]:
+        if user["role"] not in ("admin", "editor"):
+            raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Your role may not approve requirements"})
+        if body.approved_by and body.approved_by != user["username"]:
+            raise HTTPException(status_code=403, detail={
+                "error": "forbidden",
+                "message": f"approved_by must be the logged-in user '{user['username']}'",
+            })
+        approver, verified = user["username"], True
+    else:
+        approver, verified = body.approved_by, False  # local single-user mode
     if req.get("status") != "approved":
         error = store.validate_transition(req, "approved")
         if error:
             raise HTTPException(status_code=409, detail={"error": "workflow_guard", "message": error})
-    now = utcnow_iso()
-    from reqtool.auth import sign_approval
-    req_v = req.get("version", 1)
-    sig = sign_approval(uid, req_v, body.approved_by, store.root)
-    result = store.update_requirement(uid, {
-        "approval": {
-            "status": "approved",
-            "approved_by": body.approved_by,
-            "approved_date": now,
-            "signature": sig,
-        },
-        "status": "approved",
-    }, increment="minor", summary=f"Approved by {body.approved_by}")
-    fire_webhook(store, "approved", {"uid": uid, "id": req.get("id"), "approved_by": body.approved_by, "signature": sig})
+    result = store.approve_requirement(uid, approver, identity_verified=verified)
+    if result is None:
+        raise not_found(uid)
+    fire_webhook(store, "approved", {
+        "uid": uid, "id": req.get("id"), "approved_by": approver,
+        "signature": result["approval"]["signature"],
+    })
     return result
-
 
 def _attach_commit_shas(history: list[dict], git_entries: list[dict]) -> list[dict]:
     """Display-only: pair history entries with the git commit that carries the same message.

@@ -673,6 +673,30 @@ class Store:
         return False
 
     @_locked
+    def approve_requirement(self, uid: str, approved_by: str, identity_verified: bool = False) -> Optional[dict[str, Any]]:
+        """Approve a requirement and sign the approved content (atomic under the store lock)."""
+        from .auth import sign_approval_v2
+        if uid not in self.requirements:
+            return None
+        result = self.update_requirement(uid, {
+            "approval": {
+                "status": "approved",
+                "approved_by": approved_by,
+                "approved_date": utcnow_iso(),
+                "identity_verified": identity_verified,
+            },
+            "status": "approved",
+        }, increment="minor", summary=f"Approved by {approved_by}")
+        if result is None:
+            return None
+        approval = result["approval"]
+        approval["signed_version"] = result["version"]
+        approval["signed_hash"] = result["content_hash"]
+        approval["signature"] = sign_approval_v2(uid, result["version"], approved_by, result["content_hash"], self.root)
+        save_yaml(self.req_path(uid), result)
+        return result
+
+    @_locked
     def delete_requirement(self, uid: str) -> Optional[dict[str, Any]]:
         data = self.requirements.get(uid)
         if data is None:

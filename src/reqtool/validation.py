@@ -214,6 +214,26 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
     # Module lock file checks per product
     _validate_module_locks(store, errors)
 
+    # Approval signatures: forged/tampered signatures are errors; approved content
+    # that changed after signing is a warning (it needs re-approval).
+    from .auth import check_approval
+    for r_uid, r in store.requirements.items():
+        if r.get("deleted"):
+            continue
+        verdict = check_approval(r, store.root)
+        if verdict == "invalid":
+            errors.append(_err("approval_signature_invalid",
+                               "Approval signature does not verify (record altered or signed with another key)",
+                               r_uid, "approval.signature"))
+        elif verdict == "stale":
+            warnings.append(_warn("approval_stale",
+                                  "Content changed after it was approved; re-approval required",
+                                  r_uid, "approval.signature"))
+        elif verdict == "legacy":
+            warnings.append(_warn("approval_signature_legacy",
+                                  "v1 approval signature does not cover content; re-approve to upgrade",
+                                  r_uid, "approval.signature"))
+
     return {"errors": errors, "warnings": warnings}
 
 
