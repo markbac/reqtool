@@ -15,6 +15,9 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 - **Hierarchy enforcement (MOD-01)**: `allowed_children` is now applied on create, re-parent and type change. `hierarchy.yaml` gains `enforce: off|warn|error` (default `warn`: validation warning; `error`: `409 hierarchy_violation` and a validation error).
 - **Cross-layer relationship rules (MOD-02)**: `cross_layer_rules` are enforced on write and in validation under the same `hierarchy.enforce` setting (`relationship_violation`). Shipped rules now let themes, initiatives and epics trace to stakeholder needs and themes/initiatives link to systems requirements.
 
+### Security
+- **PlantUML sandbox (SEC-10)**: `/render/plantuml` runs with `PLANTUML_SECURITY_PROFILE=SANDBOX`, rejects `!include*`, `!import` and `!theme ... from` directives (422), limits source to 100 KB (413), and keeps render errors as 400.
+
 ### Fixed
 - **Automation rules now run (INT-02)**: the engine subscribes to the event publisher and executes matching rules when `requirement_created`, `requirement_updated`, `requirement_approved` or `status_changed` is published. Actions are idempotent and logged; rule-made changes do not publish events.
 

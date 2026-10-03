@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any, Optional
 from collections import Counter
@@ -537,12 +538,25 @@ def save_templates(body: list[dict[str, Any]], store: Store = Depends(get_store)
 import subprocess
 import shutil
 
+PLANTUML_MAX_BYTES = 100_000
+# Directives that read local files or fetch URLs. PlantUML's SANDBOX profile blocks
+# them as well; this rejects them up front with a clear message.
+_PLANTUML_FORBIDDEN = re.compile(r"^\s*!(include\w*|import|theme\b[^\n]*\bfrom\b)", re.IGNORECASE | re.MULTILINE)
+
+
 @router.post("/render/plantuml", tags=["meta"])
 def render_plantuml(body: dict[str, Any], store: Store = Depends(get_store)):
     """Render PlantUML code to SVG using a backend plantuml.jar or java process."""
     raw_text = body.get("text", "").strip()
     if not raw_text:
         raise HTTPException(status_code=400, detail="PlantUML text payload required")
+
+    if len(raw_text.encode("utf-8")) > PLANTUML_MAX_BYTES:
+        raise HTTPException(status_code=413, detail={"error": "too_large",
+                            "message": f"PlantUML source is limited to {PLANTUML_MAX_BYTES} bytes"})
+    if _PLANTUML_FORBIDDEN.search(raw_text):
+        raise HTTPException(status_code=422, detail={"error": "validation",
+                            "message": "PlantUML !include, !import and !theme-from directives are not allowed"})
 
     if not raw_text.startswith("@start"):
         text = f"@startuml\n{raw_text}\n@enduml"
@@ -567,14 +581,14 @@ def render_plantuml(body: dict[str, Any], store: Store = Depends(get_store)):
                 input=text.encode("utf-8"),
                 capture_output=True,
                 timeout=15,
+                env={**os.environ, "PLANTUML_SECURITY_PROFILE": "SANDBOX"},
             )
-            if res.returncode == 0 and res.stdout:
-                return Response(content=res.stdout.decode("utf-8"), media_type="image/svg+xml")
-            else:
-                err_msg = res.stderr.decode("utf-8", errors="replace") if res.stderr else "PlantUML error"
-                raise HTTPException(status_code=400, detail=f"PlantUML render error: {err_msg}")
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"PlantUML execution failed: {exc}")
+        if res.returncode == 0 and res.stdout:
+            return Response(content=res.stdout.decode("utf-8"), media_type="image/svg+xml")
+        err_msg = res.stderr.decode("utf-8", errors="replace") if res.stderr else "PlantUML error"
+        raise HTTPException(status_code=400, detail=f"PlantUML render error: {err_msg}")
 
     # Fallback response explaining how to enable plantuml.jar
     fallback_svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="540" height="120" viewBox="0 0 540 120">
