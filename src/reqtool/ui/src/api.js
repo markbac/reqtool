@@ -32,7 +32,9 @@ async function request(method, path, body = null) {
     let detail;
     try { detail = await res.json(); } catch { detail = { message: res.statusText }; }
     const msg = detail?.detail?.message ?? detail?.message ?? detail?.detail ?? res.statusText;
-    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    err.status = res.status; err.detail = detail?.detail;
+    throw err;
   }
   const ct = res.headers.get('content-type') ?? '';
   if (ct.includes('application/json')) return res.json();
@@ -191,6 +193,7 @@ export const api = {
     gaps: () => get('/traceability/gaps'),
   },
   automation: {
+    schema:      ()     => get('/automation/schema'),
     getRules:    ()     => get('/automation/rules'),
     updateRules: (body) => put('/automation/rules', body),
   },

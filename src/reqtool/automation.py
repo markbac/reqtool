@@ -9,8 +9,57 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, Optional
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from reqtool.fileio import load_yaml, save_yaml, utcnow_iso
 from reqtool.store import Store
+
+# The one rule schema: what the engine runs, the API validates and the UI edits.
+EVENTS: dict[str, str] = {
+    "requirement_created": "Requirement created",
+    "requirement_updated": "Requirement updated",
+    "requirement_approved": "Requirement approved",
+    "status_changed": "Status changed",
+}
+# action id -> (label, fields it requires)
+ACTIONS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "set_field": ("Set field", ("target_field", "target_value")),
+    "add_tag": ("Add tag", ("target_value",)),
+}
+
+
+class AutomationRule(BaseModel):
+    """One automation rule. ``condition`` keys must equal the event payload's values."""
+    model_config = ConfigDict(extra="forbid")
+
+    id: Optional[str] = None
+    name: str = Field(min_length=1)
+    enabled: bool = True
+    event: str
+    condition: dict[str, Any] = Field(default_factory=dict)
+    action: str
+    target_field: Optional[str] = None
+    target_value: Optional[str] = None
+
+    @field_validator("event")
+    @classmethod
+    def _known_event(cls, v: str) -> str:
+        if v not in EVENTS:
+            raise ValueError(f"unknown event '{v}'; use one of: {', '.join(EVENTS)}")
+        return v
+
+    @field_validator("action")
+    @classmethod
+    def _known_action(cls, v: str) -> str:
+        if v not in ACTIONS:
+            raise ValueError(f"unknown action '{v}'; use one of: {', '.join(ACTIONS)}")
+        return v
+
+    @model_validator(mode="after")
+    def _action_fields(self):
+        for field in ACTIONS[self.action][1]:
+            if not getattr(self, field):
+                raise ValueError(f"action '{self.action}' requires {field}")
+        return self
 
 
 class AutomationEngine:
@@ -74,12 +123,17 @@ class AutomationEngine:
             if match:
                 action = rule.get("action")
                 uid = payload.get("uid")
-                if uid and action == "set_field":
-                    field = rule.get("target_field")
-                    val = rule.get("target_value")
-                    if field and val:
-                        req = store.get_requirement(uid)
-                        if req:
-                            store.update_requirement(uid, {field: val}, summary=f"Automation rule '{rule.get('name')}' executed")
-                            executed.append({"rule_id": rule.get("id"), "action": action, "uid": uid})
+                req = store.get_requirement(uid) if uid else None
+                if not req:
+                    continue
+                summary = f"Automation rule '{rule.get('name')}' executed"
+                val = rule.get("target_value")
+                if action == "set_field" and rule.get("target_field") and val:
+                    store.update_requirement(uid, {rule["target_field"]: val}, summary=summary)
+                    executed.append({"rule_id": rule.get("id"), "action": action, "uid": uid})
+                elif action == "add_tag" and val:
+                    tags = list(req.get("tags") or [])
+                    if val not in tags:  # idempotent
+                        store.update_requirement(uid, {"tags": tags + [val]}, summary=summary)
+                        executed.append({"rule_id": rule.get("id"), "action": action, "uid": uid})
         return executed

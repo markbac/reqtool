@@ -193,6 +193,24 @@ A parent type with no entry in `hierarchy` is unconstrained.
 - `warn` reports `relationship_violation` in validation; `error` also rejects *new* offending relationships with `409 relationship_violation` (relationships already stored never block unrelated edits).
 - Themes, initiatives and epics may `traces_to` / `derived_from` stakeholder needs, and themes and initiatives may link to systems requirements like other agile items.
 
+### 4.3 Automation rules
+
+Rules live in `.reqtool/automation_rules.yaml` and are edited in the **Automation Rules** panel. One rule looks like this:
+
+```yaml
+- id: rule-auto-tag-safety
+  name: Auto-tag Safety Critical Items
+  enabled: true
+  event: requirement_created      # requirement_created | requirement_updated | requirement_approved | status_changed
+  condition: {req_type: safety}   # every key must equal the event's value
+  action: add_tag                 # set_field (target_field + target_value) | add_tag (target_value)
+  target_value: ASIL-D
+```
+
+`GET /automation/schema` lists the supported events and actions, and `PUT /automation/rules` validates every rule before saving. An invalid rule returns `422` identifying the rule by position; the panel shows the message under that rule. Rules written in the older panel format (`actions: [...]`, dotted event names such as `requirement.created`) are rejected and must be re-created.
+
+> **Note:** Rules are saved and validated, but the server does not yet run them when events occur (tracked as INT-02).
+
 ---
 
 ## 5. Modules, Variant Overlays & Parameter Substitution
