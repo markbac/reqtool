@@ -16,6 +16,7 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 - **Cross-layer relationship rules (MOD-02)**: `cross_layer_rules` are enforced on write and in validation under the same `hierarchy.enforce` setting (`relationship_violation`). Shipped rules now let themes, initiatives and epics trace to stakeholder needs and themes/initiatives link to systems requirements.
 
 ### Fixed
+- **Sprint `cancelled` state (MOD-06)**: backlog, ready, in_progress and in_review can now move to `cancelled`. Validation warns (`workflow_unreachable_state`, `workflow_dead_end`, `workflow_unknown_state`) when a workflow definition has states that cannot be reached, cannot reach a terminal state, or mention undefined states.
 - **Editor workflow per type (MOD-04, MOD-05)**: the editor no longer hard-codes the sprint workflow for agile types. States, colours and allowed transitions come from the item type's workflow in `GET /hierarchy` (now also returning `enforce`), so Themes, Initiatives and Stakeholder Needs use `draft -> active -> done` as configured.
 - **Parent cycles (MOD-03)**: setting a requirement's parent to itself or to one of its own descendants is rejected with `409 parent_cycle` (bulk updates report it per item). `req validate` reports `parent_cycle` for loops already in the data, and the tree and editor breadcrumb no longer recurse forever on them.
 
