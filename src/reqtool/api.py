@@ -16,10 +16,11 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from . import __version__
 from .store import Store
+from .git_ops import InvalidRef
 from .routers import (
     system, requirements, principles, decisions, tbds, modules,
     comments, attachments, analysis, exports, git_ops,
@@ -99,6 +100,10 @@ def create_app(repo_root: Path) -> FastAPI:
     # ------------------------------------------------------------------
     # Include APIRouters
     # ------------------------------------------------------------------
+    @app.exception_handler(InvalidRef)
+    async def _invalid_ref_handler(request, exc: InvalidRef):
+        return JSONResponse(status_code=422, content={"detail": {"error": "validation", "message": str(exc)}})
+
     app.include_router(system.router)
     app.include_router(requirements.router)
     app.include_router(principles.router)
