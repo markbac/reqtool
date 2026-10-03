@@ -161,6 +161,9 @@ types:
 # ---------------------------------------------------------------------------
 # Hierarchy rules (parent type → allowed child types)
 # ---------------------------------------------------------------------------
+# How allowed_children is applied: off | warn (validation warning) | error (writes rejected with 409)
+enforce: warn
+
 hierarchy:
   theme:
     allowed_children: [initiative]

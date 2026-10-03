@@ -63,7 +63,12 @@ def parse_hierarchy(data: dict) -> HierarchyConfig:
         RelationshipTypeDef.model_validate(r)
         for r in (data.get("default_relationship_types") or [])
     ]
+    enforce = str(data.get("enforce", "warn")).lower()
+    if enforce not in ENFORCE_MODES:
+        log.warning("Unknown hierarchy.enforce '%s'; using 'warn'", enforce)
+        enforce = "warn"
     return HierarchyConfig(
+        enforce=enforce,
         types=types,
         hierarchy=hierarchy,
         workflows=workflows,
@@ -79,6 +84,21 @@ def get_workflow_for_type(hierarchy: HierarchyConfig, req_type: str) -> Optional
     if not type_cfg:
         return None
     return hierarchy.workflows.get(type_cfg.workflow)
+
+
+ENFORCE_MODES = ("off", "warn", "error")
+
+
+def check_parent_type(hierarchy: HierarchyConfig, parent_type: str, child_type: str) -> Optional[str]:
+    """Return a message if ``child_type`` may not sit under ``parent_type``, else None.
+
+    A parent type with no rule in the hierarchy is unconstrained.
+    """
+    rule = hierarchy.hierarchy.get(parent_type)
+    if rule is None or child_type in rule.allowed_children:
+        return None
+    allowed = ", ".join(rule.allowed_children) or "none"
+    return f"A '{child_type}' cannot be a child of a '{parent_type}' (allowed: {allowed})"
 
 
 def get_allowed_children(hierarchy: HierarchyConfig, req_type: str) -> list[str]:

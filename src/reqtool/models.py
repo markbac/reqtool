@@ -712,6 +712,8 @@ class HierarchyConfig(BaseModel):
     dod: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     cross_layer_rules: list[CrossLayerRule] = Field(default_factory=list)
     default_relationship_types: list[RelationshipTypeDef] = Field(default_factory=list)
+    # How hierarchy rules (allowed_children) are applied: off | warn | error
+    enforce: str = "warn"
 
 
 # ---------------------------------------------------------------------------

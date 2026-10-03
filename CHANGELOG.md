@@ -11,6 +11,9 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 - Approvals use the logged-in identity and a content-bound `SIG-v2` signature.
 - CORS restricted to localhost plus `REQTOOL_CORS_ORIGINS`; markdown/SVG output sanitised; webhook secrets redacted; git ref and ID inputs validated; `/repo/init` and `/repo/switch` limited to local callers.
 
+### Added
+- **Hierarchy enforcement (MOD-01)**: `allowed_children` is now applied on create, re-parent and type change. `hierarchy.yaml` gains `enforce: off|warn|error` (default `warn`: validation warning; `error`: `409 hierarchy_violation` and a validation error).
+
 ### Fixed
 - **Parent cycles (MOD-03)**: setting a requirement's parent to itself or to one of its own descendants is rejected with `409 parent_cycle` (bulk updates report it per item). `req validate` reports `parent_cycle` for loops already in the data, and the tree and editor breadcrumb no longer recurse forever on them.
 

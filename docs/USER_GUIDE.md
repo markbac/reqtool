@@ -166,6 +166,18 @@ stateDiagram-v2
 - **Definition of Ready (DoR):** Enforces mandatory checklist items (e.g. rationale present, acceptance criteria written) before transitioning to `in_review`.
 - **Definition of Done (DoD):** Enforces verification completion checklist items before transitioning to `done`.
 
+### 4.1 Parent/child type rules
+
+`hierarchy.yaml` lists which item types may sit under which (`allowed_children`). The top-level `enforce` key controls how strictly this is applied:
+
+| `enforce` | Behaviour |
+|-----------|-----------|
+| `off` | Rules are ignored. |
+| `warn` (default) | Writes succeed; `req validate` reports a `hierarchy_violation` warning. |
+| `error` | Creating or moving an item under a disallowed parent (or changing its type so it no longer fits) returns `409 hierarchy_violation`, and validation reports an error. Bulk updates report the failure per item. |
+
+A parent type with no entry in `hierarchy` is unconstrained.
+
 ---
 
 ## 5. Modules, Variant Overlays & Parameter Substitution
