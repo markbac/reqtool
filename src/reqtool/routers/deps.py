@@ -15,6 +15,7 @@ from fastapi import Request, WebSocket, HTTPException
 from reqtool import __version__
 from reqtool.store import Store
 from reqtool.events import publisher, wire_name, subscription_matches
+from reqtool.automation import automation_subscriber
 
 log = logging.getLogger(__name__)
 
@@ -150,6 +151,7 @@ def _ws_subscriber(store: Store, event: str, payload: dict) -> None:
 
 publisher.subscribe(_webhook_subscriber)
 publisher.subscribe(_ws_subscriber)
+publisher.subscribe(automation_subscriber)
 
 
 def publish_event(store: Store, event: str, payload: dict) -> None:

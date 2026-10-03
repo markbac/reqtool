@@ -7,11 +7,14 @@ Supports event-driven automation rules stored in .reqtool/automation_rules.yaml.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from reqtool.fileio import load_yaml, save_yaml, utcnow_iso
 from reqtool.store import Store
+
+log = logging.getLogger(__name__)
 
 # The one rule schema: what the engine runs, the API validates and the UI edits.
 EVENTS: dict[str, str] = {
@@ -129,11 +132,28 @@ class AutomationEngine:
                 summary = f"Automation rule '{rule.get('name')}' executed"
                 val = rule.get("target_value")
                 if action == "set_field" and rule.get("target_field") and val:
-                    store.update_requirement(uid, {rule["target_field"]: val}, summary=summary)
-                    executed.append({"rule_id": rule.get("id"), "action": action, "uid": uid})
+                    if req.get(rule["target_field"]) != val:  # idempotent
+                        store.update_requirement(uid, {rule["target_field"]: val}, summary=summary)
+                        executed.append({"rule_id": rule.get("id"), "action": action, "uid": uid})
                 elif action == "add_tag" and val:
                     tags = list(req.get("tags") or [])
                     if val not in tags:  # idempotent
                         store.update_requirement(uid, {"tags": tags + [val]}, summary=summary)
                         executed.append({"rule_id": rule.get("id"), "action": action, "uid": uid})
         return executed
+
+
+def automation_subscriber(store: Store, event: str, payload: dict[str, Any]) -> None:
+    """EventPublisher subscriber: run matching rules for a published event.
+
+    Conditions are matched against the event payload plus the requirement's current
+    fields. Rule actions write through the store directly and do not publish events,
+    so rules cannot trigger each other.
+    """
+    if event not in EVENTS:
+        return
+    uid = payload.get("uid")
+    req = store.get_requirement(uid) if uid else None
+    context = {**(req or {}), **payload}
+    for done in AutomationEngine(store.root).execute_event_rules(store, event, context):
+        log.info("Automation rule %s ran %s on %s (event %s)", done["rule_id"], done["action"], done["uid"], event)
