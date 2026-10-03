@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../AppContext';
 import { api } from '../api';
 import './Help.css';
+import { safeHtml } from '../sanitize';
 
 // ---------------------------------------------------------------------------
 // About tab
@@ -158,13 +159,14 @@ function HelpTab() {
   const renderMarkdown = (text) => {
     if (!text) return null;
     // Very simple inline markdown for help content
-    const html = text
+    const html = String(text)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/`(.+?)`/g, '<code>$1</code>')
       .replace(/\n\n/g, '</p><p>')
       .replace(/^##\s+(.+)$/gm, '<h4>$1</h4>')
       .replace(/^-\s+(.+)$/gm, '<li>$1</li>');
-    return { __html: `<p>${html}</p>` };
+    return { __html: safeHtml(`<p>${html}</p>`) };
   };
 
   return (

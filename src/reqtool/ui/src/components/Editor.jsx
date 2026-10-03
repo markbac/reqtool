@@ -32,6 +32,7 @@ import { api } from '../api';
 import CommitModal from './CommitModal';
 import { AttachmentsSection, DiscussionSection as CommentsSection } from './Advanced';
 import './Editor.css';
+import { safeHtml } from '../sanitize';
 
 // Domain colours matching the JSX viewer
 const DOMAIN_COLOURS = {
@@ -98,7 +99,7 @@ function MarkdownEditor({ value, onChange, rows = 5 }) {
         <button className={`md-tab ${preview ? 'active' : ''}`} onClick={() => setPreview(true)}>Preview</button>
       </div>
       {preview ? (
-        <div className="md-preview" dangerouslySetInnerHTML={{ __html: renderedHtml || renderMarkdown(value || '') }} />
+        <div className="md-preview" dangerouslySetInnerHTML={{ __html: safeHtml(renderedHtml || renderMarkdown(value || '')) }} />
       ) : (
         <Suspense fallback={
           <textarea

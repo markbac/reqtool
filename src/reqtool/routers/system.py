@@ -295,8 +295,11 @@ def diff_versions(
 def render_markdown(body: dict[str, Any]):
     text = body.get("text", "")
     import markdown
-    html = markdown.markdown(text, extensions=["tables", "fenced_code"])
-    return {"html": html}
+    import nh3
+    html = markdown.markdown(str(text), extensions=["tables", "fenced_code"])
+    # Markdown passes raw HTML through; strip scripts, event handlers and
+    # javascript: URLs before the result is placed in the DOM.
+    return {"html": nh3.clean(html)}
 
 
 @router.get("/hierarchy", tags=["hierarchy"])
