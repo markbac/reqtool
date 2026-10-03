@@ -79,13 +79,13 @@ Launch `reqtool-server.exe` on your server host machine:
 reqtool-server.exe --port 8765
 ```
 - Listens on `0.0.0.0:8765` by default, making it accessible across your local network or server IP.
-- Automatically seeds default admin credentials (`admin` / `admin123`) in `.reqtool/users.yaml`.
+- No default account exists. Create the first administrator on the server with `req user add <name> --role admin` (prompts for a password).
 
 ### 4.2 Client Remote Connection & User Login (`reqtool-client.exe`)
 1. Launch `reqtool-client.exe` on client desktop.
 2. Click **🔐 User / Login** widget in top navigation bar or menu.
 3. Enter Server URL (e.g. `http://server-hostname:8765`).
-4. Enter Username (`admin`) and Password (`admin123`).
+4. Enter the username and password of the account created with `req user add`.
 5. Click **Login & Connect**.
 6. The client authenticates via JWT token and connects to the central server repository.
 

@@ -52,6 +52,16 @@ def create_app(repo_root: Path) -> FastAPI:
 
     app.state.store = store
 
+    try:
+        from .auth import UserStore
+        if UserStore(store.root).has_default_credentials():
+            log.warning(
+                "SECURITY: this repository still has the legacy default admin account "
+                "(admin / admin123). Logins with it are refused; run `req user passwd admin`."
+            )
+    except Exception:  # never block start-up on this check
+        pass
+
     # Only the local UI (and any origins the operator lists) may call the API
     # from a browser. A wildcard lets any web page the user visits drive the API.
     extra_origins = [o.strip() for o in os.environ.get("REQTOOL_CORS_ORIGINS", "").split(",") if o.strip()]

@@ -846,7 +846,7 @@ For typical engineering programme sizes (< 10,000 requirements) all operations c
 - By default, local workstation executables (`reqtool-web.exe`, `reqtool-app.exe`, `reqtool.exe`) bind to `127.0.0.1`. `reqtool-server.exe` binds to `0.0.0.0:8765` to host team repositories.
 - Built-in authentication uses PBKDF2-HMAC-SHA256 password hashing and HMAC-SHA256 JWT access tokens.
 - Secret key for JWT signing is generated automatically at `.reqtool/.secret_key`. Keep `.reqtool/.secret_key` secure.
-- Default administrator credentials (`admin` / `admin123`) are seeded on initial server launch in `.reqtool/users.yaml`. Change default admin passwords in production environments.
+- No default credentials are created. The first administrator is created with `req user add <name> --role admin`; accounts live in `.reqtool/users.yaml` (git-ignored, mode 0600). Repositories created by older releases that still contain `admin` / `admin123` have that login refused until the password is reset with `req user passwd admin`.
 - Webhook signatures use HMAC-SHA256. The secret is stored in `config.yaml`.
 - File attachments are stored under `attachments/<uid>/` with filenames sanitised to `[A-Za-z0-9._-]`. Maximum filename length is 200 characters.
 

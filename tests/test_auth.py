@@ -45,10 +45,10 @@ def test_cryptographic_approval_signature(tmp_path: Path):
 
 def test_user_store_operations(tmp_path: Path):
     store = UserStore(tmp_path)
-    # Default admin seeded
-    users = store.load_users()
-    assert "admin" in users
-    assert store.authenticate("admin", "admin123") is not None
+    # No account exists until one is created explicitly
+    assert store.load_users() == {}
+    store.create_user("root", "rootpassword", role="admin")
+    assert store.authenticate("root", "rootpassword") is not None
 
     # Create new user
     new_u = store.create_user("alice", "alicepass", "Alice Smith", "alice@example.com", "editor")
@@ -61,9 +61,19 @@ def test_user_store_operations(tmp_path: Path):
         store.create_user("alice", "password")
 
 
+ADMIN_PW = "correct-horse-battery"
+
+
+@pytest.fixture
+def _admin_account(repo_root):
+    """Tests below log in as 'admin'; accounts are never created implicitly."""
+    UserStore(repo_root).create_user("admin", ADMIN_PW, "Administrator", "", "admin")
+
+
+@pytest.mark.usefixtures("_admin_account")
 class TestAuthApi:
     def test_login_success(self, client):
-        r = client.post("/auth/login", json={"username": "admin", "password": "admin123"})
+        r = client.post("/auth/login", json={"username": "admin", "password": ADMIN_PW})
         assert r.status_code == 200
         data = r.json()
         assert "access_token" in data
@@ -74,7 +84,7 @@ class TestAuthApi:
         assert r.status_code == 401
 
     def test_get_me_with_bearer(self, client):
-        login_res = client.post("/auth/login", json={"username": "admin", "password": "admin123"}).json()
+        login_res = client.post("/auth/login", json={"username": "admin", "password": ADMIN_PW}).json()
         token = login_res["access_token"]
 
         r = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
@@ -84,7 +94,7 @@ class TestAuthApi:
         assert data["authenticated"] is True
 
     def test_list_and_create_users_api(self, client):
-        login_res = client.post("/auth/login", json={"username": "admin", "password": "admin123"}).json()
+        login_res = client.post("/auth/login", json={"username": "admin", "password": ADMIN_PW}).json()
         token = login_res["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
 
