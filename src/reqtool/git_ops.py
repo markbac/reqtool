@@ -1,17 +1,35 @@
 """
 reqtool.git_ops
 ===============
-Git integration. Wraps gitpython; falls back to subprocess where needed.
+Git integration. Wraps the git CLI via subprocess.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 from pathlib import Path
 from typing import Optional
 
 log = logging.getLogger(__name__)
+
+_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/~^@{}+-]{0,199}$")
+
+
+class InvalidRef(ValueError):
+    """A user-supplied git ref / tag name failed validation."""
+
+
+def validate_ref(ref: str) -> str:
+    """Return ``ref`` if it is a safe git revision or tag name, else raise InvalidRef.
+
+    Rejects anything starting with ``-`` (option injection, e.g. ``--output=...``),
+    ranges (``..``), whitespace/control characters and over-long values.
+    """
+    if not isinstance(ref, str) or not _REF_RE.match(ref) or ".." in ref or ref.endswith(".lock"):
+        raise InvalidRef(f"Invalid git ref: {ref!r}")
+    return ref
 
 
 def _run_git(args: list[str], cwd: Path) -> tuple[int, str, str]:
@@ -67,6 +85,10 @@ def stage_file(repo_root: Path, file_path: Path) -> None:
         raise RuntimeError(f"git add failed: {err}")
 
 
+class NothingToCommit(RuntimeError):
+    """Raised by commit() when there is nothing staged."""
+
+
 def commit(
     repo_root: Path,
     message: str,
@@ -88,7 +110,10 @@ def commit(
         env=env,
     )
     if result.returncode != 0:
-        raise RuntimeError(f"git commit failed: {result.stderr}")
+        detail = (result.stderr or result.stdout).strip()
+        if "nothing to commit" in detail or "no changes added to commit" in detail:
+            raise NothingToCommit("Nothing staged to commit")
+        raise RuntimeError(f"git commit failed: {detail}")
     # Extract SHA
     rc, sha, _ = _run_git(["rev-parse", "HEAD"], repo_root)
     return sha if rc == 0 else ""
@@ -142,6 +167,7 @@ def ensure_git_config(repo_root: Path, name: str, email: str) -> None:
 
 def git_create_tag(repo_root: Path, tag_name: str, message: str = "") -> str:
     """Create an annotated git tag at HEAD. Returns the SHA."""
+    validate_ref(tag_name)
     if message:
         rc, out, err = _run_git(["tag", "-a", tag_name, "-m", message], repo_root)
     else:
@@ -177,7 +203,9 @@ def git_list_tags(repo_root: Path, prefix: str = "") -> list[dict]:
 
 def git_diff_tree(repo_root: Path, ref_a: str, ref_b: str = "HEAD") -> list[dict]:
     """List files changed between two refs. Returns [{path, status}]."""
-    rc, out, _ = _run_git(["diff", "--name-status", ref_a, ref_b], repo_root)
+    validate_ref(ref_a)
+    validate_ref(ref_b)
+    rc, out, _ = _run_git(["diff", "--name-status", ref_a, ref_b, "--"], repo_root)
     changes = []
     if rc == 0 and out:
         for line in out.splitlines():
@@ -189,6 +217,7 @@ def git_diff_tree(repo_root: Path, ref_a: str, ref_b: str = "HEAD") -> list[dict
 
 def git_show_file(repo_root: Path, ref: str, file_path: Path) -> Optional[str]:
     """Return file content at a specific git ref, or None if not found."""
+    validate_ref(ref)
     try:
         rel = str(file_path.relative_to(repo_root))
         rc, out, _ = _run_git(["show", f"{ref}:{rel}"], repo_root)
