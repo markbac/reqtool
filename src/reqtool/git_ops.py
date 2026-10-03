@@ -94,8 +94,13 @@ def commit(
     message: str,
     author_name: str = "Requirements Tool",
     author_email: str = "reqtool@example.com",
+    paths: Optional[list[Path]] = None,
 ) -> str:
-    """Commit staged files. Returns the commit SHA."""
+    """Commit staged files and return the commit SHA.
+
+    With ``paths``, only those files are committed (``git commit --only``);
+    anything else that happens to be staged is left staged and uncommitted.
+    """
     env_extras = {
         "GIT_AUTHOR_NAME": author_name,
         "GIT_AUTHOR_EMAIL": author_email,
@@ -103,7 +108,8 @@ def commit(
     import os
     env = {**os.environ, **env_extras}
     result = subprocess.run(
-        ["git", "commit", "-m", message],
+        ["git", "commit", "-m", message]
+        + (["--only", "--", *[str(Path(p).relative_to(repo_root)) for p in paths]] if paths else []),
         cwd=str(repo_root),
         capture_output=True,
         text=True,

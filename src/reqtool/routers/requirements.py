@@ -215,14 +215,15 @@ def commit_requirement(uid: str, body: CommitRequest, store: Store = Depends(get
             change_ref=body.change_ref,
         )
         stage_file(store.root, file_path)
+        # Commit ONLY this requirement's file. Nothing is written back into the
+        # YAML afterwards, so the working tree is clean and the file hash/audit
+        # record cannot drift from what was committed; the SHA is in git history.
         sha = git_commit(
             store.root, body.message,
             store.config.git.commit_name, store.config.git.commit_email,
+            paths=[file_path],
         )
         req = store.get_requirement(uid)
-        if req and req.get("history"):
-            req["history"][-1]["commit_sha"] = sha[:7]
-            save_yaml(file_path, req)
         return {"commit_sha": sha, "version": req.get("version", "") if req else ""}
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail={"error": "git_error", "message": str(exc)})
@@ -250,6 +251,26 @@ def approve_requirement(uid: str, body: ApproveRequest, store: Store = Depends(g
     return result
 
 
+def _attach_commit_shas(history: list[dict], git_entries: list[dict]) -> list[dict]:
+    """Display-only: pair history entries with the git commit that carries the same message.
+
+    The SHA is no longer stored in the YAML (it would dirty the file after the
+    commit), so it is derived from git log here, newest first.
+    """
+    pool = list(git_entries or [])
+    out = []
+    for entry in reversed(history or []):
+        e = dict(entry)
+        if not e.get("commit_sha"):
+            for i, g in enumerate(pool):
+                if g.get("subject") == e.get("summary"):
+                    e["commit_sha"] = str(g.get("sha", ""))[:7] or None
+                    pool.pop(i)
+                    break
+        out.append(e)
+    return list(reversed(out))
+
+
 @router.get("/requirements/{uid}/history")
 def requirement_history(uid: str, store: Store = Depends(get_store)):
     req = store.get_requirement(uid)
@@ -258,7 +279,7 @@ def requirement_history(uid: str, store: Store = Depends(get_store)):
     file_path = store.req_path(uid)
     git_entries = git_log(store.root, file_path)
     return {
-        "in_file": req.get("history", []),
+        "in_file": _attach_commit_shas(req.get("history", []), git_entries),
         "git": git_entries,
     }
 

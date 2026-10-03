@@ -94,11 +94,9 @@ def commit_tbd(uid: str, body: CommitRequest, store: Store = Depends(get_store))
         sha = git_commit(
             store.root, body.message,
             store.config.git.commit_name, store.config.git.commit_email,
+            paths=[path],
         )
         t = store.get_tbd(uid)
-        if t and t.get("history"):
-            t["history"][-1]["commit_sha"] = sha[:7]
-            save_yaml(path, t)
         return {"commit_sha": sha, "version": t.get("version", "") if t else ""}
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail={"error": "git_error", "message": str(exc)})
