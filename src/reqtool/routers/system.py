@@ -48,6 +48,19 @@ def search_uids(q: str = "", limit: int = 20, store: Store = Depends(get_store))
     return store.search_uids(q, limit)
 
 
+def _validated(model, data):
+    """Validate ``data`` against a pydantic model, mapping failure to HTTP 422."""
+    from pydantic import ValidationError
+    try:
+        return model.model_validate(data)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail={
+            "error": "validation",
+            "message": "Invalid configuration: " + "; ".join(
+                f"{'.'.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors()[:5]),
+        })
+
+
 REDACTED = "********"
 
 
@@ -91,9 +104,10 @@ def update_config(body: dict[str, Any], store: Store = Depends(get_store)):
     cfg = load_yaml(config_path) if config_path.exists() else {}
     _restore_redacted_secrets(body, cfg.get("webhooks") or [])
     cfg.update(body)
-    save_yaml(config_path, cfg)
     from reqtool.models import RepoConfig
-    store.config = RepoConfig.model_validate(cfg)
+    new_config = _validated(RepoConfig, cfg)  # validate BEFORE persisting
+    save_yaml(config_path, cfg)
+    store.config = new_config
     return redact_config(store.config.model_dump())
 
 
@@ -225,9 +239,10 @@ def get_repo_enums(store: Store = Depends(get_store)):
 
 @router.put("/enums/repo", tags=["enums"])
 def update_repo_enums(body: dict[str, Any], store: Store = Depends(get_store)):
+    enums = _validated(RepoEnums, body)
     enums_path = store.root / ".reqtool" / "enums.yaml"
     save_yaml(enums_path, body)
-    store.repo_enums = RepoEnums.model_validate(body)
+    store.repo_enums = enums
     return store.repo_enums.model_dump()
 
 
@@ -489,9 +504,12 @@ def get_workflow(store: Store = Depends(get_store)):
 def update_workflow(body: dict[str, Any], store: Store = Depends(get_store)):
     config_path = store.root / ".reqtool" / "config.yaml"
     config_data = load_yaml(config_path) if config_path.exists() else {}
+    workflow = _validated(WorkflowConfig, body)
     config_data["workflow"] = body
+    from reqtool.models import RepoConfig
+    _validated(RepoConfig, config_data)  # the whole file must still load on restart
     save_yaml(config_path, config_data)
-    store.config.workflow = WorkflowConfig.model_validate(body)
+    store.config.workflow = workflow
     return store.config.workflow.model_dump()
 
 
