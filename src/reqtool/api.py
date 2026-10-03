@@ -21,7 +21,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from . import __version__
 from .store import Store
 from .fileio import InvalidId
-from .git_ops import InvalidRef
+from .git_ops import InvalidRef, has_conflicts
 from .store import ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId
 from .routers import (
     system, requirements, principles, decisions, tbds, modules,
@@ -32,6 +32,9 @@ from .routers import (
 log = logging.getLogger(__name__)
 
 # http(s)://localhost, 127.0.0.1 or [::1] on any port.
+# Writes under these paths are allowed during a merge (they are how it gets resolved or the app reconfigured).
+CONFLICT_EXEMPT = ("/git/", "/repo/", "/auth/")
+
 LOCAL_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
 
 
@@ -62,6 +65,16 @@ def create_app(repo_root: Path, auth_mode: str | None = None) -> FastAPI:
             )
     except Exception:  # never block start-up on this check
         pass
+
+    # Registered before access control so that access control (added later) wraps it.
+    @app.middleware("http")
+    async def _conflict_guard(request, call_next):
+        """No writes while the working tree has an unresolved merge (the git routes resolve it)."""
+        if request.method in ("POST", "PUT", "PATCH", "DELETE") and not request.url.path.startswith(CONFLICT_EXEMPT):
+            if has_conflicts(app.state.store.root):
+                return JSONResponse(status_code=409, content={"detail": {
+                    "error": "conflict", "message": "Working tree has unresolved merge conflicts"}})
+        return await call_next(request)
 
     # Access control is registered BEFORE CORS because the last middleware added
     # is the outermost: CORS must wrap it so preflights and 401/403 replies still

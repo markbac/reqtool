@@ -48,15 +48,20 @@ def is_git_repo(path: Path) -> bool:
     return rc == 0
 
 
+_IN_PROGRESS_MARKERS = ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply")
+
+
 def has_conflicts(path: Path) -> bool:
-    """Return True if the working tree has unresolved merge conflicts."""
-    rc, out, _ = _run_git(["status", "--porcelain"], path)
-    if rc != 0:
-        return False
-    for line in out.splitlines():
-        if line[:2] in ("UU", "AA", "DD", "AU", "UA", "DU", "UD"):
-            return True
-    return False
+    """True if a merge/rebase/cherry-pick is in progress or any file is unmerged.
+
+    Cheap and exact: it looks for git's in-progress markers and asks for unmerged
+    index entries, instead of parsing the whole of ``git status``.
+    """
+    git_dir = path / ".git"
+    if git_dir.is_dir() and any((git_dir / m).exists() for m in _IN_PROGRESS_MARKERS):
+        return True
+    rc, out, _ = _run_git(["ls-files", "-u"], path)
+    return rc == 0 and bool(out.strip())
 
 
 def dirty_paths(path: Path, prefixes: tuple[str, ...]) -> list[str]:
