@@ -1485,8 +1485,6 @@ class Store:
 
     def fetch_remote_module(self, module_id: str) -> dict[str, Any]:
         """Fetch an external Git repository module into modules/<module_id>/."""
-        import re
-
         validate_id(module_id, "module id")
 
         manifest_path = self.root / "modules" / module_id / "_module.yaml"
