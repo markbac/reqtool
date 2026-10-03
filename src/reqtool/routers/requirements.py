@@ -99,25 +99,47 @@ def get_requirement_progress(uid: str, store: Store = Depends(get_store)):
 
 @router.post("/requirements/bulk")
 def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get_store)):
-    """Update a set of fields across multiple requirements at once."""
+    """Update a set of fields across multiple requirements at once.
+
+    Same guards as single updates: no writes while the tree has merge conflicts,
+    and a status change must be a legal workflow transition for each item.
+    """
+    if has_conflicts(store.root):
+        raise conflict("Working tree has unresolved merge conflicts")
     updated = []
     failed = []
-    for uid in body.uids:
-        result = store.update_requirement(
-            uid, body.fields,
-            increment=body.increment,
-            summary=body.summary,
-        )
-        if result:
-            updated.append(uid)
-        else:
-            failed.append(uid)
-    return {"updated": updated, "failed": failed, "count": len(updated)}
+    errors = {}
+    new_status = body.fields.get("status") if isinstance(body.fields, dict) else None
+    with store._lock:  # make the check-then-update atomic per request
+        for uid in body.uids:
+            existing = store.get_requirement(uid)
+            if existing is None:
+                failed.append(uid)
+                errors[uid] = "not found"
+                continue
+            if new_status and new_status != existing.get("status"):
+                error = store.validate_transition(existing, new_status)
+                if error:
+                    failed.append(uid)
+                    errors[uid] = error
+                    continue
+            result = store.update_requirement(
+                uid, body.fields,
+                increment=body.increment,
+                summary=body.summary,
+            )
+            if result:
+                updated.append(uid)
+            else:
+                failed.append(uid)
+    return {"updated": updated, "failed": failed, "count": len(updated), "errors": errors}
 
 
 @router.post("/requirements/{uid}/clone", status_code=201)
 def clone_requirement(uid: str, new_id: str = "", store: Store = Depends(get_store)):
     """Duplicate a requirement, clearing history and resetting version."""
+    if has_conflicts(store.root):
+        raise conflict("Working tree has unresolved merge conflicts")
     src = store.get_requirement(uid)
     if src is None:
         raise not_found(uid)
@@ -234,6 +256,12 @@ def approve_requirement(uid: str, body: ApproveRequest, store: Store = Depends(g
     req = store.get_requirement(uid)
     if req is None:
         raise not_found(uid)
+    if has_conflicts(store.root):
+        raise conflict("Working tree has unresolved merge conflicts")
+    if req.get("status") != "approved":
+        error = store.validate_transition(req, "approved")
+        if error:
+            raise HTTPException(status_code=409, detail={"error": "workflow_guard", "message": error})
     now = utcnow_iso()
     from reqtool.auth import sign_approval
     req_v = req.get("version", 1)
