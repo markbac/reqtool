@@ -37,6 +37,7 @@ log = logging.getLogger(__name__)
 from . import __version__ as TOOL_VERSION
 
 
+import functools
 import threading
 
 from .stores import attachment_store, comment_store, hierarchy_store
@@ -108,6 +109,19 @@ def _git_remote(args: list[str], cwd: Path) -> None:
         raise ValueError(f"git {args[0]} timed out")
     if res.returncode != 0:
         raise ValueError(f"git {args[0]} failed: {(res.stderr or res.stdout).strip()[:500]}")
+
+
+def _locked(fn):
+    """Run a Store method while holding the store's re-entrant lock.
+
+    Mutators are read-modify-write sequences over shared dicts and YAML files;
+    without this, concurrent requests lose each other's updates.
+    """
+    @functools.wraps(fn)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return fn(self, *args, **kwargs)
+    return wrapper
 
 
 class Store:
@@ -518,6 +532,7 @@ class Store:
 
         return result
 
+    @_locked
     def create_requirement(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
         fields = self._sanitise_requirement(fields)
         uid = uuid7()
@@ -592,6 +607,7 @@ class Store:
         save_yaml(self.req_path(uid), data)
         return data
 
+    @_locked
     def update_requirement(
         self, uid: str, fields: dict[str, Any],
         increment: str = "patch", author: str = "reqtool",
@@ -656,6 +672,7 @@ class Store:
             return True
         return False
 
+    @_locked
     def delete_requirement(self, uid: str) -> Optional[dict[str, Any]]:
         data = self.requirements.get(uid)
         if data is None:
@@ -669,6 +686,7 @@ class Store:
     # Write helpers: principle
     # ------------------------------------------------------------------
 
+    @_locked
     def create_principle(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
         uid = uuid7()
         now = utcnow_iso()
@@ -701,6 +719,7 @@ class Store:
         save_yaml(self.principle_path(uid), data)
         return data
 
+    @_locked
     def update_principle(
         self, uid: str, fields: dict[str, Any],
         increment: str = "patch", author: str = "reqtool",
@@ -726,6 +745,7 @@ class Store:
         save_yaml(self.principle_path(uid), data)
         return data
 
+    @_locked
     def delete_principle(self, uid: str) -> Optional[dict[str, Any]]:
         data = self.principles.get(uid)
         if data is None:
@@ -739,6 +759,7 @@ class Store:
     # Write helpers: Decision Record (ADR) & TBD
     # ------------------------------------------------------------------
 
+    @_locked
     def create_decision(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
         uid = uuid7()
         now = utcnow_iso()
@@ -791,12 +812,14 @@ class Store:
         save_yaml(out_path, data)
         return data
 
+    @_locked
     def create_tbd(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
         f = dict(fields)
         f.setdefault("type", "tbd")
         f.setdefault("status", "open")
         return self.create_decision(f, author=author)
 
+    @_locked
     def update_decision(
         self, uid: str, fields: dict[str, Any],
         increment: str = "patch", author: str = "reqtool",
@@ -832,9 +855,11 @@ class Store:
         save_yaml(self.decision_path(uid), data)
         return data
 
+    @_locked
     def update_tbd(self, uid: str, fields: dict[str, Any], **kwargs) -> Optional[dict[str, Any]]:
         return self.update_decision(uid, fields, **kwargs)
 
+    @_locked
     def delete_decision(self, uid: str) -> Optional[dict[str, Any]]:
         data = self.decisions.get(uid)
         if data is None:
@@ -844,6 +869,7 @@ class Store:
         save_yaml(self.decision_path(uid), data)
         return data
 
+    @_locked
     def delete_tbd(self, uid: str) -> Optional[dict[str, Any]]:
         return self.delete_decision(uid)
 
@@ -851,6 +877,7 @@ class Store:
     # Affected requirements for TBDs
     # ------------------------------------------------------------------
 
+    @_locked
     def reload_file(self, changed_path: Path) -> None:
         """Incrementally reload a single changed YAML file instead of full reload.
         Falls back to full reload for config/enums changes.
@@ -1301,6 +1328,7 @@ class Store:
         save_yaml(path, new)
         return True
 
+    @_locked
     def import_module(
         self,
         product_id: str,
