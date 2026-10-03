@@ -86,11 +86,8 @@ def user_for_token(token: Optional[str], root: Path) -> Optional[dict[str, Any]]
     """Resolve a token to a CURRENT user record (deleted users stop working immediately)."""
     if not token:
         return None
-    from .auth import UserStore, verify_token
-    payload = verify_token(token, root)
-    if not payload:
-        return None
-    user = UserStore(root).load_users().get(payload.get("sub", ""))
+    from .auth import UserStore
+    user = UserStore(root).resolve_token(token)
     if not user:
         return None
     return {

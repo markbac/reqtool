@@ -7,11 +7,9 @@ and user management for multi-user server mode.
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import logging
 import hmac
-import json
 import os
 import time
 from pathlib import Path
@@ -75,61 +73,83 @@ def _get_secret_key(repo_root: Path) -> bytes:
     return key
 
 
-def hash_password(password: str, salt: Optional[bytes] = None) -> tuple[str, str]:
+PBKDF2_ITERATIONS = 600_000        # current OWASP guidance for PBKDF2-HMAC-SHA256
+LEGACY_ITERATIONS = 100_000        # hashes written before the count was stored
+TOKEN_LIFETIME = 12 * 3600         # seconds
+TOKEN_ISSUER = "reqtool"
+TOKEN_AUDIENCE = "reqtool-api"
+
+
+def hash_password(password: str, salt: Optional[bytes] = None, iterations: Optional[int] = None) -> tuple[str, str]:
     if salt is None:
         salt = os.urandom(16)
-    key = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000)
+    key = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations or PBKDF2_ITERATIONS)
     return key.hex(), salt.hex()
 
 
-def verify_password(password: str, password_hash: str, salt_hex: str) -> bool:
+def verify_password(password: str, password_hash: str, salt_hex: str, iterations: Optional[int] = None) -> bool:
+    """Check a password against a stored hash (``iterations`` defaults to the legacy count)."""
     salt = bytes.fromhex(salt_hex)
-    key, _ = hash_password(password, salt)
+    key, _ = hash_password(password, salt, iterations or LEGACY_ITERATIONS)
     return hmac.compare_digest(key, password_hash)
 
 
-def create_token(username: str, role: str, repo_root: Path, expires_in: int = 86400 * 30) -> str:
-    secret = _get_secret_key(repo_root)
-    header = {"alg": "HS256", "typ": "JWT"}
-    payload = {
-        "sub": username,
-        "role": role,
-        "exp": int(time.time()) + expires_in,
-        "iat": int(time.time()),
-    }
-    header_b64 = base64.urlsafe_b64encode(json.dumps(header).encode()).decode().rstrip("=")
-    payload_b64 = base64.urlsafe_b64encode(json.dumps(payload).encode()).decode().rstrip("=")
-    signing_input = f"{header_b64}.{payload_b64}".encode()
-    signature = hmac.new(secret, signing_input, hashlib.sha256).digest()
-    sig_b64 = base64.urlsafe_b64encode(signature).decode().rstrip("=")
-    return f"{header_b64}.{payload_b64}.{sig_b64}"
+def create_token(username: str, role: str, repo_root: Path, expires_in: int = TOKEN_LIFETIME,
+                 token_version: int = 0) -> str:
+    import jwt
+    now = int(time.time())
+    return jwt.encode(
+        {"sub": username, "role": role, "tv": token_version, "iat": now, "exp": now + expires_in,
+         "iss": TOKEN_ISSUER, "aud": TOKEN_AUDIENCE},
+        _get_secret_key(repo_root), algorithm="HS256")
 
 
 def verify_token(token: str, repo_root: Path) -> Optional[dict[str, Any]]:
+    """Return the claims of a valid token, else None (algorithm, expiry, issuer and audience are enforced)."""
+    import jwt
     try:
-        parts = token.split(".")
-        if len(parts) != 3:
-            return None
-        header_b64, payload_b64, sig_b64 = parts
-        secret = _get_secret_key(repo_root)
-
-        # Pad base64 strings
-        def _pad(s: str) -> str:
-            return s + "=" * (-len(s) % 4)
-
-        signing_input = f"{header_b64}.{payload_b64}".encode()
-        expected_sig = hmac.new(secret, signing_input, hashlib.sha256).digest()
-        actual_sig = base64.urlsafe_b64decode(_pad(sig_b64))
-
-        if not hmac.compare_digest(expected_sig, actual_sig):
-            return None
-
-        payload = json.loads(base64.urlsafe_b64decode(_pad(payload_b64)).decode())
-        if payload.get("exp", 0) < time.time():
-            return None
-        return payload
+        return jwt.decode(token, _get_secret_key(repo_root), algorithms=["HS256"],
+                          issuer=TOKEN_ISSUER, audience=TOKEN_AUDIENCE,
+                          options={"require": ["exp", "iat", "sub", "iss", "aud"]})
     except Exception:
         return None
+
+
+class LoginThrottle:
+    """Sliding-window limiter for failed logins, per username and per client address (in memory)."""
+
+    def __init__(self, max_failures: int = 5, window: float = 60.0):
+        self.max_failures, self.window = max_failures, window
+        self._fails: dict[str, list[float]] = {}
+
+    def _recent(self, key: str) -> list[float]:
+        cutoff = time.monotonic() - self.window
+        recent = [t for t in self._fails.get(key, []) if t > cutoff]
+        if recent:
+            self._fails[key] = recent
+        else:
+            self._fails.pop(key, None)
+        return recent
+
+    def retry_after(self, *keys: str) -> int:
+        """Seconds to wait if any key is over the limit, else 0."""
+        wait = 0.0
+        for key in keys:
+            recent = self._recent(key)
+            if len(recent) >= self.max_failures:
+                wait = max(wait, recent[0] + self.window - time.monotonic())
+        return int(wait) + 1 if wait > 0 else 0
+
+    def record_failure(self, *keys: str) -> None:
+        for key in keys:
+            self._fails.setdefault(key, []).append(time.monotonic())
+
+    def reset(self, *keys: str) -> None:
+        for key in keys:
+            self._fails.pop(key, None)
+
+
+login_throttle = LoginThrottle()
 
 
 def sign_approval(uid: str, version: int, username: str, repo_root: Path) -> str:
@@ -197,7 +217,7 @@ class UserStore:
         """True if a legacy ``admin`` / ``admin123`` account (seeded by v0.5.0 and earlier) exists."""
         u = self.load_users().get(LEGACY_DEFAULT_USER)
         return bool(u) and verify_password(
-            LEGACY_DEFAULT_PASSWORD, u.get("password_hash", ""), u.get("salt", "") or "00")
+            LEGACY_DEFAULT_PASSWORD, u.get("password_hash", ""), u.get("salt", "") or "00", u.get("iterations"))
 
     def save_users(self, users: dict[str, dict[str, Any]]):
         self.users_file.parent.mkdir(parents=True, exist_ok=True)
@@ -210,11 +230,28 @@ class UserStore:
         user = users.get(username)
         if not user:
             return None
-        if not verify_password(password, user.get("password_hash", ""), user.get("salt", "")):
+        if not verify_password(password, user.get("password_hash", ""), user.get("salt", ""),
+                               user.get("iterations")):
             return None
         if username == LEGACY_DEFAULT_USER and password == LEGACY_DEFAULT_PASSWORD:
             # Well-known credentials from older releases: never accept them.
             log.warning("Refusing login with the legacy default admin password; reset it with `req user passwd admin`.")
+            return None
+        if (user.get("iterations") or LEGACY_ITERATIONS) < PBKDF2_ITERATIONS:
+            # Upgrade an old hash now that we hold the plaintext.
+            h, salt = hash_password(password)
+            user.update(password_hash=h, salt=salt, iterations=PBKDF2_ITERATIONS)
+            users[username] = user
+            self.save_users(users)
+        return user
+
+    def resolve_token(self, token: Optional[str]) -> Optional[dict[str, Any]]:
+        """The current user record for a valid token, or None (unknown user or revoked version)."""
+        payload = verify_token(token, self.root) if token else None
+        if not payload:
+            return None
+        user = self.load_users().get(payload.get("sub", ""))
+        if not user or payload.get("tv", 0) != user.get("token_version", 0):
             return None
         return user
 
@@ -230,6 +267,8 @@ class UserStore:
             "role": role if role in ("admin", "editor", "viewer") else "editor",
             "password_hash": h,
             "salt": salt,
+            "iterations": PBKDF2_ITERATIONS,
+            "token_version": 0,
             "created": utcnow_iso(),
         }
         users[username] = user_record
@@ -245,11 +284,15 @@ class UserStore:
             h, salt = hash_password(updates["password"])
             u["password_hash"] = h
             u["salt"] = salt
+            u["iterations"] = PBKDF2_ITERATIONS
+            u["token_version"] = int(u.get("token_version", 0)) + 1  # revoke tokens issued before the change
         if "full_name" in updates:
             u["full_name"] = updates["full_name"]
         if "email" in updates:
             u["email"] = updates["email"]
         if "role" in updates and updates["role"] in ("admin", "editor", "viewer"):
+            if u.get("role") != updates["role"]:
+                u["token_version"] = int(u.get("token_version", 0)) + 1
             u["role"] = updates["role"]
         users[username] = u
         self.save_users(users)

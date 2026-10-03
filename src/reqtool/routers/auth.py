@@ -10,7 +10,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, status
 from reqtool.store import Store
 from reqtool.routers.deps import get_store
-from reqtool.auth import UserStore, create_token, verify_token
+from reqtool.auth import UserStore, create_token, login_throttle
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -28,18 +28,15 @@ def get_current_user(
         token = x_api_key.strip()
 
     if token:
-        payload = verify_token(token, store.root)
-        if payload:
-            users = UserStore(store.root).load_users()
-            user = users.get(payload.get("sub", ""))
-            if user:
-                return {
-                    "username": user["username"],
-                    "full_name": user.get("full_name", user["username"]),
-                    "email": user.get("email", ""),
-                    "role": user.get("role", "editor"),
-                    "authenticated": True,
-                }
+        user = UserStore(store.root).resolve_token(token)
+        if user:
+            return {
+                "username": user["username"],
+                "full_name": user.get("full_name", user["username"]),
+                "email": user.get("email", ""),
+                "role": user.get("role", "editor"),
+                "authenticated": True,
+            }
 
     # Fallback default for local single-user mode
     return {
@@ -52,9 +49,9 @@ def get_current_user(
 
 
 @router.post("/login")
-def login(body: dict[str, Any], store: Store = Depends(get_store)):
-    username = body.get("username", "").strip()
-    password = body.get("password", "").strip()
+def login(body: dict[str, Any], request: Request, store: Store = Depends(get_store)):
+    username = str(body.get("username", "")).strip()
+    password = str(body.get("password", ""))  # passwords are used exactly as typed
 
     if not username or not password:
         raise HTTPException(
@@ -62,14 +59,24 @@ def login(body: dict[str, Any], store: Store = Depends(get_store)):
             detail="Username and password required",
         )
 
+    keys = (f"user:{username.lower()}", f"ip:{request.client.host if request.client else ''}")
+    wait = login_throttle.retry_after(*keys)
+    if wait:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"error": "rate_limited", "message": f"Too many failed logins; try again in {wait} seconds"},
+            headers={"Retry-After": str(wait)},
+        )
     user = UserStore(store.root).authenticate(username, password)
     if not user:
+        login_throttle.record_failure(*keys)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
         )
 
-    token = create_token(user["username"], user["role"], store.root)
+    login_throttle.reset(keys[0])  # a success clears the account's counter (the address keeps its own)
+    token = create_token(user["username"], user["role"], store.root, token_version=user.get("token_version", 0))
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -137,7 +144,7 @@ def create_user(
         )
 
     username = str(body.get("username", "")).strip()
-    password = str(body.get("password", "")).strip()
+    password = str(body.get("password", ""))
     if not username or not password:
         raise HTTPException(status_code=400, detail="Username and password required")
     if not _USERNAME_RE.fullmatch(username):
