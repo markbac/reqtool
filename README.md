@@ -194,7 +194,7 @@ The primary structural relationship is parent/child via `parentId`. Additional r
 
 Add or remove types in `enums.yaml` under `relationship_types`.
 
-Cross-layer rules in `hierarchy.yaml` define which relationship types are valid between which source and target types. Violations produce a validation **warning**, not a hard error.
+Cross-layer rules in `hierarchy.yaml` define which relationship types are valid between which source and target types. Violations produce a validation **warning** by default; with `enforce: error` they are validation errors and new offending relationships are rejected with `409 relationship_violation`.
 
 ### Change impact analysis
 

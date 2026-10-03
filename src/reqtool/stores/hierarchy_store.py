@@ -101,6 +101,36 @@ def check_parent_type(hierarchy: HierarchyConfig, parent_type: str, child_type: 
     return f"A '{child_type}' cannot be a child of a '{parent_type}' (allowed: {allowed})"
 
 
+# Relationship types that are never constrained by cross_layer_rules.
+UNCONSTRAINED_REL_TYPES = ("relates_to", "depended_by")
+
+
+def check_relationship(hierarchy: HierarchyConfig, source_type: str, target_type: str,
+                       rel_type: str) -> Optional[str]:
+    """Return a message if ``rel_type`` may not link ``source_type`` to ``target_type``.
+
+    A type pair is governed when some rule covers it in either direction; pairs
+    no rule mentions are unconstrained. Within a governed pair only the rel types
+    listed for that exact direction are allowed.
+    """
+    if rel_type in UNCONSTRAINED_REL_TYPES:
+        return None
+    governed = False
+    for rule in hierarchy.cross_layer_rules:
+        fwd = source_type in rule.source_types and target_type in rule.target_types
+        rev = target_type in rule.source_types and source_type in rule.target_types
+        if fwd:
+            if rel_type in rule.allowed_rel_types:
+                return None
+            governed = True
+        elif rev:
+            governed = True
+    if not governed:
+        return None
+    return (f"'{rel_type}' is not allowed from a '{source_type}' to a '{target_type}' "
+            f"(see cross_layer_rules in hierarchy.yaml)")
+
+
 def get_allowed_children(hierarchy: HierarchyConfig, req_type: str) -> list[str]:
     rule = hierarchy.hierarchy.get(req_type)
     if rule is None:

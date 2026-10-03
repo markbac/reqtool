@@ -222,6 +222,18 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
                     (_err if store.hierarchy.enforce == "error" else _warn)(
                         "hierarchy_violation", problem, uid, "parentId"))
 
+    # Cross-layer relationship rules
+    if store.hierarchy.enforce != "off":
+        as_error = store.hierarchy.enforce == "error"
+        for uid, req in store.requirements.items():
+            if req.get("deleted"):
+                continue
+            for rel in req.get("relationships", []) or []:
+                problem = store.relationship_problem(req.get("req_type", "functional"), rel)
+                if problem:
+                    errors.append(_err("relationship_violation", problem, uid, "relationships")) if as_error \
+                        else warnings.append(_warn("relationship_violation", problem, uid, "relationships"))
+
     # parentId cycles (reported on each member of the loop)
     for uid, req in store.requirements.items():
         if req.get("deleted"):
