@@ -107,6 +107,15 @@ def get_requirement_progress(uid: str, store: Store = Depends(get_store)):
     return store.compute_progress_rollup(uid)
 
 
+@router.get("/requirements/{uid}/summary")
+def get_requirement_summary(uid: str, store: Store = Depends(get_store)):
+    """Roll-up for a theme, initiative or epic: child counts, completion, estimate, open TBDs, validation."""
+    summary = store.compute_summary(uid)
+    if summary is None:
+        raise not_found(uid)
+    return summary
+
+
 def _publish_change(store: Store, uid: str, old_status, result: dict) -> None:
     """One event per update: status_changed if the status moved, else requirement_updated."""
     if result.get("status") != old_status:

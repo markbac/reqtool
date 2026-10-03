@@ -448,10 +448,16 @@ class Store:
             parent = req.get("parentId")
             children_map.setdefault(parent, []).append(req)
 
+        leaves_of: dict[str, list[dict]] = {}
+
         def node(req: dict, path: frozenset = frozenset()) -> dict:
             uid = req["uid"]
             path = path | {uid}  # guard against parentId cycles in existing data
-            return {
+            kids = [node(c, path) for c in sorted(
+                (c for c in children_map.get(uid, []) if c["uid"] not in path),
+                key=lambda r: r.get("id", r.get("uid", "")),
+            )]
+            out = {
                 "uid": uid,
                 "id": req.get("id", ""),
                 "title": req.get("title", ""),
@@ -462,11 +468,19 @@ class Store:
                 "module": req.get("_module"),
                 "owner": req.get("owner"),
                 "suspect_count": sum(1 for r in req.get("relationships") or [] if r.get("suspect")),
-                "children": [node(c, path) for c in sorted(
-                    (c for c in children_map.get(uid, []) if c["uid"] not in path),
-                    key=lambda r: r.get("id", r.get("uid", "")),
-                )],
+                "children": kids,
             }
+            if kids:
+                # Same leaves and weighting as GET /requirements/{uid}/progress, built bottom-up.
+                leaves: list[dict] = []
+                for k in kids:
+                    if k["children"]:
+                        leaves += leaves_of[k["uid"]]
+                    elif k["status"] != "cancelled":
+                        leaves.append(active[k["uid"]])
+                leaves_of[uid] = leaves
+                out["progress_pct"] = self._progress_of(req, leaves)["progress_pct"] if leaves else 0.0
+            return out
 
         roots = children_map.get(None, [])
 
@@ -1413,6 +1427,11 @@ class Store:
     # Kanban
     # ------------------------------------------------------------------
 
+    def delivery_types(self) -> list[str]:
+        """Types that belong on a delivery board: those on the sprint workflow (epic to spike by default)."""
+        found = [t for t, cfg in self.hierarchy.types.items() if cfg.workflow == "sprint"]
+        return found or ["epic", "feature", "story", "task", "bug", "spike"]
+
     def build_kanban(
         self,
         req_type: Optional[str] = None,
@@ -1424,17 +1443,18 @@ class Store:
         Return a column-per-state kanban board.
         Cards contain: uid, id, title, assignee, estimate, priority, req_type.
         """
-        # Determine which workflow to show
-        if req_type:
-            wf = self.get_workflow_for_type(req_type)
-        else:
-            wf = None
-
-        if wf:
-            states = [s.id for s in wf.states]
-        else:
-            # Fall back to config workflow
-            states = [s.id for s in self.config.workflow.states]
+        delivery = self.delivery_types()
+        if req_type and req_type not in delivery:
+            raise ValueError(f"'{req_type}' is not a delivery type (use one of: {', '.join(delivery)})")
+        # Columns are the union of the workflows of the types on the board, in workflow order.
+        states: list[str] = []
+        for t in ([req_type] if req_type else delivery):
+            wf = self.get_workflow_for_type(t)
+            for st in ([x.id for x in wf.states] if wf else []):
+                if st not in states:
+                    states.append(st)
+        if not states:
+            states = [x.id for x in self.config.workflow.states]
 
         columns: dict[str, list[dict]] = {s: [] for s in states}
         columns["_uncolumned"] = []
@@ -1442,7 +1462,7 @@ class Store:
         for uid, req in self.requirements.items():
             if req.get("deleted"):
                 continue
-            if req_type and req.get("req_type") != req_type:
+            if req.get("req_type") not in delivery or (req_type and req.get("req_type") != req_type):
                 continue
             if iteration and req.get("iteration") != iteration:
                 continue
@@ -1634,7 +1654,10 @@ class Store:
         items = self._rollup_leaves(uid)
         if not items and target.get("status") != "cancelled":
             items = [target]
+        return self._progress_of(target, items)
 
+    def _progress_of(self, target: dict[str, Any], items: list[dict[str, Any]]) -> dict[str, Any]:
+        """Progress over ``items`` (the leaves under ``target``): estimate-weighted when estimates exist, else by count."""
         total_estimate = done_estimate = 0.0
         done_items = 0
         done_cache: dict[str, set[str]] = {}
@@ -1652,7 +1675,7 @@ class Store:
         pct = round(done_estimate / total_estimate * 100.0, 1) if total_estimate > 0 else (
             round(done_items / total_items * 100.0, 1) if total_items else 0.0)
         return {
-            "uid": uid,
+            "uid": target.get("uid", ""),
             "id": target.get("id", ""),
             "title": target.get("title", ""),
             "total_items": total_items,
@@ -1660,6 +1683,38 @@ class Store:
             "total_estimate": total_estimate,
             "done_estimate": done_estimate,
             "progress_pct": pct,
+        }
+
+    def compute_summary(self, uid: str) -> Optional[dict[str, Any]]:
+        """Roll-up panel data for a strategic item: counts, completion, estimate, open TBDs, validation."""
+        from .validation import validate_single
+        target = self.requirements.get(uid)
+        if target is None or target.get("deleted"):
+            return None
+        desc = self._live_descendants(uid)
+        direct = [r for r in desc if r.get("parentId") == uid]
+        by_type: dict[str, int] = {}
+        by_status: dict[str, int] = {}
+        for r in desc:
+            by_type[r.get("req_type", "")] = by_type.get(r.get("req_type", ""), 0) + 1
+            by_status[r.get("status", "")] = by_status.get(r.get("status", ""), 0) + 1
+        open_tbds = sorted({t for r in [target, *desc] for t in self.open_tbds_for(r)})
+        errors = warnings = 0
+        for r in [target, *desc]:
+            res = validate_single(self, r["uid"])
+            errors += len(res["errors"])
+            warnings += len(res["warnings"])
+        return {
+            "uid": uid, "id": target.get("id", ""), "title": target.get("title", ""),
+            "req_type": target.get("req_type"), "status": target.get("status"),
+            "direct_children": len(direct), "descendants": len(desc),
+            "by_type": by_type, "by_status": by_status,
+            "progress": self.compute_progress_rollup(uid),
+            "estimate_rollup": self.compute_estimate_rollup(uid),
+            "open_tbds": open_tbds,
+            "validation": {"errors": errors, "warnings": warnings},
+            "fields": {k: v for k, v in (target.get("custom_fields") or {}).items() if v not in (None, "", [])},
+            "target_release": target.get("target_release"),
         }
 
     def search_uids(self, query: str, limit: int = 20) -> list[dict[str, Any]]:

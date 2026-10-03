@@ -5,11 +5,14 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 ## [Unreleased]
 
 ### Changed
+- **Delivery board (MOD-13)**: `GET /kanban` only returns delivery types (types on the `sprint` workflow), builds columns from the union of their workflows and reports `delivery_types`; the board shows cards with an unknown status in a visible lane. `req_type` must be a delivery type (`422` otherwise).
 - **One decision aggregate (MOD-15)**: decisions and TBDs share one collection (`store.decisions`, the `tbds` alias is gone) and one router. `/decisions` serves every record, `/tbds` serves `type: tbd` only. New records are written to `decisions/`; `req migrate` moves a legacy `tbds/` folder (idempotent). Decision files now reload incrementally when edited or deleted on disk.
 - **`formal` workflow (MOD-14)**: `draft -> approved` is removed, so review cannot be skipped. `POST /approve` on a draft returns `409 workflow_guard`.
 - **TBD resolution (MOD-16)**: `POST /tbds/{uid}/resolve` and `/decisions/{uid}/resolve` need a decision text (`decision`, or the older `resolution`) and accept `rationale` and `linked_decision`. They record `resolved_by` (the logged-in user), `resolved_at` and `resolution_ref`. The editor and TBD list use a Resolve dialog instead of `prompt()` and a fixed string. New policy `validation.block_approval_on_open_tbds` (default off) refuses approval with `409 open_tbd`.
 
 ### Added
+- **Decisions UI (UI-06)**: a Decisions tab with list, status filter, create and **Export ADR**; the editor handles options, chosen option, rationale, supersedes and ATAM analysis (the same editor now serves TBDs and decisions through `/decisions`). `GET /decisions` accepts `type=decision|tbd`; `GET /export/adr` lists decisions only, not TBDs.
+- **Roll-up panel and tree progress (MOD-10)**: `GET /requirements/{uid}/summary`, a Roll-up section for themes, initiatives and epics, and `progress_pct` on tree nodes with a small progress bar. The roadmap view is tracked separately in ENH-06.
 - **Checklists (MOD-12)**: Definition of Ready and Done for theme, initiative and feature, and Definition of Done for the remaining systems types. Items can be `advisory`.
 - **Strategic fields (MOD-17)**: themes and initiatives get outcome, success measures, time horizon, target release, business value and risks (stored in `custom_fields`, listed in `type_fields` of `GET /hierarchy`, shown in the editor and Markdown export).
 

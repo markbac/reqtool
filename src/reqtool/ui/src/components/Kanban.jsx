@@ -22,7 +22,8 @@ const TYPE_META = {
   spike:      { icon: '🔬', colour: '#ffa657', label: 'Spike' },
 };
 
-const AGILE_TYPES = ['theme', 'initiative', 'epic', 'feature', 'story', 'task', 'bug', 'spike'];
+// Delivery board types. Themes and initiatives are strategic and live on the roadmap, not here.
+const AGILE_TYPES = ['epic', 'feature', 'story', 'task', 'bug', 'spike'];
 
 const GROUPINGS = [
   { id: 'assignee', label: 'By Person' },
@@ -75,7 +76,7 @@ function KanbanCard({ card, isSelected, onClick, onDragStart }) {
 // ---------------------------------------------------------------------------
 function KanbanColumn({ stateId, cards, groups, isSelected, onCardClick, onDrop, draggingUid }) {
   const [dragOver, setDragOver] = useState(false);
-  const label = stateId.replace(/_/g, ' ');
+  const label = stateId === '_uncolumned' ? 'no matching column' : stateId.replace(/_/g, ' ');
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -188,7 +189,9 @@ export function KanbanPanel() {
   };
 
   const groups   = getGroups();
-  const states   = board?.states || [];
+  const hasUncolumned = (board?.columns?._uncolumned || []).length > 0;
+  // Cards whose status matches no column stay visible in a lane of their own.
+  const states   = [...(board?.states || []), ...(hasUncolumned ? ['_uncolumned'] : [])];
   const colCards = (stateId) => board?.columns?.[stateId] || [];
 
   const handleCardClick = (card) => {
@@ -204,7 +207,7 @@ export function KanbanPanel() {
     // Find which state the card is currently in
     const currentState = Object.entries(board?.columns || {})
       .find(([, cards]) => cards.some(c => c.uid === uid))?.[0];
-    if (currentState === targetState) return; // no-op
+    if (currentState === targetState || targetState === '_uncolumned') return; // no-op
 
     setMoving(uid);
     // Optimistic update

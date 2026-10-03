@@ -39,10 +39,12 @@ def _build(prefix: str, kind: Optional[str], tag: str) -> None:
 
     @router.get(prefix, tags=[tag], name=f"list_{tag}")
     def list_items(status: Optional[str] = None, priority: Optional[str] = None, owner: Optional[str] = None,
-                   store: Store = Depends(get_store)):
+                   type: Optional[str] = None, store: Store = Depends(get_store)):
         results = []
         for item in store.decisions.values():
             if item.get("deleted") or not _matches(item, kind):
+                continue
+            if type and item.get("type", "decision") != type:
                 continue
             if (status and item.get("status") != status) or (priority and item.get("priority") != priority) \
                     or (owner and item.get("owner") != owner):

@@ -233,7 +233,7 @@ Check items off via `PUT /requirements/{uid}` with the updated `dor_checklist` /
 
 ## Kanban board
 
-`GET /kanban` returns a column-per-state board using the workflow states for the filtered type. Cards include: `uid`, `id`, `title`, `assignee`, `estimate`, `priority`, `req_type`.
+`GET /kanban` returns a column-per-state delivery board (epic, feature, story, task, bug, spike) using the union of their workflow states, or the states of the filtered type. Cards whose status matches no column are returned under `_uncolumned`. Cards include: `uid`, `id`, `title`, `assignee`, `estimate`, `priority`, `req_type`.
 
 Query parameters: `req_type`, `iteration`, `owner`, `assignee`.
 
@@ -352,6 +352,7 @@ DELETE /requirements/{uid}               Soft-delete
 POST   /requirements/{uid}/transition    Explicit workflow transition with guard enforcement
 GET    /requirements/{uid}/impact        Transitive downstream impact closure
 GET    /requirements/{uid}/rollup        Computed estimate rollup for children
+GET    /requirements/{uid}/summary       Roll-up: child counts, completion, estimate, open TBDs, validation
 GET    /requirements/{uid}/history       In-file + git history
 GET    /requirements/{uid}/commits       GitHub commits linked via the push webhook
 GET    /requirements/{uid}/relationships Outgoing + incoming relationship links

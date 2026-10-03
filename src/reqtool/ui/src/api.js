@@ -69,6 +69,7 @@ export const api = {
     list:          (params = {}) => get('/requirements?' + new URLSearchParams(params)),
     tree:          (product, variant) => get('/requirements/tree?product=' + product + (variant ? '&variant=' + variant : '')),
     get:           (uid)         => get(`/requirements/${uid}`),
+    summary:       (uid)         => get(`/requirements/${uid}/summary`),
     create:        (body)        => post('/requirements', body),
     update:        (uid, body)   => put(`/requirements/${uid}`, body),
     delete:        (uid)         => del(`/requirements/${uid}`),
@@ -108,6 +109,7 @@ export const api = {
     update:  (uid, body)   => put(`/decisions/${uid}`, body),
     delete:  (uid)         => del(`/decisions/${uid}`),
     commit:  (uid, body)   => post(`/decisions/${uid}/commit`, body),
+    resolve: (uid, body)   => post(`/decisions/${uid}/resolve`, { resolved_by: localStorage.getItem('reqtool:username') || 'user', ...body }),
   },
   products: {
     list:   ()      => get('/products'),
@@ -257,6 +259,7 @@ export const api = {
     csv:          (body) => post('/export/csv', body),
     reqif:        () => get('/export/reqif'),
     pdf:          (body) => post('/export/pdf', body),
+    adr:          () => get('/export/adr'),
     auditPackage: (params = {}) => {
       // Same-origin navigations carry the session cookie. A cross-origin server needs the token as a query parameter.
       const token = bearerToken();

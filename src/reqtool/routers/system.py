@@ -381,12 +381,12 @@ def get_kanban(
     assignee: Optional[str] = None,
     store: Store = Depends(get_store),
 ):
-    return store.build_kanban(
-        req_type=req_type,
-        iteration=iteration,
-        owner=owner,
-        assignee=assignee,
-    )
+    try:
+        board = store.build_kanban(req_type=req_type, iteration=iteration, owner=owner, assignee=assignee)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail={"error": "not_a_delivery_type", "message": str(exc)})
+    board["delivery_types"] = store.delivery_types()
+    return board
 
 
 @router.get("/filter-presets", tags=["filter-presets"])

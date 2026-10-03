@@ -774,6 +774,43 @@ function StrategicFieldsEditor({ fields, values, onChange }) {
   );
 }
 
+const SUMMARY_TYPES = ['theme', 'initiative', 'epic'];
+
+function RollupSummary({ uid }) {
+  const [sum, setSum] = useState(null);
+  useEffect(() => {
+    let live = true;
+    api.requirements.summary(uid).then(d => { if (live) setSum(d); }).catch(() => { if (live) setSum(null); });
+    return () => { live = false; };
+  }, [uid]);
+  if (!sum) return null;
+  const pct = sum.progress?.progress_pct ?? 0;
+  const list = (obj) => Object.entries(obj).map(([k, v]) => `${v} ${k.replace(/_/g, ' ')}`).join(', ') || 'none';
+  return (
+    <Section title="Roll-up" defaultOpen>
+      <div className="rollup-summary" data-testid="rollup-summary">
+        <div className="rollup-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}
+          style={{ background: 'var(--bg-elevated)', borderRadius: 4, height: 8, overflow: 'hidden' }}>
+          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent-green)' }} />
+        </div>
+        <div style={{ fontSize: 12, marginTop: 6 }}>
+          <strong>{pct}%</strong> complete ({sum.progress.done_items} of {sum.progress.total_items} leaf items)
+          {sum.estimate_rollup != null && <> · estimate {sum.estimate_rollup}</>}
+        </div>
+        <div style={{ fontSize: 12 }}>Children: {sum.direct_children} direct, {sum.descendants} in total</div>
+        <div style={{ fontSize: 12 }}>By type: {list(sum.by_type)}</div>
+        <div style={{ fontSize: 12 }}>By status: {list(sum.by_status)}</div>
+        <div style={{ fontSize: 12 }}>
+          Open TBDs: {sum.open_tbds.length ? sum.open_tbds.join(', ') : 'none'}
+        </div>
+        <div style={{ fontSize: 12 }}>
+          Validation: {sum.validation.errors} error(s), {sum.validation.warnings} warning(s)
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 function CustomFieldsValueEditor({ schema, values, onChange }) {
   const set = (key, val) => onChange({ ...values, [key]: val });
 
@@ -1065,6 +1102,7 @@ function RequirementEditor({ uid }) {
         {/* ── Content ── */}
         {activeTab === 'content' && (
           <>
+            {SUMMARY_TYPES.includes(draft.req_type) && <RollupSummary uid={uid} />}
             <Section title="Identity" static>
               <div className="field-row">
                 <Field label="ID"><input value={draft.id ?? ''} onChange={e => patch('id', e.target.value)} /></Field>
@@ -1523,7 +1561,69 @@ function PrincipleEditor({ uid }) {
 // ---------------------------------------------------------------------------
 // TBD editor
 // ---------------------------------------------------------------------------
-function TBDEditor({ uid }) {
+function DecisionOptionsEditor({ options, onChange }) {
+  const set = (i, patchObj) => onChange(options.map((o, j) => (j === i ? { ...o, ...patchObj } : o)));
+  const lines = (v) => v.split('\n').map(x => x.trim()).filter(Boolean);
+  return (
+    <div className="decision-options">
+      {options.map((o, i) => (
+        <div key={i} className="decision-option" style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 8, marginBottom: 8 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input aria-label={`Option ${i + 1} name`} value={o.name ?? ''} placeholder="Option name"
+              onChange={e => set(i, { name: e.target.value })} style={{ flex: 1 }} />
+            <select aria-label={`Option ${i + 1} risk`} value={o.risk_level ?? ''} onChange={e => set(i, { risk_level: e.target.value || null })}>
+              <option value="">risk</option>
+              {['low', 'medium', 'high'].map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <button className="string-list-remove" aria-label={`Remove option ${i + 1}`} onClick={() => onChange(options.filter((_, j) => j !== i))}>✕</button>
+          </div>
+          <div className="field-row">
+            <textarea aria-label={`Option ${i + 1} pros`} rows={2} placeholder="Pros (one per line)" defaultValue={(o.pros ?? []).join('\n')}
+              onBlur={e => set(i, { pros: lines(e.target.value) })} />
+            <textarea aria-label={`Option ${i + 1} cons`} rows={2} placeholder="Cons (one per line)" defaultValue={(o.cons ?? []).join('\n')}
+              onBlur={e => set(i, { cons: lines(e.target.value) })} />
+          </div>
+        </div>
+      ))}
+      <button className="btn btn-secondary" onClick={() => onChange([...options, { name: '', pros: [], cons: [], risk_level: null }])}>+ Add option</button>
+    </div>
+  );
+}
+
+function AtamEditor({ atam, onChange }) {
+  const a = atam ?? { enabled: true, quality_attributes: [], sensitivity_points: [], tradeoff_points: [], risks: [], non_risks: [] };
+  const set = (k, v) => onChange({ ...a, [k]: v });
+  const rows = (key, fields) => (a[key] ?? []).map((row, i) => (
+    <div key={i} className="field-row">
+      {fields.map(f => (
+        <input key={f.k} aria-label={`${f.label} ${i + 1}`} placeholder={f.label}
+          value={f.list ? (row[f.k] ?? []).join(', ') : (row[f.k] ?? '')}
+          onChange={e => set(key, a[key].map((r, j) => j === i
+            ? { ...r, [f.k]: f.list ? e.target.value.split(',').map(x => x.trim()).filter(Boolean) : e.target.value } : r))} />
+      ))}
+      <button className="string-list-remove" aria-label={`Remove ${key} ${i + 1}`} onClick={() => set(key, a[key].filter((_, j) => j !== i))}>✕</button>
+    </div>
+  ));
+  return (
+    <div className="atam-editor">
+      <Field label="Quality attributes">
+        <StringListEditor items={a.quality_attributes ?? []} onChange={v => set('quality_attributes', v)} placeholder="e.g. latency" />
+      </Field>
+      <Field label="Sensitivity points">
+        {rows('sensitivity_points', [{ k: 'attribute', label: 'Attribute' }, { k: 'description', label: 'Description' }])}
+        <button className="btn btn-secondary" onClick={() => set('sensitivity_points', [...(a.sensitivity_points ?? []), { attribute: '', description: '' }])}>+ Sensitivity point</button>
+      </Field>
+      <Field label="Trade-off points">
+        {rows('tradeoff_points', [{ k: 'attributes', label: 'Attributes (comma separated)', list: true }, { k: 'description', label: 'Description' }])}
+        <button className="btn btn-secondary" onClick={() => set('tradeoff_points', [...(a.tradeoff_points ?? []), { attributes: [], description: '' }])}>+ Trade-off point</button>
+      </Field>
+      <Field label="Risks"><StringListEditor items={a.risks ?? []} onChange={v => set('risks', v)} placeholder="Add risk…" /></Field>
+      <Field label="Non-risks"><StringListEditor items={a.non_risks ?? []} onChange={v => set('non_risks', v)} placeholder="Add non-risk…" /></Field>
+    </div>
+  );
+}
+
+function DecisionEditor({ uid }) {
   const { state, dispatch, toast } = useApp();
   const { enums } = state;
   const [data, setData]       = useState(null);
@@ -1534,7 +1634,7 @@ function TBDEditor({ uid }) {
 
   useEffect(() => {
     setLoading(true);
-    api.tbds.get(uid)
+    api.decisions.get(uid)
       .then(d => { setData(d); setDraft(d); })
       .catch(err => toast(err.message, 'error'))
       .finally(() => setLoading(false));
@@ -1552,7 +1652,7 @@ function TBDEditor({ uid }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updated = await api.tbds.update(uid, draft);
+      const updated = await api.decisions.update(uid, draft);
       setData(updated); setDraft(updated);
       dispatch({ type: 'MARK_CLEAN', uid });
       toast('Saved', 'success');
@@ -1564,14 +1664,14 @@ function TBDEditor({ uid }) {
     setSaving(true);
     try {
       if (isDirty) {
-        const updated = await api.tbds.update(uid, draft);
+        const updated = await api.decisions.update(uid, draft);
         setData(updated); setDraft(updated);
       }
-      const result = await api.tbds.commit(uid, { message, increment });
+      const result = await api.decisions.commit(uid, { message, increment });
       toast(`Committed: ${result.commit_sha?.slice(0, 7)}`, 'success');
       setShowCommit(false);
       dispatch({ type: 'COMMITTED' });
-      const updated = await api.tbds.get(uid);
+      const updated = await api.decisions.get(uid);
       setData(updated); setDraft(updated);
     } catch (err) { toast(err.message, 'error'); }
     finally { setSaving(false); }
@@ -1579,8 +1679,8 @@ function TBDEditor({ uid }) {
 
   const [showResolve, setShowResolve] = useState(false);
   const handleResolve = async (body) => {
-    await api.tbds.resolve(uid, body);
-    const updated = await api.tbds.get(uid);
+    await api.decisions.resolve(uid, body);
+    const updated = await api.decisions.get(uid);
     setData(updated); setDraft(updated);
     setShowResolve(false);
     toast('TBD resolved', 'success');
@@ -1595,9 +1695,14 @@ function TBDEditor({ uid }) {
   }, [isDirty, saving, draft]);
 
   if (loading) return <div className="editor-loading"><div className="spinner" /></div>;
-  if (!draft) return <div className="editor-empty">Could not load TBD.</div>;
+  if (!draft) return <div className="editor-empty">Could not load this record.</div>;
 
-  const STATUS_COLOURS = { open: 'var(--accent-red)', in_progress: 'var(--accent-orange)', resolved: 'var(--accent-green)', cancelled: 'var(--text-muted)' };
+  const isDecision = draft.type === 'decision';
+  const STATUS_OPTIONS = isDecision ? ['proposed', 'accepted', 'rejected', 'superseded'] : ['open', 'in_progress', 'resolved', 'cancelled'];
+  const STATUS_COLOURS = {
+    open: 'var(--accent-red)', in_progress: 'var(--accent-orange)', resolved: 'var(--accent-green)', cancelled: 'var(--text-muted)',
+    proposed: 'var(--accent-orange)', accepted: 'var(--accent-green)', rejected: 'var(--accent-red)', superseded: 'var(--text-muted)',
+  };
 
   return (
     <div className="editor">
@@ -1613,7 +1718,7 @@ function TBDEditor({ uid }) {
           {isDirty && <span className="editor-dirty-badge" title="You have unsaved changes -- press Ctrl+S or click Save">● Unsaved changes</span>}
         </div>
         <div className="editor-header-right">
-          {(draft.status === 'open' || draft.status === 'in_progress') && (
+          {!isDecision && (draft.status === 'open' || draft.status === 'in_progress') && (
             <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setShowResolve(true)}>
               ✓ Resolve
             </button>
@@ -1622,7 +1727,7 @@ function TBDEditor({ uid }) {
             onClick={async () => {
               if (!confirm(`Delete ${draft.id}?\n"${draft.title}"\n\nThis cannot be undone.`)) return;
               try {
-                await api.tbds.delete(uid);
+                await api.decisions.delete(uid);
                 dispatch({ type: 'DESELECT' });
                 toast(`Deleted ${draft.id}`, 'info');
               } catch (err) { toast(err.message, 'error'); }
@@ -1643,7 +1748,7 @@ function TBDEditor({ uid }) {
           <Field label="Title"><input value={draft.title ?? ''} onChange={e => patch('title', e.target.value)} /></Field>
           <div className="field-row">
             <Field label="Status">
-              <EnumSelect value={draft.status} options={['open', 'in_progress', 'resolved', 'cancelled']}
+              <EnumSelect value={draft.status} options={STATUS_OPTIONS}
                 onChange={v => patch('status', v)} nullable={false} />
             </Field>
             <Field label="Priority">
@@ -1665,6 +1770,11 @@ function TBDEditor({ uid }) {
         </Section>
 
         <Section title="Content" static>
+          {isDecision && (
+            <Field label="Context">
+              <MarkdownEditor value={draft.content?.context} onChange={v => patchContent('context', v)} rows={4} />
+            </Field>
+          )}
           <Field label="Description">
             <MarkdownEditor value={draft.content?.description} onChange={v => patchContent('description', v)} rows={4} />
           </Field>
@@ -1681,9 +1791,36 @@ function TBDEditor({ uid }) {
           )}
         </Section>
 
+        {isDecision && (
+          <>
+            <Section title="Options considered">
+              <DecisionOptionsEditor options={draft.content?.options ?? []} onChange={v => patchContent('options', v)} />
+            </Section>
+            <Section title="Outcome">
+              <Field label="Chosen option">
+                <select aria-label="Chosen option" value={draft.content?.chosen_option ?? ''}
+                  onChange={e => patchContent('chosen_option', e.target.value || null)}>
+                  <option value="">—</option>
+                  {(draft.content?.options ?? []).filter(o => o.name).map(o => <option key={o.name} value={o.name}>{o.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Rationale">
+                <MarkdownEditor value={draft.content?.rationale} onChange={v => patchContent('rationale', v)} rows={3} />
+              </Field>
+              <Field label="Supersedes (decision UID)">
+                <input value={draft.supersedes ?? ''} onChange={e => patch('supersedes', e.target.value || null)} />
+              </Field>
+              {draft.superseded_by && <div className="text-muted" style={{ fontSize: 12 }}>Superseded by {draft.superseded_by}</div>}
+            </Section>
+            <Section title="ATAM analysis" defaultOpen={!!draft.content?.atam}>
+              <AtamEditor atam={draft.content?.atam} onChange={v => patchContent('atam', v)} />
+            </Section>
+          </>
+        )}
+
         <Section title="Affected Requirements" defaultOpen={draft.affected_requirements?.length > 0}>
           <div style={{ marginBottom: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-            Requirements that are blocked by or depend on this TBD.
+            Requirements that reference or depend on this record.
           </div>
           {(draft.affected_requirements ?? []).map((reqUid, i) => (
             <div key={reqUid} className="rel-row">
@@ -1835,6 +1972,6 @@ export default function Editor() {
   }
   if (selectedType === 'requirement') return <RequirementEditor uid={selectedUid} />;
   if (selectedType === 'principle')   return <PrincipleEditor uid={selectedUid} />;
-  if (selectedType === 'tbd')         return <TBDEditor uid={selectedUid} />;
+  if (selectedType === 'tbd' || selectedType === 'decision') return <DecisionEditor uid={selectedUid} />;
   return <EditorEmpty />;
 }

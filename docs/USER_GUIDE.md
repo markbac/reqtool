@@ -151,6 +151,13 @@ Saving a change to a requirement marks every relationship that points at it as *
 - Access via **Kanban / Roadmap**.
 - View requirements organized by workflow states (`Draft`, `In Review`, `Approved`, `Done`) or target release milestones.
 - Drag-and-drop cards between columns to transition workflow states.
+- The board is a **delivery board**: it shows epics, features, stories, tasks, bugs and spikes (the types on the `sprint` workflow). Themes and initiatives are strategic and do not appear; asking `GET /kanban?req_type=theme` returns `422`. Columns are the union of the workflows on the board, and a card whose status matches no column is shown in a **no matching column** lane instead of disappearing.
+
+#### Decisions (ADRs)
+The **Decisions** tab in the sidebar lists decision records (ADRs), filtered by status, with **+ New** and **Export ADR**, which downloads every decision as Nygard-style Markdown (`GET /export/adr`; TBDs are not included). The editor has the context, the options considered (pros, cons and risk each), the chosen option and rationale, the decision it supersedes, and an optional ATAM analysis (quality attributes, sensitivity and trade-off points, risks and non-risks). The Affected Requirements section lists the requirements that link to the record. TBDs stay on their own tab.
+
+#### Roll-up for themes, initiatives and epics
+These types show a **Roll-up** section at the top of the editor: completion percentage, child counts by type and status, the estimate, open TBDs under the item and its validation errors and warnings (`GET /requirements/{uid}/summary`). Tree nodes that have children show a small progress bar with the same percentage (`progress_pct` on tree nodes, calculated over leaf items like `GET /requirements/{uid}/progress`).
 
 #### Paging and the Coverage panel
 `GET /requirements` accepts `limit` (1 to 10000) and `offset`, sorted by ID, and always returns the number of matching items in the `X-Total-Count` response header. Without `limit` it returns everything, as before. The **Coverage** panel now reads the server-side summary from `GET /metrics` (status, priority and quality gaps) instead of downloading every requirement, so it matches the Metrics dashboard.

@@ -1002,6 +1002,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/summary:
+    get:
+      tags:
+      - requirements
+      summary: Get Requirement Summary
+      description: 'Roll-up for a theme, initiative or epic: child counts, completion, estimate, open TBDs, validation.'
+      operationId: get_requirement_summary_requirements__uid__summary_get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /requirements/bulk:
     post:
       tags:
@@ -1607,6 +1633,14 @@ paths:
           - type: string
           - type: 'null'
           title: Owner
+      - name: type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Type
       responses:
         '200':
           description: Successful Response
@@ -1831,6 +1865,14 @@ paths:
           - type: string
           - type: 'null'
           title: Owner
+      - name: type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Type
       responses:
         '200':
           description: Successful Response

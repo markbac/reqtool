@@ -151,6 +151,12 @@ function TreeNode({ node, depth = 0, onContextMenu, forceOpen = false }) {
         {node.suspect_count > 0 && (
           <span className="tree-node-suspect" title={`${node.suspect_count} suspect link(s): an upstream item changed`}>⚠ {node.suspect_count}</span>
         )}
+        {node.progress_pct != null && (
+          <span className="tree-node-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100}
+            aria-valuenow={node.progress_pct} title={`${node.progress_pct}% complete`}>
+            <span style={{ width: `${node.progress_pct}%` }} />
+          </span>
+        )}
         {isDirty && <span className="tree-node-dirty" title="Unsaved">●</span>}
         {!isModule && <StatusBadge status={node.status} />}
       </div>
@@ -473,6 +479,65 @@ function PrinciplesPanel() {
 }
 
 // ---------------------------------------------------------------------------
+// 1b2. Decisions (ADR) panel
+// ---------------------------------------------------------------------------
+export function DecisionsPanel() {
+  const { state, dispatch, toast } = useApp();
+  const [items, setItems]     = useState([]);
+  const [filter, setFilter]   = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    api.decisions.list({ type: 'decision', ...(filter ? { status: filter } : {}) })
+      .then(setItems).catch(() => {}).finally(() => setLoading(false));
+  }, [filter]);
+  useEffect(() => { load(); }, [load]);
+
+  const exportAdr = async () => {
+    try {
+      const blob = await api.exports.adr();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'architecture_decision_records.md'; a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  return (
+    <div className="tbds-panel">
+      <div className="list-panel-toolbar">
+        <button className="btn btn-ghost list-new-btn" onClick={async () => {
+          try {
+            const d = await api.decisions.create({ title: 'New decision', content: { context: '', options: [], chosen_option: null, rationale: '' } });
+            dispatch({ type: 'SELECT', uid: d.uid, artefactType: 'decision' }); load();
+          } catch (err) { toast(err.message, 'error'); }
+        }}>+ New</button>
+        <button className="btn btn-ghost" onClick={exportAdr} title="Download all decisions as ADR Markdown">Export ADR</button>
+      </div>
+      <div className="tbds-filter">
+        {['', 'proposed', 'accepted', 'rejected', 'superseded'].map(s => (
+          <button key={s} className={`tbds-filter-btn ${filter === s ? 'active' : ''}`} onClick={() => setFilter(s)}>{s || 'all'}</button>
+        ))}
+      </div>
+      {loading && <div className="sidebar-loading"><div className="spinner" /></div>}
+      {!loading && !items.length && <div className="sidebar-empty">No decisions.</div>}
+      {!loading && items.map(d => (
+        <div key={d.uid} className={`list-item ${state.selectedUid === d.uid ? 'list-item--selected' : ''}`}
+          onClick={() => dispatch({ type: 'SELECT', uid: d.uid, artefactType: 'decision' })}>
+          <div className="list-item-header">
+            <span className="list-item-id mono">{d.id}</span>
+            <span className={`badge badge-${d.status}`}>{d.status}</span>
+          </div>
+          <div className="list-item-title">{d.title}</div>
+          {d.affected_requirements?.length > 0 && <div className="list-item-meta">{d.affected_requirements.length} linked reqs</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // 1c. TBDs panel
 // ---------------------------------------------------------------------------
 function TBDsPanel() {
@@ -689,6 +754,7 @@ const TOP_SECTIONS = [
 const REQ_SUBTABS = [
   { id: 'requirements', label: 'Reqs'       },
   { id: 'principles',   label: 'Principles' },
+  { id: 'decisions',    label: 'Decisions'  },
   { id: 'tbds',         label: 'TBDs'       },
   { id: 'modules',      label: 'Modules'    },
 ];
@@ -733,6 +799,7 @@ export default function Sidebar() {
       <div className="sidebar-content">
         {topSection === 'requirements' && panel === 'requirements' && <RequirementsPanel />}
         {topSection === 'requirements' && panel === 'principles'   && <PrinciplesPanel />}
+        {topSection === 'requirements' && panel === 'decisions'    && <DecisionsPanel />}
         {topSection === 'requirements' && panel === 'tbds'         && <TBDsPanel />}
         {topSection === 'requirements' && panel === 'modules'      && <ModulesPanel />}
       </div>    </aside>
