@@ -32,7 +32,7 @@ npm install   # first time only
 npm run build # writes src/reqtool/ui/dist/
 ```
 
-Commit the updated `dist/` alongside your source changes. CI verifies the committed dist matches the source on every push.
+`dist/` is git-ignored: do not commit it. CI builds the UI itself, fails if the build produces no `index.html`, and builds the wheel from that build.
 
 ## Running tests
 
@@ -106,3 +106,5 @@ Open a PR against `main`. CI runs automatically.
 2. Move the `[Unreleased]` section of `CHANGELOG.md` to a versioned heading.
 3. Commit: `chore: release v<version>`.
 4. Tag: `git tag v<version> && git push --tags`.
+
+The release workflow first runs the full CI suite on the tagged commit and builds nothing if it fails. It then smoke-tests the installed wheel and the standalone CLI binary (server start, UI, a requirement round trip, PDF and ReqIF export) and publishes a GitHub Release. Nothing is uploaded to PyPI: `twine` only checks the package metadata.

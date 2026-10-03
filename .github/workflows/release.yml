@@ -7,8 +7,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  # A tag only publishes if the full CI suite (lint, every test file on every Python, UI tests,
+  # wheel contents) passes on the tagged commit.
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
   build-python-packages:
     name: Build Wheel & Source Package
+    needs: ci
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -30,16 +37,22 @@ jobs:
           npm ci
           npm run build
 
+      # Nothing is uploaded to a package index: only the GitHub Release below is published.
+      # twine is used to validate the package metadata only.
       - name: Install Build Tools
         run: pip install build twine
 
       - name: Build Python Package (.whl & .tar.gz)
         run: python -m build
 
-      - name: Verify Executable CLI
+      - name: Check package metadata
+        run: twine check dist/*
+
+      - name: Install the wheel and smoke-test it (server, UI, PDF and ReqIF export)
         run: |
           pip install dist/*.whl
           reqtool --help
+          python scripts/smoke_release.py reqtool
 
       - name: Upload Python Package Artifacts
         uses: actions/upload-artifact@v4
@@ -49,6 +62,7 @@ jobs:
 
   build-documentation-bundle:
     name: Package Documentation & User Guide
+    needs: ci
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -87,6 +101,7 @@ jobs:
 
   build-standalone-binaries:
     name: Build Standalone Binary Executables (${{ matrix.os }})
+    needs: ci
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -126,6 +141,10 @@ jobs:
       - name: Build Standalone Executables
         run: pyinstaller reqtool.spec --clean
 
+      - name: Smoke-test the standalone CLI binary (server, UI, PDF and ReqIF export)
+        shell: bash
+        run: python scripts/smoke_release.py dist/reqtool${{ matrix.suffix }}
+
       - name: Package & Rename Executable Artifacts
         shell: bash
         run: |
@@ -161,7 +180,12 @@ jobs:
       - name: Flatten Release Assets Directory
         run: |
           mkdir -p final-dist
-          find release-assets/ -type f -exec cp {} final-dist/ \;
+          # Refuse to overwrite: two artifacts with the same file name would silently lose one.
+          find release-assets/ -type f | while read -r f; do
+            name=$(basename "$f")
+            if [ -e "final-dist/$name" ]; then echo "ERROR: duplicate release asset name: $name"; exit 1; fi
+            cp "$f" "final-dist/$name"
+          done
           ls -la final-dist/
 
       - name: Create GitHub Release

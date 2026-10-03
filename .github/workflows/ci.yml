@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:   # the release workflow runs this same suite before it builds anything
 
 # Cancel in-flight runs for the same branch/PR so a fast-follow commit
 # doesn't queue behind a slow one.
