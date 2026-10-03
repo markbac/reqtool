@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { useApp } from '../AppContext';
 import { api } from '../api';
+import { safeSvg } from '../sanitize';
 
 const DEFAULT_MERMAID = `graph TD
     REQ1["REQ-SYS-001: Thermal Management System"] --> REQ2["REQ-HW-002: Temperature Sensor Array"]
@@ -153,7 +154,7 @@ export function DiagramPanel({ onClose }) {
                     whiteSpace: 'pre-wrap',
                   }}>{code}</pre>
                 ) : plantumlSvg ? (
-                  <div dangerouslySetInnerHTML={{ __html: plantumlSvg }} style={{ maxWidth: '100%', maxHeight: '100%' }} />
+                  <div dangerouslySetInnerHTML={{ __html: safeSvg(plantumlSvg) }} style={{ maxWidth: '100%', maxHeight: '100%' }} />
                 ) : (
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
                     Click <b>⚡ Render PlantUML SVG</b> to execute backend <code className="mono">plantuml.jar</code>.
