@@ -146,6 +146,38 @@ def verify_approval_signature(uid: str, version: int, username: str, signature: 
     return hmac.compare_digest(signature, expected)
 
 
+def sign_approval_v2(uid: str, version: str, username: str, content_hash: str, repo_root: Path) -> str:
+    """Approval signature that also covers the approved content.
+
+    v1 signed only (uid, version, user), so the approved text could be edited
+    afterwards without invalidating the signature. v2 includes the content hash.
+    """
+    secret = _get_secret_key(repo_root)
+    msg = f"APPROVE2:{uid}:v{version}:{username}:{content_hash}".encode("utf-8")
+    return f"SIG-v2-{hmac.new(secret, msg, hashlib.sha256).hexdigest()[:48]}"
+
+
+def check_approval(req: dict[str, Any], repo_root: Path) -> str:
+    """Classify a requirement's approval signature.
+
+    Returns one of: ``none`` (no signature), ``legacy`` (v1, cannot bind content),
+    ``valid``, ``stale`` (genuine signature but content changed since), ``invalid``.
+    """
+    app = req.get("approval") or {}
+    sig = app.get("signature")
+    if not sig:
+        return "none"
+    if str(sig).startswith("SIG-v1-"):
+        return "legacy"
+    signed_hash = app.get("signed_hash", "")
+    expected = sign_approval_v2(
+        req.get("uid", ""), str(app.get("signed_version", "")), str(app.get("approved_by", "")),
+        signed_hash, repo_root)
+    if not hmac.compare_digest(str(sig), expected):
+        return "invalid"
+    return "valid" if req.get("content_hash") == signed_hash else "stale"
+
+
 class UserStore:
     def __init__(self, root: Path):
         self.root = root
