@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../AppContext';
 import { api } from '../api';
+import ResolveDialog from './ResolveDialog';
 import './Sidebar.css';
 
 const DOMAIN_COLOURS = {
@@ -479,6 +480,7 @@ function TBDsPanel() {
   const [items, setItems]     = useState([]);
   const [filter, setFilter]   = useState('open');
   const [loading, setLoading] = useState(false);
+  const [resolving, setResolving] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -488,6 +490,13 @@ function TBDsPanel() {
 
   return (
     <div className="tbds-panel">
+      {resolving && (
+        <ResolveDialog tbd={resolving} onClose={() => setResolving(null)}
+          onResolved={async body => {
+            await api.tbds.resolve(resolving.uid, body);
+            setResolving(null); load(); toast('TBD resolved', 'success');
+          }} />
+      )}
       <div className="list-panel-toolbar">
         <button className="btn btn-ghost list-new-btn" onClick={async () => {
           try { const t = await api.tbds.create({ title: 'New TBD', content: { description: '', impact: '', resolution_criteria: '', resolution: null } }); dispatch({ type: 'SELECT', uid: t.uid, artefactType: 'tbd' }); load(); }
@@ -512,14 +521,7 @@ function TBDsPanel() {
                 className="btn btn-ghost"
                 style={{ fontSize: 10, padding: '1px 6px', marginLeft: 'auto' }}
                 title="Mark as resolved"
-                onClick={async e => {
-                  e.stopPropagation();
-                  try {
-                    await api.tbds.resolve(t.uid, { resolution: 'Resolved via UI' });
-                    load();
-                    toast('TBD resolved', 'success');
-                  } catch (err) { toast(err.message, 'error'); }
-                }}>
+                onClick={e => { e.stopPropagation(); setResolving(t); }}>
                 ✓ Resolve
               </button>
             ) : null}

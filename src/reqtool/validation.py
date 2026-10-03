@@ -173,7 +173,7 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
 
     # Build set of open TBDs (for warn_on_open_tbds_in_approved)
     open_tbd_uids: set[str] = {
-        uid for uid, t in store.tbds.items()
+        uid for uid, t in store.decisions.items()
         if not t.get("deleted") and t.get("status") in ("open", "in_progress")
     }
 
@@ -245,7 +245,7 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
                     uid, "principle_kind",
                 ))
 
-    for uid, tbd in store.tbds.items():
+    for uid, tbd in store.decisions.items():
         if tbd.get("deleted"):
             continue
         e, w = _validate_tbd(tbd, merged_enums)
@@ -764,7 +764,7 @@ def validate_single(store: "Store", uid: str) -> dict[str, list[dict[str, str]]]
     nfr_keys = set(store.repo_enums.nfr_keys)
     req_status_by_uid = {u: r.get("status", "") for u, r in store.requirements.items()}
     open_tbd_uids = {
-        u for u, t in store.tbds.items()
+        u for u, t in store.decisions.items()
         if not t.get("deleted") and t.get("status") in ("open", "in_progress")
     }
 
@@ -784,7 +784,7 @@ def validate_single(store: "Store", uid: str) -> dict[str, list[dict[str, str]]]
     if uid in store.principles:
         e, w = _validate_principle(store.principles[uid], merged_enums)
         return {"errors": e, "warnings": w}
-    if uid in store.tbds:
-        e, w = _validate_tbd(store.tbds[uid], merged_enums)
+    if uid in store.decisions:
+        e, w = _validate_tbd(store.decisions[uid], merged_enums)
         return {"errors": e, "warnings": w}
     return {"errors": [_err("not_found", f"UID '{uid}' not found", uid)], "warnings": []}

@@ -30,7 +30,7 @@ def batch_commit(body: CommitRequest, store: Store = Depends(get_store)):
         raise conflict("Working tree has unresolved merge conflicts")
     try:
         for uid in body.uids:
-            for get_path in (store.req_path, store.principle_path, store.tbd_path):
+            for get_path in (store.req_path, store.principle_path, store.decision_path):
                 p = get_path(uid)
                 if p.exists():
                     stage_file(store.root, p)
@@ -48,7 +48,7 @@ def batch_commit(body: CommitRequest, store: Store = Depends(get_store)):
 
 @router.get("/git/log/{uid}")
 def get_git_log(uid: str, store: Store = Depends(get_store)):
-    for get_path in (store.req_path, store.principle_path, store.tbd_path):
+    for get_path in (store.req_path, store.principle_path, store.decision_path):
         p = get_path(uid)
         if p.exists():
             return git_log(store.root, p)

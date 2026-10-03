@@ -20,7 +20,7 @@ def _fast_password_hashing(monkeypatch):
 @pytest.fixture
 def repo_root(tmp_path: Path) -> Path:
     """Bare repo directory with required subdirectories."""
-    for d in ("requirements", "principles", "tbds", ".reqtool"):
+    for d in ("requirements", "principles", "decisions", ".reqtool"):
         (tmp_path / d).mkdir()
     return tmp_path
 
@@ -131,3 +131,10 @@ def demo_client(demo_repo_root: Path) -> TestClient:
     from reqtool.api import create_app
     app = create_app(demo_repo_root)
     return TestClient(app, raise_server_exceptions=True)
+
+
+def review_first(client, uid, headers=None):
+    """Walk a draft requirement through review so it can be approved (the formal workflow has no draft -> approved)."""
+    for state in ("in_review", "reviewed"):
+        r = client.post(f"/requirements/{uid}/transition", json={"to_state": state}, headers=headers)
+        assert r.status_code == 200, r.text

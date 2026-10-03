@@ -1,4 +1,5 @@
 """SEC-01: authentication is enforced in 'required' mode; 'local' mode serves loopback only."""
+from tests.conftest import review_first
 import json
 
 import pytest
@@ -98,6 +99,7 @@ def test_deleted_user_token_stops_working(secured, repo_root):
 def test_approval_identity_is_the_token_user(secured):
     h = _h(secured, "ed")
     uid = secured.post("/requirements", json={"title": "x"}, headers=h).json()["uid"]
+    review_first(secured, uid, headers=h)
     r = secured.post(f"/requirements/{uid}/approve", json={"approved_by": "ed"}, headers=h)
     assert r.status_code == 200 and r.json()["approval"]["identity_verified"] is True
 

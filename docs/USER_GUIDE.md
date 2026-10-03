@@ -206,6 +206,24 @@ The editor shows the workflow of the item's own type (for example Themes, Initia
 
 The `done` transition of the `lightweight` (theme, initiative) and `sprint` (epic, feature, story, task, bug, spike) workflows has a guard `requires_children_in: [done, cancelled]`. By default (`children_enforce: warn`) a parent can still be closed, and `req validate` warns (`open_children`) about it. Set `children_enforce: error` in `hierarchy.yaml` to refuse the transition with `409 workflow_guard` listing the open children, or `off` to switch the check off. Only direct, non-deleted children are checked.
 
+#### Review cannot be skipped
+
+In the `formal` workflow (functional, performance, security, interface, compliance, constraint, operational and physical requirements) a draft moves to `in_review` and then `reviewed` before it can be approved. `draft -> approved` is no longer a transition (`safety_formal` already worked this way), so `POST /requirements/{uid}/approve` on a draft answers `409 workflow_guard`. A repository that wants the shortcut back can add `approved` to `draft` in its own `hierarchy.yaml`.
+
+#### Readiness and done checklists
+
+Every type has a Definition of Ready or Done where it makes sense, including themes, initiatives and features, and the systems types. Items marked `advisory: true` in `hierarchy.yaml` (for example "Linked to at least one stakeholder need" on a theme) are shown in the checklist but do not block anything.
+
+#### Strategic fields
+
+Themes and initiatives show a **Strategic Fields** section in the editor: outcome, success measures, time horizon (`now`, `next`, `later`), target release, business value and risks. The values are stored under `custom_fields`, are included in Markdown exports and can be picked in CSV exports as `custom_fields.outcome` and so on. The field list comes from `type_fields` in `hierarchy.yaml`, so a repository can change it or add the same for other types.
+
+#### Decisions and TBDs
+
+A TBD is a decision record with `type: tbd`; both live in one collection and in the `decisions/` folder, served by `/decisions` (everything) and `/tbds` (TBDs only, kept for existing clients). Repositories created before this change keep working with a `tbds/` folder. Run `req migrate` to move those files into `decisions/`; it is safe to run twice and leaves a file in place if `decisions/` already holds a different copy.
+
+Resolving a TBD needs a decision text. The **Resolve** dialog (and `POST /tbds/{uid}/resolve` with `decision`, `rationale` and `linked_decision`) records the decision, the rationale, an optional linked ADR, the resolver (the logged-in user, or the name supplied in local mode) and the time. Older clients that send only `resolution` still work. To refuse approval of requirements that link to an open TBD, set `validation.block_approval_on_open_tbds: true` in `config.yaml`; approval then answers `409 open_tbd` listing the TBDs. Without it the existing `open_tbd_on_approved` warning is all you get.
+
 ### 4.1 Parent/child type rules
 
 `hierarchy.yaml` lists which item types may sit under which (`allowed_children`). The top-level `enforce` key controls how strictly this is applied:

@@ -63,8 +63,8 @@ my-reqs/
 │   └── <uid>.yaml           # One file per requirement
 ├── principles/
 │   └── <uid>.yaml
-├── tbds/
-│   └── <uid>.yaml
+├── decisions/
+│   └── <uid>.yaml           # Decisions (ADRs) and TBDs; older repositories may still have tbds/ (see `req migrate`)
 ├── modules/
 │   └── <module-id>/
 │       ├── _module.yaml     # Module manifest
@@ -126,7 +126,7 @@ Four workflow types are defined in `defaults/hierarchy.yaml`. Override any per-p
 |----------|---------|--------|
 | `lightweight` | theme, initiative, stakeholder_need | draft → active → done / cancelled |
 | `sprint` | epic, feature, story, task, bug, spike | backlog → ready → in_progress → in_review → done |
-| `formal` | functional, performance, interface, etc. | draft → in_review → reviewed → approved → deprecated |
+| `formal` | functional, performance, interface, etc. | draft → in_review → reviewed → approved → deprecated (review cannot be skipped) |
 | `safety_formal` | safety | Same as formal, with a transition guard on `approved` requiring ACs and `safety_classification` |
 
 ### Workflow guards
@@ -310,6 +310,7 @@ req verify                       Verify all content hashes; exit 1 on mismatch
 req new requirement              Create a requirement interactively
 req new principle                Create a principle interactively
 req new tbd                      Create a TBD interactively
+req migrate                      Move legacy tbds/ files into decisions/ (safe to repeat)
 
 req new-agile story              Create a story (auto-increments US-NNN)
 req new-agile task               Create a task (TK-NNN)

@@ -41,6 +41,15 @@ def _req_to_markdown(req: dict[str, Any], req_id_by_uid: Optional[dict[str, str]
         lines.append(content["extended_description"].strip())
         lines.append("")
 
+    custom = req.get("custom_fields") or {}
+    shown = {k: v for k, v in custom.items() if v not in (None, "", [])}
+    if shown:
+        lines.append("**Fields**\n")
+        for key, val in shown.items():
+            text = "; ".join(str(v) for v in val) if isinstance(val, list) else str(val)
+            lines.append(f"- {key.replace('_', ' ').capitalize()}: {text}")
+        lines.append("")
+
     # Metadata table
     meta_pairs = [
         ("Status",   req.get("status",  "")),
@@ -203,7 +212,7 @@ def export_markdown(
         files["principles.md"] = "\n".join(lines)
 
     # TBDs
-    tbds = [t for t in store.tbds.values() if not t.get("deleted")]
+    tbds = [t for t in store.decisions.values() if not t.get("deleted")]
     if tbds:
         lines = []
         for t in sorted(tbds, key=lambda x: x.get("id", "")):
@@ -486,7 +495,7 @@ def export_jsx(
     )
     tbds_data = (
         [{"uid": t["uid"], "id": t.get("id"), "title": t.get("title"), "status": t.get("status")}
-         for t in store.tbds.values() if not t.get("deleted")]
+         for t in store.decisions.values() if not t.get("deleted")]
         if cfg.include_tbds else []
     )
 

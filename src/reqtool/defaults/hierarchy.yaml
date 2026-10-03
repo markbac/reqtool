@@ -299,7 +299,7 @@ workflows:
         colour: "#da3633"
         terminal: true
     transitions:
-      draft: [in_review, approved]
+      draft: [in_review]
       in_review: [reviewed, draft]
       reviewed: [approved, in_review]
       approved: [deprecated, in_review]
@@ -373,6 +373,26 @@ dor:
     - item: Dependencies on other epics identified
     - item: Rough estimate or t-shirt sizing agreed
 
+  theme:
+    - item: Strategic intent and desired outcome stated
+    - item: Owner named
+    - item: Time horizon set
+    - item: Linked to at least one stakeholder need
+      advisory: true
+
+  initiative:
+    - item: Problem and outcome defined
+    - item: Owner and target release set
+    - item: Success measures defined
+    - item: Child epics identified
+      advisory: true
+
+  feature:
+    - item: Value to the user or customer described
+    - item: Acceptance criteria defined
+    - item: Parent initiative or epic linked
+      advisory: true
+
 # ---------------------------------------------------------------------------
 # Definition of Done (DoD) templates per type
 # ---------------------------------------------------------------------------
@@ -416,6 +436,60 @@ dod:
     - item: Acceptance criteria met
     - item: Verification method executed
     - item: Verification evidence recorded
+
+  # Advisory items are shown but do not block completion.
+  theme:
+    - item: Outcome reviewed against the stated intent
+    - item: Child initiatives done or cancelled
+    - item: Lessons recorded
+      advisory: true
+
+  initiative:
+    - item: Outcome reviewed against the success measures
+    - item: Child epics done or cancelled
+    - item: Stakeholders informed of the result
+      advisory: true
+
+  feature:
+    - item: Acceptance criteria met
+    - item: Documentation updated if required
+    - item: Released or scheduled for release
+      advisory: true
+
+  performance:
+    - item: Acceptance criteria met
+    - item: Measured result recorded
+  security:
+    - item: Acceptance criteria met
+    - item: Security review completed
+    - item: Verification evidence recorded
+  interface:
+    - item: Interface partners agreed
+    - item: Verification evidence recorded
+  compliance:
+    - item: Evidence of compliance recorded
+    - item: Assessor sign-off obtained
+      advisory: true
+  constraint:
+    - item: Constraint confirmed with the owner
+  operational:
+    - item: Acceptance criteria met
+    - item: Operating procedure updated
+      advisory: true
+  physical:
+    - item: Acceptance criteria met
+    - item: Verification evidence recorded
+
+# Type-specific fields shown in the editor and stored under ``custom_fields``.
+type_fields:
+  theme: &strategic_fields
+    - {key: outcome, label: Outcome, type: text, description: "The result the theme should achieve"}
+    - {key: success_measures, label: Success measures, type: list, description: "How success is judged"}
+    - {key: time_horizon, label: Time horizon, type: select, options: [now, next, later]}
+    - {key: target_release, label: Target release, type: text}
+    - {key: business_value, label: Business value, type: select, options: [low, medium, high, critical]}
+    - {key: risks, label: Risks, type: list}
+  initiative: *strategic_fields
 
 # ---------------------------------------------------------------------------
 # Cross-layer relationship rules

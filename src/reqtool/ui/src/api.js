@@ -101,6 +101,14 @@ export const api = {
     commit:  (uid, body)   => post(`/tbds/${uid}/commit`, body),
     resolve: (uid, body)   => post(`/tbds/${uid}/resolve`, { resolved_by: localStorage.getItem('reqtool:username') || 'user', ...body }),
   },
+  decisions: {
+    list:    (params = {}) => get('/decisions?' + new URLSearchParams(params)),
+    get:     (uid)         => get(`/decisions/${uid}`),
+    create:  (body)        => post('/decisions', body),
+    update:  (uid, body)   => put(`/decisions/${uid}`, body),
+    delete:  (uid)         => del(`/decisions/${uid}`),
+    commit:  (uid, body)   => post(`/decisions/${uid}/commit`, body),
+  },
   products: {
     list:   ()      => get('/products'),
     get:    (id)    => get(`/products/${id}`),

@@ -44,7 +44,7 @@ states:
     terminal: true
 
 transitions:
-  draft:       [in_review, approved]
+  draft:       [in_review]
   in_review:   [reviewed, draft]
   reviewed:    [approved, in_review]
   approved:    [deprecated, in_review]
