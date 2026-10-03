@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import logging
 import hmac
 import json
 import os
@@ -17,8 +18,15 @@ from pathlib import Path
 from typing import Any, Optional
 from reqtool.fileio import load_yaml, save_yaml, utcnow_iso
 
+log = logging.getLogger(__name__)
+
 # Secret key file location
 SECRET_FILE = ".secret_key"
+
+# Credentials that older releases seeded into every new repository. They are
+# publicly documented, so they are refused at login (see UserStore.authenticate).
+LEGACY_DEFAULT_USER = "admin"
+LEGACY_DEFAULT_PASSWORD = "admin123"
 
 
 SECRET_IGNORE_ENTRIES = (".reqtool/.secret_key", ".reqtool/users.yaml")
@@ -144,34 +152,24 @@ class UserStore:
         self.users_file = root / ".reqtool" / "users.yaml"
 
     def load_users(self) -> dict[str, dict[str, Any]]:
+        """Return the user table. No account is ever created implicitly."""
         if not self.users_file.exists():
-            # Seed default admin user
-            self._seed_default_admin()
+            return {}
         data = load_yaml(self.users_file) or {}
         return data.get("users", {})
 
-    def _seed_default_admin(self):
-        self.users_file.parent.mkdir(parents=True, exist_ok=True)
-        h, salt = hash_password("admin123")
-        default_data = {
-            "users": {
-                "admin": {
-                    "username": "admin",
-                    "full_name": "Administrator",
-                    "email": "admin@reqtool.local",
-                    "role": "admin",
-                    "password_hash": h,
-                    "salt": salt,
-                    "created": utcnow_iso(),
-                }
-            }
-        }
-        ensure_secrets_ignored(self.root)
-        save_yaml(self.users_file, default_data)
-        _restrict(self.users_file)
+    def has_users(self) -> bool:
+        return bool(self.load_users())
+
+    def has_default_credentials(self) -> bool:
+        """True if a legacy ``admin`` / ``admin123`` account (seeded by v0.5.0 and earlier) exists."""
+        u = self.load_users().get(LEGACY_DEFAULT_USER)
+        return bool(u) and verify_password(
+            LEGACY_DEFAULT_PASSWORD, u.get("password_hash", ""), u.get("salt", "") or "00")
 
     def save_users(self, users: dict[str, dict[str, Any]]):
         self.users_file.parent.mkdir(parents=True, exist_ok=True)
+        ensure_secrets_ignored(self.root)
         save_yaml(self.users_file, {"users": users})
         _restrict(self.users_file)
 
@@ -180,9 +178,13 @@ class UserStore:
         user = users.get(username)
         if not user:
             return None
-        if verify_password(password, user.get("password_hash", ""), user.get("salt", "")):
-            return user
-        return None
+        if not verify_password(password, user.get("password_hash", ""), user.get("salt", "")):
+            return None
+        if username == LEGACY_DEFAULT_USER and password == LEGACY_DEFAULT_PASSWORD:
+            # Well-known credentials from older releases: never accept them.
+            log.warning("Refusing login with the legacy default admin password; reset it with `req user passwd admin`.")
+            return None
+        return user
 
     def create_user(self, username: str, password: str, full_name: str = "", email: str = "", role: str = "editor") -> dict[str, Any]:
         users = self.load_users()

@@ -45,14 +45,14 @@ def test_gitignore_gets_secret_entries(tmp_path):
 
 def test_creating_key_and_users_updates_gitignore(tmp_path):
     _get_secret_key(tmp_path)
-    UserStore(tmp_path).load_users()
+    UserStore(tmp_path).create_user("u", "longenough1", role="admin")
     text = (tmp_path / ".gitignore").read_text()
     assert ".reqtool/.secret_key" in text and ".reqtool/users.yaml" in text
 
 
 @posix_only
 def test_users_file_owner_only(tmp_path):
-    UserStore(tmp_path).load_users()
+    UserStore(tmp_path).create_user("u", "longenough1", role="admin")
     assert stat.S_IMODE(os.stat(tmp_path / ".reqtool" / "users.yaml").st_mode) == 0o600
 
 

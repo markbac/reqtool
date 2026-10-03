@@ -38,7 +38,7 @@ Combining formal systems engineering rigor (INCOSE quality linter, ISO 26262 / D
 - **Multi-Client Server Host (`reqtool-server.exe`):** Multi-client repository hosting listening on `0.0.0.0:8765`.
 - **Remote Client Desktop App (`reqtool-client.exe`):** Desktop application workstation equipped with `🔐 Server Login & Connection` UI and dynamic server URL switching (`http://remote-server:8765`).
 - **User Authentication:** Password hashing (PBKDF2-HMAC-SHA256) and signed JWT access tokens (`/auth/login`, `/auth/me`, `/auth/users`).
-- **Default Admin Seeding:** Auto-seeds default admin credentials (`admin` / `admin123`) in `.reqtool/users.yaml`.
+- **No Default Credentials:** No account is created implicitly; the first administrator is created with `req user add <name> --role admin`.
 - **Role-Based Access Control (RBAC):** Permission enforcement across user roles (*admin*, *editor*, *reviewer*, *viewer*).
 
 ### 🛡️ 2.5 Cryptographic Signatures & Audit Package Exporter

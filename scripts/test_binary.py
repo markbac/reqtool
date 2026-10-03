@@ -8,6 +8,7 @@ Launches dist executables in background processes, verifies HTTP 200 responses o
 import sys
 import time
 import json
+import urllib.error
 import urllib.request
 import subprocess
 from pathlib import Path
@@ -58,18 +59,19 @@ def test_executable(exe_name: str, port: int):
             print(f"GET {url_root} -> {resp.status} OK")
             assert resp.status == 200
 
-        # Test /auth/login
+        # Test /auth/login is alive and no default account exists
         login_data = json.dumps({"username": "admin", "password": "admin123"}).encode("utf-8")
         login_req = urllib.request.Request(
             f"http://127.0.0.1:{port}/auth/login",
             data=login_data,
             headers={"Content-Type": "application/json"}
         )
-        with urllib.request.urlopen(login_req, timeout=5) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            print(f"POST /auth/login -> {resp.status} OK (User: {data['user']['username']}, Token: {data['access_token'][:15]}...)")
-            assert resp.status == 200
-            assert "access_token" in data
+        try:
+            urllib.request.urlopen(login_req, timeout=5)
+            raise AssertionError("default admin credentials were accepted")
+        except urllib.error.HTTPError as exc:
+            print(f"POST /auth/login (default creds) -> {exc.code} (expected 401)")
+            assert exc.code == 401
 
         print(f"SUCCESS: Executable {exe_name} is fully functional!")
 
