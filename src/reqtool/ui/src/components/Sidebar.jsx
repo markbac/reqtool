@@ -68,8 +68,27 @@ function ContextMenu({ x, y, node, onClose, onAction }) {
       {items.map(i => (
         <button key={i.action}
           className={`ctx-item ${i.danger ? 'ctx-item-danger' : ''}`}
-          onClick={() => { onAction(node, i.action); onClose(); }}>
+          onClick={() => { onAction(node, i.action, { x, y }); onClose(); }}>
           {i.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Which type a new child should have: offered by the server from the parent's type.
+function ChildTypeMenu({ x, y, parent, types, onClose, onPick }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [onClose]);
+  return (
+    <div ref={ref} className="ctx-menu" style={{ top: y, left: x }} role="menu" aria-label={`Add child to ${parent.id}`}>
+      {types.map(t => (
+        <button key={t} className="ctx-item" role="menuitem" onClick={() => { onPick(t); onClose(); }}>
+          {TYPE_META[t]?.icon || '+'} {TYPE_META[t]?.label || t}
         </button>
       ))}
     </div>
@@ -188,6 +207,7 @@ function RequirementsPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState(null);
   const [ctxMenu, setCtxMenu] = useState(null);
+  const [childMenu, setChildMenu] = useState(null);
   const [histUid, setHistUid] = useState(null);
   const [histData, setHistData] = useState(null);
   const [showModulePanel, setShowModulePanel] = useState(false);
@@ -223,10 +243,12 @@ function RequirementsPanel() {
 
   const displayTree = searchQuery ? tree.map(n => filterNode(n, searchQuery)).filter(Boolean) : tree;
 
-  const createReq = async (parentId = null) => {
+  const createReq = async (parentId = null, reqType = null) => {
     try {
-      const tmpl = state.pendingTemplate;
-      const base = {
+      const tmpl = reqType ? null : state.pendingTemplate;
+      const base = reqType ? {
+        title: `New ${TYPE_META[reqType]?.label || reqType}`, parentId, req_type: reqType,
+      } : {
         title: tmpl ? `New ${tmpl.label}` : 'New requirement',
         parentId,
         content: tmpl?.fields?.content || { description: 'The system shall...', rationale: '', extended_description: '' },
@@ -241,11 +263,21 @@ function RequirementsPanel() {
     } catch (err) { toast(err.message, 'error'); return null; }
   };
 
-  const handleCtx = async (node, action) => {
-    if (action === 'add_child')   { await createReq(node.uid); }
+  // Ask the server which types may sit under this one: one choice creates it, several open a menu.
+  const addChild = async (node, pos) => {
+    let types = [];
+    try { types = (await api.hierarchy.children(node.req_type || 'functional'))?.allowed_children || []; }
+    catch (err) { toast(err.message, 'error'); return; }
+    if (types.length === 0) { toast(`${TYPE_META[node.req_type]?.label || node.req_type} items cannot have children`, 'info'); return; }
+    if (types.length === 1) { await createReq(node.uid, types[0]); return; }
+    setChildMenu({ x: pos?.x ?? 200, y: pos?.y ?? 200, node, types });
+  };
+
+  const handleCtx = async (node, action, pos) => {
+    if (action === 'add_child')   { await addChild(node, pos); }
     else if (action === 'add_sibling') {
       const full = await api.requirements.get(node.uid).catch(() => null);
-      await createReq(full?.parentId || null);
+      await createReq(full?.parentId || null, full?.req_type || node.req_type || null);
     } else if (action === 'clone') {
       try { const c = await api.requirements.clone(node.uid); dispatch({ type: 'SELECT', uid: c.uid, artefactType: 'requirement' }); await load(); toast(`Cloned as ${c.id}`, 'success'); }
       catch (err) { toast(err.message, 'error'); }
@@ -369,6 +401,8 @@ function RequirementsPanel() {
       </div>
       {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} node={ctxMenu.node}
         onClose={() => setCtxMenu(null)} onAction={handleCtx} />}
+      {childMenu && <ChildTypeMenu x={childMenu.x} y={childMenu.y} parent={childMenu.node} types={childMenu.types}
+        onClose={() => setChildMenu(null)} onPick={(t) => createReq(childMenu.node.uid, t)} />}
       {histData && <HistoryOverlay uid={histUid} data={histData}
         onClose={() => { setHistData(null); setHistUid(null); }} />}
     </>
@@ -604,6 +638,10 @@ function TaskSidebarPanel() {
         <div className="task-sidebar-label">Quick create</div>
         <div className="task-sidebar-actions">
           {[
+            { icon: '🎯', label: 'Theme',      type: 'theme' },
+            { icon: '🚀', label: 'Initiative', type: 'initiative' },
+            { icon: '📦', label: 'Epic',       type: 'epic' },
+            { icon: '✨', label: 'Feature',    type: 'feature' },
             { icon: '📖', label: 'Story',   type: 'story' },
             { icon: '✅', label: 'Task',    type: 'task' },
             { icon: '🐛', label: 'Bug',     type: 'bug' },

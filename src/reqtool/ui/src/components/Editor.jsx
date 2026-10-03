@@ -1703,6 +1703,9 @@ function EditorEmpty() {
     { icon: '✅', label: 'Task',           req_type: 'task',     desc: 'Technical work item' },
     { icon: '🐛', label: 'Bug',            req_type: 'bug',      desc: 'Defect report' },
     { icon: '📦', label: 'Epic',           req_type: 'epic',     desc: 'Significant capability' },
+    { icon: '✨', label: 'Feature',        req_type: 'feature',  desc: 'User-facing capability' },
+    { icon: '🚀', label: 'Initiative',     req_type: 'initiative', desc: 'Large body of work' },
+    { icon: '🎯', label: 'Theme',          req_type: 'theme',    desc: 'Strategic area' },
   ];
 
   const createQuick = async (req_type) => {
