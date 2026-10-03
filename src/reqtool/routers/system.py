@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Optional
 from collections import Counter
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from reqtool import __version__
 from reqtool.store import Store
@@ -79,12 +79,36 @@ def get_repo_info(store: Store = Depends(get_store)):
     }
 
 
+_LOCAL_HOSTS = {"127.0.0.1", "::1", "localhost", "testclient"}
+
+
+def _authorise_repo_path(request: Request, raw_path: str) -> Path:
+    """Gate for endpoints that let the caller pick a filesystem location.
+
+    - Disabled entirely when REQTOOL_DISABLE_REPO_SWITCH=1.
+    - Only accepted from a loopback client (a remote caller must never choose
+      server filesystem paths).
+    - If REQTOOL_REPO_ROOTS (os.pathsep-separated) is set, the resolved target
+      must lie inside one of those directories.
+    """
+    if os.environ.get("REQTOOL_DISABLE_REPO_SWITCH") == "1":
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Repository switching is disabled"})
+    host = request.client.host if request.client else ""
+    if host not in _LOCAL_HOSTS:
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Repository switching is only allowed from the local machine"})
+    target = Path(str(raw_path)).expanduser().resolve()
+    roots = [r for r in os.environ.get("REQTOOL_REPO_ROOTS", "").split(os.pathsep) if r.strip()]
+    if roots and not any(target.is_relative_to(Path(r).expanduser().resolve()) for r in roots):
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Path is outside the allowed repository roots"})
+    return target
+
+
 @router.post("/repo/switch", tags=["meta"])
-def switch_repo(body: dict[str, Any], store: Store = Depends(get_store)):
+def switch_repo(body: dict[str, Any], request: Request, store: Store = Depends(get_store)):
     raw_path = body.get("path")
     if not raw_path:
         raise HTTPException(status_code=400, detail="path parameter required")
-    target_path = Path(raw_path).resolve()
+    target_path = _authorise_repo_path(request, raw_path)
     if not target_path.exists() or not (target_path / ".reqtool" / "config.yaml").exists():
         raise HTTPException(status_code=404, detail=f"No valid reqtool repository found at '{target_path}'")
     store.root = target_path
@@ -93,11 +117,11 @@ def switch_repo(body: dict[str, Any], store: Store = Depends(get_store)):
 
 
 @router.post("/repo/init", status_code=201, tags=["meta"])
-def init_repo(body: dict[str, Any], store: Store = Depends(get_store)):
+def init_repo(body: dict[str, Any], request: Request, store: Store = Depends(get_store)):
     raw_path = body.get("path")
     if not raw_path:
         raise HTTPException(status_code=400, detail="path parameter required")
-    target_path = Path(raw_path).resolve()
+    target_path = _authorise_repo_path(request, raw_path)
     target_path.mkdir(parents=True, exist_ok=True)
 
     repo_id = body.get("repo_id") or target_path.name
