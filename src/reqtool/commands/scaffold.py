@@ -63,6 +63,8 @@ def _write_base_repo(root: Path, repo_id: str, title: str, theme: str = "dark") 
     gitignore = root / ".gitignore"
     if not gitignore.exists():
         gitignore.write_text("exports/\n*.pyc\n__pycache__/\n")
+    from ..auth import ensure_secrets_ignored
+    ensure_secrets_ignored(root)  # never commit .reqtool/.secret_key or users.yaml
 
     gitattributes = root / ".gitattributes"
     if not gitattributes.exists():
