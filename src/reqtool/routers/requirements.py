@@ -9,7 +9,7 @@ from __future__ import annotations
 import copy
 import logging
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from reqtool.store import Store, ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId
 from reqtool.git_ops import has_conflicts, stage_file, commit as git_commit, git_log
@@ -37,8 +37,12 @@ def list_requirements(
     owner: Optional[str] = None,
     tag: Optional[str] = None,
     deleted: bool = False,
+    limit: Optional[int] = Query(None, ge=1, le=10000, description="Maximum items to return (default: all)"),
+    offset: int = Query(0, ge=0, description="Items to skip, after sorting by id"),
+    response: Response = None,
     store: Store = Depends(get_store),
 ):
+    """List requirements (summary fields). The matching total is always sent in ``X-Total-Count``."""
     results = []
     for req in store.requirements.values():
         if not deleted and req.get("deleted"):
@@ -69,7 +73,11 @@ def list_requirements(
             "version": req.get("version"),
             "parentId": req.get("parentId"),
         })
-    return sorted(results, key=lambda r: r.get("id", ""))
+    results.sort(key=lambda r: r.get("id") or "")
+    response.headers["X-Total-Count"] = str(len(results))
+    if limit is not None:
+        return results[offset:offset + limit]
+    return results[offset:] if offset else results
 
 
 @router.get("/requirements/tree")

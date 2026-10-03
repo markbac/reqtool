@@ -731,6 +731,7 @@ paths:
       tags:
       - requirements
       summary: List Requirements
+      description: List requirements (summary fields). The matching total is always sent in ``X-Total-Count``.
       operationId: list_requirements_requirements_get
       parameters:
       - name: product
@@ -796,6 +797,28 @@ paths:
           type: boolean
           default: false
           title: Deleted
+      - name: limit
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 10000
+            minimum: 1
+          - type: 'null'
+          description: 'Maximum items to return (default: all)'
+          title: Limit
+        description: 'Maximum items to return (default: all)'
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          description: Items to skip, after sorting by id
+          default: 0
+          title: Offset
+        description: Items to skip, after sorting by id
       responses:
         '200':
           description: Successful Response

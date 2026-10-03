@@ -12,8 +12,6 @@ import './Tools.css';
 // Coverage dashboard
 // ---------------------------------------------------------------------------
 export function CoveragePanel({ onClose }) {
-  const { state } = useApp();
-  const { activeProduct } = state;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -21,30 +19,23 @@ export function CoveragePanel({ onClose }) {
     const load = async () => {
       setLoading(true);
       try {
-        const params = activeProduct ? { product: activeProduct.id } : {};
-        const reqs = await api.requirements.list(params);
-        const live = reqs.filter(r => !r.deleted);
-
-        const total = live.length;
-        const byStatus = {};
-        const byPriority = {};
-        let noAC = 0, noOwner = 0, noVerification = 0, noRationale = 0;
-
-        for (const r of live) {
-          byStatus[r.status || 'draft'] = (byStatus[r.status || 'draft'] || 0) + 1;
-          byPriority[r.priority || 'medium'] = (byPriority[r.priority || 'medium'] || 0) + 1;
-          if (!r.acceptance_criteria?.length) noAC++;
-          if (!r.owner) noOwner++;
-          if (r.verification?.status === 'not_started' || !r.verification?.status) noVerification++;
-          if (!r.content?.rationale) noRationale++;
-        }
-
-        setData({ total, byStatus, byPriority, noAC, noOwner, noVerification, noRationale });
+        // One server-side summary (GET /metrics) instead of downloading every requirement.
+        const m = await api.metrics.get();
+        const gaps = m.quality_gaps || {};
+        setData({
+          total: m.totals?.requirements ?? 0,
+          byStatus: m.status || {},
+          byPriority: m.priority || {},
+          noAC: gaps.no_ac ?? 0,
+          noOwner: gaps.no_owner ?? 0,
+          noVerification: gaps.not_verified ?? 0,
+          noRationale: gaps.no_rationale ?? 0,
+        });
       } catch { setData(null); }
       finally { setLoading(false); }
     };
     load();
-  }, [activeProduct]);
+  }, []);
 
   const pct = (n) => data?.total ? Math.round((n / data.total) * 100) : 0;
 

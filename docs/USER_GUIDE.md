@@ -152,6 +152,9 @@ Saving a change to a requirement marks every relationship that points at it as *
 - View requirements organized by workflow states (`Draft`, `In Review`, `Approved`, `Done`) or target release milestones.
 - Drag-and-drop cards between columns to transition workflow states.
 
+#### Paging and the Coverage panel
+`GET /requirements` accepts `limit` (1 to 10000) and `offset`, sorted by ID, and always returns the number of matching items in the `X-Total-Count` response header. Without `limit` it returns everything, as before. The **Coverage** panel now reads the server-side summary from `GET /metrics` (status, priority and quality gaps) instead of downloading every requirement, so it matches the Metrics dashboard.
+
 ### 3.6 Robustness and panels
 - **Duplicate Detector** (**⋯ More > Duplicate Detector**) lists likely duplicate pairs with both IDs, both titles and the similarity score. Click either side to open that requirement.
 - **Iterations** created without a methodology (for example through the API or CLI) are shown and returned as `scrum`.

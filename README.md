@@ -343,7 +343,7 @@ All endpoints are documented at `http://localhost:8765/docs` (Swagger UI) or `ht
 ### Requirements
 
 ```
-GET    /requirements                     List (filter by domain, status, type, owner, tag)
+GET    /requirements                     List (filter by domain, status, type, owner, tag; limit/offset, total in X-Total-Count)
 POST   /requirements                     Create
 GET    /requirements/{uid}               Get
 PUT    /requirements/{uid}               Update (enforces workflow guards on status change)
