@@ -78,7 +78,7 @@ Launch `reqtool-server.exe` on your server host machine:
 ```cmd
 reqtool-server.exe --port 8765
 ```
-- Listens on `0.0.0.0:8765` by default, making it accessible across your local network or server IP.
+- Listens on `0.0.0.0:8765` by default, making it accessible across your local network or server IP, and therefore starts in `--auth required` mode: every request needs a login.
 - No default account exists. Create the first administrator on the server with `req user add <name> --role admin` (prompts for a password).
 
 ### 4.2 Client Remote Connection & User Login (`reqtool-client.exe`)

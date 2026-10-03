@@ -4,6 +4,13 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+### Security
+- **Authentication modes (`req serve --auth local|required`, `REQTOOL_AUTH`)**. `local` (default) needs no login but only serves loopback clients, and `req serve` refuses to bind a non-loopback address in this mode. `required` demands a token on every API call and WebSocket connection; viewers are read-only and repository/config/webhook endpoints are admin-only. `reqtool-server` now starts in `required` mode.
+- No default `admin` / `admin123` account; create the first administrator with `req user add <name> --role admin`. Existing default logins are refused.
+- User creation requires an authenticated admin (first-account bootstrap from localhost only).
+- Approvals use the logged-in identity and a content-bound `SIG-v2` signature.
+- CORS restricted to localhost plus `REQTOOL_CORS_ORIGINS`; markdown/SVG output sanitised; webhook secrets redacted; git ref and ID inputs validated; `/repo/init` and `/repo/switch` limited to local callers.
+
 ## [0.5.0] -- 2026-10-02
 
 ### Added

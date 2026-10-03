@@ -35,6 +35,13 @@ function AppShell() {
   const toggle = useCallback((key, val = true) =>
     dispatch({ type: 'TOGGLE_PANEL', key, value: val }), [dispatch]);
 
+  // Server answered 401: show the login dialog.
+  useEffect(() => {
+    const onUnauthorized = () => toggle('_showLogin');
+    window.addEventListener('reqtool:unauthorized', onUnauthorized);
+    return () => window.removeEventListener('reqtool:unauthorized', onUnauthorized);
+  }, [toggle]);
+
   // ── Startup: load all data ──────────────────────────────────────────────
   useEffect(() => {
     Promise.all([

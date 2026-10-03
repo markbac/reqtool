@@ -20,6 +20,10 @@ import json
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """Real-time event stream & multi-user CRDT co-editing channel."""
+    from reqtool import security
+    if not security.websocket_allowed(websocket, websocket.app.state.auth_mode, websocket.app.state.store.root):
+        await websocket.close(code=1008)  # policy violation
+        return
     await ws_manager.connect(websocket)
     try:
         while True:

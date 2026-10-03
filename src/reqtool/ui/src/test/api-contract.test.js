@@ -30,3 +30,38 @@ describe('api contract (UI-10)', () => {
     expect(JSON.parse(call()[1].body)).toEqual({ resolved_by: 'alice', resolution: 'done' });
   });
 });
+
+describe('authentication handling (SEC-01)', () => {
+  it('401 raises reqtool:unauthorized so the app can show the login dialog', async () => {
+    global.fetch = vi.fn(() => Promise.resolve({
+      ok: false, status: 401, statusText: 'Unauthorized',
+      headers: { get: () => 'application/json' },
+      json: () => Promise.resolve({ detail: { message: 'Authentication required' } }),
+    }));
+    const seen = vi.fn();
+    window.addEventListener('reqtool:unauthorized', seen);
+    await expect(api.requirements.list()).rejects.toThrow('Authentication required');
+    expect(seen).toHaveBeenCalledTimes(1);
+    window.removeEventListener('reqtool:unauthorized', seen);
+  });
+
+  it('a failed login does not trigger the login dialog event', async () => {
+    global.fetch = vi.fn(() => Promise.resolve({
+      ok: false, status: 401, statusText: 'Unauthorized',
+      headers: { get: () => 'application/json' },
+      json: () => Promise.resolve({ detail: 'Invalid username or password' }),
+    }));
+    const seen = vi.fn();
+    window.addEventListener('reqtool:unauthorized', seen);
+    await expect(api.auth.login('a', 'b')).rejects.toThrow('Invalid username or password');
+    expect(seen).not.toHaveBeenCalled();
+    window.removeEventListener('reqtool:unauthorized', seen);
+  });
+
+  it('audit package URL carries the token for browser navigation', () => {
+    localStorage.setItem('reqtool:auth_token', 'tok123');
+    expect(api.exports.auditPackage({ a: '1' })).toContain('access_token=tok123');
+    localStorage.removeItem('reqtool:auth_token');
+    expect(api.exports.auditPackage({ a: '1' })).not.toContain('access_token');
+  });
+});

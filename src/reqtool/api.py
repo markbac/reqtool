@@ -34,7 +34,7 @@ log = logging.getLogger(__name__)
 LOCAL_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
 
 
-def create_app(repo_root: Path) -> FastAPI:
+def create_app(repo_root: Path, auth_mode: str | None = None) -> FastAPI:
     store = Store(repo_root)
     store.load()
 
@@ -61,6 +61,12 @@ def create_app(repo_root: Path) -> FastAPI:
             )
     except Exception:  # never block start-up on this check
         pass
+
+    # Access control is registered BEFORE CORS because the last middleware added
+    # is the outermost: CORS must wrap it so preflights and 401/403 replies still
+    # carry CORS headers for the allowed local origins.
+    from . import security
+    security.install(app, security.resolve_mode(auth_mode))
 
     # Only the local UI (and any origins the operator lists) may call the API
     # from a browser. A wildcard lets any web page the user visits drive the API.

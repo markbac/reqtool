@@ -24,6 +24,10 @@ async function request(method, path, body = null) {
   };
   if (body !== null) opts.body = JSON.stringify(body);
   const res = await fetch(`${base}${path}`, opts);
+  if (res.status === 401 && path !== '/auth/login') {
+    // Server requires authentication (or the token expired): ask the app to show the login dialog.
+    try { window.dispatchEvent(new CustomEvent('reqtool:unauthorized')); } catch { /* non-browser */ }
+  }
   if (!res.ok) {
     let detail;
     try { detail = await res.json(); } catch { detail = { message: res.statusText }; }
@@ -216,6 +220,10 @@ export const api = {
     markdown:     (body) => post('/export/markdown', body),
     csv:          (body) => post('/export/csv', body),
     reqif:        () => get('/export/reqif'),
-    auditPackage: (params = {}) => `${getBaseUrl()}/export/audit-package?${new URLSearchParams(params)}`,
+    auditPackage: (params = {}) => {
+      // Browser navigations cannot send an Authorization header, so pass the token as a query parameter.
+      const token = localStorage.getItem('reqtool:auth_token');
+      return `${getBaseUrl()}/export/audit-package?${new URLSearchParams(token ? { ...params, access_token: token } : params)}`;
+    },
   },
 };
