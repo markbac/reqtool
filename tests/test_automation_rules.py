@@ -57,20 +57,66 @@ def test_duplicate_ids_rejected(client):
     assert r.status_code == 422
 
 
-def test_engine_runs_saved_rules_set_field_and_add_tag(client):
+def test_engine_actions_are_idempotent(client):
     client.put("/automation/rules", json=[
         RULE,
         {"name": "Assign", "event": "requirement_created", "action": "set_field",
          "target_field": "owner", "target_value": "qa_lead"},
     ])
     store = client.app.state.store
-    req = make_req(client, title="S", req_type="safety")
-    engine = AutomationEngine(store.root)
-    done = engine.execute_event_rules(store, "requirement_created", {"uid": req["uid"], "req_type": "safety"})
-    assert {d["action"] for d in done} == {"add_tag", "set_field"}
+    req = make_req(client, title="S", req_type="safety")  # create event runs both rules
     got = store.get_requirement(req["uid"])
     assert "ASIL-D" in got["tags"] and got["owner"] == "qa_lead"
-    # idempotent: tag is not added twice
-    again = engine.execute_event_rules(store, "requirement_created", {"uid": req["uid"], "req_type": "safety"})
-    assert "add_tag" not in {d["action"] for d in again}
+    # running the same event again changes nothing
+    again = AutomationEngine(store.root).execute_event_rules(
+        store, "requirement_created", {"uid": req["uid"], "req_type": "safety"})
+    assert again == []
     assert store.get_requirement(req["uid"])["tags"].count("ASIL-D") == 1
+
+
+# ---------------------------------------------------------------------------
+# INT-02: rules run when events are published
+# ---------------------------------------------------------------------------
+
+def test_approve_runs_matching_rule_once(client):
+    client.put("/automation/rules", json=[
+        {"name": "QA on approval", "event": "requirement_approved", "condition": {"status": "approved"},
+         "action": "set_field", "target_field": "owner", "target_value": "qa_lead"}])
+    uid = make_req(client)["uid"]
+    r = client.post(f"/requirements/{uid}/approve", json={"approved_by": "alice"})
+    assert r.status_code == 200
+    got = client.get(f"/requirements/{uid}").json()
+    assert got["owner"] == "qa_lead"
+    summaries = [h["summary"] for h in got["history"] if "Automation rule" in h["summary"]]
+    assert len(summaries) == 1
+
+
+def test_create_event_applies_tag_for_matching_type_only(client):
+    client.put("/automation/rules", json=[RULE])
+    safe = make_req(client, title="S", req_type="safety")
+    plain = make_req(client, title="P")
+    assert "ASIL-D" in client.get(f"/requirements/{safe['uid']}").json().get("tags", [])
+    assert "ASIL-D" not in client.get(f"/requirements/{plain['uid']}").json().get("tags", [])
+
+
+def test_disabled_rule_and_other_events_do_nothing(client):
+    client.put("/automation/rules", json=[{**RULE, "enabled": False}])
+    r = make_req(client, title="S", req_type="safety")
+    assert "ASIL-D" not in client.get(f"/requirements/{r['uid']}").json().get("tags", [])
+    client.put("/automation/rules", json=[{**RULE, "event": "requirement_updated"}])
+    r2 = make_req(client, title="S2", req_type="safety")
+    assert "ASIL-D" not in client.get(f"/requirements/{r2['uid']}").json().get("tags", [])
+    client.put(f"/requirements/{r2['uid']}", json={"title": "edited"})
+    assert "ASIL-D" in client.get(f"/requirements/{r2['uid']}").json().get("tags", [])
+
+
+def test_rule_actions_do_not_retrigger_rules(client):
+    # an update rule that sets a field must not loop through the update event
+    client.put("/automation/rules", json=[
+        {"name": "loop?", "event": "requirement_updated", "action": "set_field",
+         "target_field": "owner", "target_value": "bot"}])
+    uid = make_req(client)["uid"]
+    client.put(f"/requirements/{uid}", json={"title": "x"})
+    got = client.get(f"/requirements/{uid}").json()
+    assert got["owner"] == "bot"
+    assert len([h for h in got["history"] if "Automation rule" in h["summary"]]) == 1
