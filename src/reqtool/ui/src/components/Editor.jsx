@@ -455,7 +455,7 @@ function NfrEditor({ nfr = {}, nfrKeys = [], onChange }) {
 // ---------------------------------------------------------------------------
 // Relationships editor
 // ---------------------------------------------------------------------------
-function RelationshipsEditor({ rels = [], onChange, enums, excludeUid }) {
+export function RelationshipsEditor({ rels = [], onChange, enums, excludeUid, onClearSuspect }) {
   const { dispatch } = useApp();
   const [search, setSearch] = useState('');
   const [results, setResults] = useState([]);
@@ -495,9 +495,20 @@ function RelationshipsEditor({ rels = [], onChange, enums, excludeUid }) {
       {rels.map((rel, idx) => (
         <div key={idx} className="rel-row">
           <span className="rel-type badge">{rel.type}</span>
+          {rel.suspect && (
+            <span className="rel-suspect badge" title="The linked item changed after this link was made">⚠ suspect</span>
+          )}
           <button className="rel-target-link" title="Navigate to this requirement" onClick={() => navigateTo(rel)}>
             {rel._display || rel.target?.uid?.slice(0, 12) + '...'}
           </button>
+          {rel.suspect && (
+            <>
+              <button className="rel-suspect-btn" title="Open the linked item to review the change" onClick={() => navigateTo(rel)}>Review</button>
+              {onClearSuspect && (
+                <button className="rel-suspect-btn" title="Mark this link as reviewed" onClick={() => onClearSuspect(rel)}>Clear suspect</button>
+              )}
+            </>
+          )}
           <button className="string-list-remove" onClick={() => remove(idx)}>✕</button>
         </div>
       ))}
@@ -871,6 +882,18 @@ function RequirementEditor({ uid }) {
       .finally(() => setLoading(false));
   }, [uid]);
 
+  const clearSuspect = async (rel) => {
+    const sameLink = r => r.type === rel.type && r.target?.uid === rel.target?.uid;
+    const idx = (req?.relationships ?? []).findIndex(sameLink);
+    if (idx < 0) { toast('Save the relationship before clearing its suspect flag', 'error'); return; }
+    try {
+      await api.requirements.clearSuspect(uid, idx);
+      const unflag = x => ({ ...x, relationships: (x.relationships ?? []).map(r => sameLink(r) ? { ...r, suspect: false } : r) });
+      setReq(unflag); setDraft(unflag);
+      window.dispatchEvent(new Event('reqtool:tree-changed'));
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
   const isDirty = JSON.stringify(draft) !== JSON.stringify(req);
 
   useEffect(() => {
@@ -1166,7 +1189,7 @@ function RequirementEditor({ uid }) {
           <>
             <Section title="Relationships">
               <RelationshipsEditor rels={draft.relationships ?? []} onChange={v => patch('relationships', v)}
-                enums={enums} excludeUid={uid} />
+                enums={enums} excludeUid={uid} onClearSuspect={clearSuspect} />
             </Section>
             <Section title="External Links">
               <LinksEditor links={draft.links ?? []} onChange={v => patch('links', v)} enums={enums} />

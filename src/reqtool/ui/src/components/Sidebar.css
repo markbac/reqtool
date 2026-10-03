@@ -619,3 +619,9 @@
   gap: 4px;
   flex-wrap: wrap;
 }
+.tree-node-suspect {
+  font-size: 10px;
+  color: #d29922;
+  margin-left: 4px;
+  flex-shrink: 0;
+}

@@ -127,6 +127,10 @@ Launching `reqtool serve` opens the interactive web workstation in your browser 
 - Displays nested requirement hierarchies (Themes → Initiatives → Epics → Features → Stories).
 - **Drag-and-Drop Re-parenting:** Click and drag any node to re-parent it under a new parent requirement. Moving an item under itself or one of its own descendants is refused (`409 parent_cycle`). If a loop already exists in the files, validation reports `parent_cycle` and the tree shows each item once.
 
+#### Suspect links
+
+Saving a change to a requirement marks every relationship that points at it as *suspect* in the items that depend on it. Suspect links show as a warning count (`⚠ n`) on the tree node and as a `⚠ suspect` tag on the relationship row in the editor's Relations tab. Use **Review** to open the linked item, and **Clear suspect** once you have checked that the dependant is still correct. `req validate` warns (`suspect_link`) for approved items that still have suspect links, and `GET /metrics` reports `totals.suspect_links`.
+
 ### 3.2 High-Density Bulk Grid View (Spreadsheet Mode)
 - Access via **Tools** → **Bulk Editing Grid**.
 - Enables rapid inline editing of titles, statuses, priorities, owners, and disciplines across hundreds of requirements simultaneously.
