@@ -152,7 +152,12 @@ Saving a change to a requirement marks every relationship that points at it as *
 - View requirements organized by workflow states (`Draft`, `In Review`, `Approved`, `Done`) or target release milestones.
 - Drag-and-drop cards between columns to transition workflow states.
 
-### 3.6 Export and Templates
+### 3.6 Robustness and panels
+- **Duplicate Detector** (**⋯ More > Duplicate Detector**) lists likely duplicate pairs with both IDs, both titles and the similarity score. Click either side to open that requirement.
+- **Iterations** created without a methodology (for example through the API or CLI) are shown and returned as `scrum`.
+- If a panel hits an unexpected error it is closed and a dismissable message shows the error. If the whole interface fails, a **Try again / Reload** screen is shown instead of a blank page.
+
+### 3.7 Export and Templates
 - **Export** (top bar) offers CSV, Markdown, JSX, ReqIF 1.2, PDF and the Audit Package. PDF downloads the whole specification (or one product if you enter its id) as `specification.pdf`, the same document as `GET`/`POST /export/pdf`.
 - **Templates:** open **⋯ More > Templates** to view and manage the requirement templates used by the empty editor and the **+ New** button.
 

@@ -13,7 +13,7 @@ export function DuplicateDetectorPanel({ onClose }) {
     setLoading(true);
     try {
       const res = await api.analysis.detectDuplicates(threshold);
-      setDuplicates(res.duplicates || res || []);
+      setDuplicates(Array.isArray(res) ? res : []);
       setSearched(true);
     } catch (err) {
       toast(err.message, 'error');
@@ -75,26 +75,26 @@ export function DuplicateDetectorPanel({ onClose }) {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span className="badge badge-warning">
-                  Similarity: {Math.round((pair.similarity || pair.score || 0.8) * 100)}%
+                  Similarity: {Math.round((pair.similarity_score ?? 0) * 100)}%
                 </span>
                 <span className="text-muted" style={{ fontSize: 11 }}>Pair #{idx + 1}</span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div
-                  onClick={() => openReq(pair.req1?.uid || pair.uid1)}
+                  onClick={() => openReq(pair.req_a.uid)}
                   style={{ cursor: 'pointer', padding: 8, background: 'var(--bg-primary)', borderRadius: 4, border: '1px solid var(--border)' }}
                 >
-                  <div className="mono" style={{ fontWeight: 600, fontSize: 11 }}>{pair.req1?.id || pair.id1}</div>
-                  <div style={{ fontSize: 12, marginTop: 4 }}>{pair.req1?.title || pair.title1}</div>
+                  <div className="mono" style={{ fontWeight: 600, fontSize: 11 }}>{pair.req_a.id}</div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>{pair.req_a.title}</div>
                 </div>
 
                 <div
-                  onClick={() => openReq(pair.req2?.uid || pair.uid2)}
+                  onClick={() => openReq(pair.req_b.uid)}
                   style={{ cursor: 'pointer', padding: 8, background: 'var(--bg-primary)', borderRadius: 4, border: '1px solid var(--border)' }}
                 >
-                  <div className="mono" style={{ fontWeight: 600, fontSize: 11 }}>{pair.req2?.id || pair.id2}</div>
-                  <div style={{ fontSize: 12, marginTop: 4 }}>{pair.req2?.title || pair.title2}</div>
+                  <div className="mono" style={{ fontWeight: 600, fontSize: 11 }}>{pair.req_b.id}</div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>{pair.req_b.title}</div>
                 </div>
               </div>
             </div>

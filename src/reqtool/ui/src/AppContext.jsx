@@ -49,6 +49,7 @@ function reducer(state, action) {
     case 'APPLY_TEMPLATE':return { ...state, pendingTemplate: action.payload };
     case 'CLEAR_TEMPLATE':return { ...state, pendingTemplate: null };
     case 'TOGGLE_PANEL':  return { ...state, [action.key]: action.value };
+    case 'CLOSE_PANELS':  return Object.fromEntries(Object.entries(state).map(([k, v]) => [k, k.startsWith('_show') ? false : v]));
     case 'TOAST_ADD':     return { ...state, toasts: [...state.toasts, action.payload] };
     case 'TOAST_REMOVE':  return { ...state, toasts: state.toasts.filter(t => t.id !== action.id) };
     default: return state;

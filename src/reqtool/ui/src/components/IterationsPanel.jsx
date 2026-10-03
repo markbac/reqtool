@@ -137,7 +137,7 @@ export function IterationsPanel({ onClose }) {
                   >
                     <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-primary)' }}>{it.title || it.id}</div>
                     <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
-                      <span className="mono" style={{ color: 'var(--accent-color, #4ea8de)' }}>{it.methodology.toUpperCase()}</span> | {it.status}
+                      <span className="mono" style={{ color: 'var(--accent-color, #4ea8de)' }}>{(it.methodology || 'scrum').toUpperCase()}</span> | {it.status}
                     </div>
                   </div>
                 ))}
