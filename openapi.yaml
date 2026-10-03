@@ -3550,6 +3550,19 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /automation/schema:
+    get:
+      tags:
+      - automation
+      summary: Rule Schema
+      description: Supported events and actions for building rules.
+      operationId: rule_schema_automation_schema_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
   /automation/rules:
     get:
       tags:
@@ -3566,14 +3579,14 @@ paths:
       tags:
       - automation
       summary: Save Rules
+      description: Replace all rules. Invalid rules return 422 with the failing rule's index in ``loc``.
       operationId: save_rules_automation_rules_put
       requestBody:
         content:
           application/json:
             schema:
               items:
-                additionalProperties: true
-                type: object
+                $ref: '#/components/schemas/AutomationRule'
               type: array
               title: Rules
         required: true
@@ -3622,6 +3635,49 @@ components:
       required:
       - approved_by
       title: ApproveRequest
+    AutomationRule:
+      properties:
+        id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Id
+        name:
+          type: string
+          minLength: 1
+          title: Name
+        enabled:
+          type: boolean
+          title: Enabled
+          default: true
+        event:
+          type: string
+          title: Event
+        condition:
+          additionalProperties: true
+          type: object
+          title: Condition
+        action:
+          type: string
+          title: Action
+        target_field:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Field
+        target_value:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Value
+      additionalProperties: false
+      type: object
+      required:
+      - name
+      - event
+      - action
+      title: AutomationRule
+      description: One automation rule. ``condition`` keys must equal the event payload's values.
     BulkUpdateRequest:
       properties:
         uids:
