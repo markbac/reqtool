@@ -11,7 +11,7 @@ import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from reqtool.store import Store
+from reqtool.store import Store, ParentCycle
 from reqtool.git_ops import has_conflicts, stage_file, commit as git_commit, git_log
 from reqtool.models import (
     CommitRequest, ApproveRequest, BulkUpdateRequest,
@@ -124,11 +124,16 @@ def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get
                     failed.append(uid)
                     errors[uid] = error
                     continue
-            result = store.update_requirement(
-                uid, body.fields,
-                increment=body.increment,
-                summary=body.summary,
-            )
+            try:
+                result = store.update_requirement(
+                    uid, body.fields,
+                    increment=body.increment,
+                    summary=body.summary,
+                )
+            except ParentCycle as exc:
+                failed.append(uid)
+                errors[uid] = str(exc)
+                continue
             if result:
                 updated.append(uid)
             else:

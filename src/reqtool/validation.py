@@ -211,6 +211,22 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
                 uid, "parentId",
             ))
 
+    # parentId cycles (reported on each member of the loop)
+    for uid, req in store.requirements.items():
+        if req.get("deleted"):
+            continue
+        seen = {uid}
+        cur = req.get("parentId")
+        while cur and cur in store.requirements:
+            if cur == uid:
+                errors.append(_err("parent_cycle",
+                                   "parentId chain loops back to this item", uid, "parentId"))
+                break
+            if cur in seen:
+                break
+            seen.add(cur)
+            cur = store.requirements[cur].get("parentId")
+
     # Module lock file checks per product
     _validate_module_locks(store, errors)
 
