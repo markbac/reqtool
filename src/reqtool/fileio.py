@@ -181,6 +181,12 @@ def compute_hash(data: dict[str, Any], hashed_fields: set[str]) -> str:
 
 
 def compute_requirement_hash(data: dict[str, Any]) -> str:
+    rels = data.get("relationships")
+    if isinstance(rels, list) and any(isinstance(r, dict) and ("suspect" in r or "_display" in r) for r in rels):
+        # Review flags and display text are not content: flagging a link must not change the hash.
+        data = {**data, "relationships": [
+            {k: v for k, v in r.items() if k not in ("suspect", "_display")} if isinstance(r, dict) else r
+            for r in rels]}
     return compute_hash(data, _REQ_HASHED_FIELDS)
 
 

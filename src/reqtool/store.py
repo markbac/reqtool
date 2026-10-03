@@ -742,18 +742,46 @@ class Store:
             cur = (self.requirements.get(cur) or {}).get("parentId")
 
     def _mark_downstream_suspect(self, upstream_uid: str) -> None:
-        """Mark downstream requirements linked to upstream_uid as suspect upon upstream update."""
+        """Flag links to ``upstream_uid`` as suspect, and transitively the links to every item flagged.
+
+        Each newly flagged item gets a history entry (no version bump: the content is unchanged).
+        A visited set makes loops in the link graph safe.
+        """
+        dependants: dict[str, list[str]] = {}
         for req_uid, req in self.requirements.items():
-            if req.get("deleted") or req_uid == upstream_uid:
+            if req.get("deleted"):
                 continue
-            updated = False
-            for rel in req.get("relationships", []):
-                rel_target_uid = rel.get("target", {}).get("uid") or rel.get("uid")
-                if rel_target_uid == upstream_uid:
-                    rel["suspect"] = True
-                    updated = True
-            if updated:
-                save_yaml(self.req_path(req_uid), req)
+            for rel in req.get("relationships") or []:
+                target = (rel.get("target") or {}).get("uid") or rel.get("uid")
+                if target:
+                    dependants.setdefault(target, []).append(req_uid)
+
+        now = utcnow_iso()
+        visited = {upstream_uid}
+        queue = [upstream_uid]
+        while queue:
+            current = queue.pop(0)
+            current_id = (self.requirements.get(current) or {}).get("id", current)
+            for req_uid in dict.fromkeys(dependants.get(current, [])):
+                if req_uid == upstream_uid:
+                    continue
+                req = self.requirements[req_uid]
+                newly = False
+                for rel in req.get("relationships") or []:
+                    if ((rel.get("target") or {}).get("uid") or rel.get("uid")) == current and not rel.get("suspect"):
+                        rel["suspect"] = True
+                        newly = True
+                if newly:
+                    history = list(req.get("history") or [])
+                    history.append({
+                        "version": req.get("version", "1.0.0"), "date": now, "modified_by": "reqtool",
+                        "summary": f"Link to {current_id} became suspect (upstream change)",
+                        "commit_sha": None, "change_ref": None})
+                    req["history"] = history
+                    save_yaml(self.req_path(req_uid), req)
+                if req_uid not in visited:
+                    visited.add(req_uid)
+                    queue.append(req_uid)
 
     @_locked
     def clear_suspect_link(self, req_uid: str, rel_index: int) -> bool:
