@@ -4,18 +4,14 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+## [0.6.0] -- 2026-10-03
+
 ### Security
 - **Authentication modes (`req serve --auth local|required`, `REQTOOL_AUTH`)**. `local` (default) needs no login but only serves loopback clients, and `req serve` refuses to bind a non-loopback address in this mode. `required` demands a token on every API call and WebSocket connection; viewers are read-only and repository/config/webhook endpoints are admin-only. `reqtool-server` now starts in `required` mode.
 - No default `admin` / `admin123` account; create the first administrator with `req user add <name> --role admin`. Existing default logins are refused.
 - User creation requires an authenticated admin (first-account bootstrap from localhost only).
 - Approvals use the logged-in identity and a content-bound `SIG-v2` signature.
 - CORS restricted to localhost plus `REQTOOL_CORS_ORIGINS`; markdown/SVG output sanitised; webhook secrets redacted; git ref and ID inputs validated; `/repo/init` and `/repo/switch` limited to local callers.
-
-### Added
-- **Hierarchy enforcement (MOD-01)**: `allowed_children` is now applied on create, re-parent and type change. `hierarchy.yaml` gains `enforce: off|warn|error` (default `warn`: validation warning; `error`: `409 hierarchy_violation` and a validation error).
-- **Cross-layer relationship rules (MOD-02)**: `cross_layer_rules` are enforced on write and in validation under the same `hierarchy.enforce` setting (`relationship_violation`). Shipped rules now let themes, initiatives and epics trace to stakeholder needs and themes/initiatives link to systems requirements.
-
-### Security
 - **Cookie sessions, CSRF protection and refresh (SEC-19)**: `POST /auth/login` sets `HttpOnly`, `SameSite=Strict` cookies (30-minute access, 7-day refresh limited to `/auth`, 30-day absolute limit) and the UI no longer stores a token in `localStorage` when served from the same origin. New `POST /auth/refresh` and `POST /auth/logout`. State-changing requests authenticated by cookie need an `X-Reqtool-CSRF` header (`403 csrf` otherwise); bearer and `X-API-Key` clients are unchanged and `access_token` in the login response still works for scripts. Cookie WebSocket connections from a different `Origin` are refused. Access and refresh tokens carry a `typ` claim and cannot be swapped. A custom server URL (cross-origin) still keeps a bearer token in the browser.
 - **Credential handling (SEC-05)**: new password hashes use 600,000 PBKDF2 iterations with the count stored per user (old hashes verify and are upgraded at next login); passwords are no longer whitespace-stripped; login is throttled (5 failures per minute per account and per address, then `429` with `Retry-After`); tokens are now PyJWT tokens validated for algorithm, issuer, audience and expiry, last 12 hours (was 30 days), and carry a per-user token version so password or role changes revoke them. **Existing tokens stop working after upgrading, so users log in again.** New dependency: `PyJWT`. Not done: refresh tokens, and persistent or shared (multi-process) throttle state.
 - **`PUT /config` allowlist (SEC-19, part)**: unknown settings, at any depth, are rejected with `422` instead of being written to `config.yaml`. See the browser session entry below.
@@ -25,8 +21,14 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 - **Webhook SSRF guard (SEC-11)**: webhook hostnames are resolved and non-public addresses refused (opt in per webhook with `allow_private: true`; link-local/metadata always blocked).
 - **PlantUML sandbox (SEC-10)**: `/render/plantuml` runs with `PLANTUML_SECURITY_PROFILE=SANDBOX`, rejects `!include*`, `!import` and `!theme ... from` directives (422), limits source to 100 KB (413), and keeps render errors as 400.
 
+### Added
+- **Hierarchy enforcement (MOD-01)**: `allowed_children` is now applied on create, re-parent and type change. `hierarchy.yaml` gains `enforce: off|warn|error` (default `warn`: validation warning; `error`: `409 hierarchy_violation` and a validation error).
+- **Cross-layer relationship rules (MOD-02)**: `cross_layer_rules` are enforced on write and in validation under the same `hierarchy.enforce` setting (`relationship_violation`). Shipped rules now let themes, initiatives and epics trace to stakeholder needs and themes/initiatives link to systems requirements.
+
 ### Changed
 - **CSV import is atomic (DAT-16)**: rows are validated up front and a bad row now rejects the whole import with `422` and a per-row error list (it used to create the good rows and return `201`); ragged rows no longer cause a `500`. Imported items start in the workflow's initial state unless an admin passes `keep_status=true`. `dry_run=true` validates only. Callers that relied on partial imports must fix their files.
+- **Static checks (QA-03)**: CI now runs `mypy` (all modules except a documented legacy allowlist in `pyproject.toml`) and `import-linter` (core modules must not import FastAPI or the routers). New `lint` extra installs the tooling. Two small typing fixes in `auth.py` and `fileio.save_yaml`.
+- **One event publisher (EVT-02)**: a single catalogue (`reqtool/events.py`) and publisher now feed webhooks and WebSocket clients. Create, clone, edit, bulk edit, acceptance-criteria edits and delete publish `requirement_created` / `requirement_updated` / `requirement_deleted`; status changes publish `status_changed` exactly once (the duplicate WebSocket frame from `/transition` is gone). Approval is still sent as `approved` on the wire. README's event list now matches what the server sends.
 
 ### Fixed
 - **CI failure reports**: when a test job fails, `scripts/ci_failures.py` turns the JUnit file into one annotation per failed test (name and message) and a step-summary table, so a failure is visible on the check run without opening the log. Added after a test failed once on Python 3.14 and passed on re-run with no way to tell which one.
@@ -52,12 +54,6 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 - **Unique, valid IDs (DAT-12)**: supplied requirement IDs are format-checked (`422`) and must be unique among live items (`409 duplicate_id`, also in bulk edits); `GET /requirements/{id}` accepts a human ID; validation reports `duplicate_id`; clone IDs no longer collide.
 - **Concurrent ID allocation (DAT-11)**: ID allocation happens under the store lock (create has been locked since the DAT-01 fix, and `next_id_for_type` is now locked too); tests prove 20 parallel creates yield 20 distinct IDs and that readers no longer hit "dictionary changed size during iteration".
 - **Automation rules now run (INT-02)**: the engine subscribes to the event publisher and executes matching rules when `requirement_created`, `requirement_updated`, `requirement_approved` or `status_changed` is published. Actions are idempotent and logged; rule-made changes do not publish events.
-
-### Changed
-- **Static checks (QA-03)**: CI now runs `mypy` (all modules except a documented legacy allowlist in `pyproject.toml`) and `import-linter` (core modules must not import FastAPI or the routers). New `lint` extra installs the tooling. Two small typing fixes in `auth.py` and `fileio.save_yaml`.
-- **One event publisher (EVT-02)**: a single catalogue (`reqtool/events.py`) and publisher now feed webhooks and WebSocket clients. Create, clone, edit, bulk edit, acceptance-criteria edits and delete publish `requirement_created` / `requirement_updated` / `requirement_deleted`; status changes publish `status_changed` exactly once (the duplicate WebSocket frame from `/transition` is gone). Approval is still sent as `approved` on the wire. README's event list now matches what the server sends.
-
-### Fixed
 - **Automation panel (UI-12)**: the panel now lists, saves and reloads rules using the engine's schema (`event`, `condition`, `action`, `target_field`, `target_value`), with dropdowns fed by new `GET /automation/schema`. `PUT /automation/rules` validates each rule (422 identifies the rule) and generates ids. The `add_tag` action seeded by default is now implemented. 
 - **Suspect links are visible (UI-03)**: tree nodes show a suspect count and relationship rows show a suspect tag with Review and Clear suspect actions. Validation warns (`suspect_link`) for approved items with suspect links; `GET /requirements/tree` nodes carry `suspect_count` and `GET /metrics` reports `totals.suspect_links`.
 - **Sprint `cancelled` state (MOD-06)**: backlog, ready, in_progress and in_review can now move to `cancelled`. Validation warns (`workflow_unreachable_state`, `workflow_dead_end`, `workflow_unknown_state`) when a workflow definition has states that cannot be reached, cannot reach a terminal state, or mention undefined states.

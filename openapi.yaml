@@ -3,7 +3,7 @@ info:
   title: reqtool
   description: Git-backed YAML requirements management tool. Requirements, principles, and TBDs live as individual YAML 
     files; the API handles hashing, versioning, validation, and export.
-  version: 0.5.0
+  version: 0.6.0
 paths:
   /health:
     get:
