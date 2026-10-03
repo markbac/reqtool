@@ -88,8 +88,13 @@ def _yaml_instance() -> YAML:
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
-    """Load a YAML file and return as a plain dict."""
-    y = _yaml_instance()
+    """Load a YAML file and return it as plain Python types.
+
+    Uses ruamel's safe loader, which runs on libyaml when ``ruamel.yaml.clib`` is installed (several
+    times faster than the round-trip loader) and keeps YAML 1.2 rules, so values read are identical.
+    Comments are not preserved, and files are always rewritten from the plain data anyway.
+    """
+    y = YAML(typ="safe")
     with path.open("r", encoding="utf-8") as fh:
         data = y.load(fh)
     return _to_plain(data)
