@@ -7,7 +7,7 @@ import { createContext, useContext, useReducer, useMemo } from 'react';
 
 const initialState = {
   products: [], activeProduct: null, activeVariant: null,
-  enums: {}, workflow: null, templates: [],
+  enums: {}, workflow: null, hierarchy: null, templates: [],
   selectedUid: null, selectedType: null,
   panel: 'requirements',
   dirtyUids: new Set(),
@@ -31,6 +31,7 @@ function reducer(state, action) {
     case 'SET_ACTIVE_VARIANT':return { ...state, activeVariant: action.payload };
     case 'SET_ENUMS':         return { ...state, enums: action.payload };
     case 'SET_WORKFLOW':      return { ...state, workflow: action.payload };
+    case 'SET_HIERARCHY':     return { ...state, hierarchy: action.payload };
     case 'SET_TEMPLATES':     return { ...state, templates: action.payload };
     case 'SELECT':            return { ...state, selectedUid: action.uid, selectedType: action.artefactType };
     case 'DESELECT':          return { ...state, selectedUid: null, selectedType: null };

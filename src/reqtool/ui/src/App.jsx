@@ -49,12 +49,14 @@ function AppShell() {
       api.enums.all(),
       api.config.get(),
       api.workflow.get().catch(() => null),
+      api.hierarchy.get().catch(() => null),
       api.templates.list().catch(() => []),
       api.customFields.schema().catch(() => []),
-    ]).then(([products, enums, config, workflow, templates, customFieldSchema]) => {
+    ]).then(([products, enums, config, workflow, hierarchy, templates, customFieldSchema]) => {
       dispatch({ type: 'SET_PRODUCTS',  payload: products });
       dispatch({ type: 'SET_ENUMS',     payload: { ...enums, _customFieldSchema: customFieldSchema, _current_user: localStorage.getItem('reqtool:username') || 'user' } });
       dispatch({ type: 'SET_WORKFLOW',  payload: workflow });
+      dispatch({ type: 'SET_HIERARCHY', payload: hierarchy });
       dispatch({ type: 'SET_TEMPLATES', payload: templates });
 
       // Active product

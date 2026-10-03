@@ -327,6 +327,7 @@ def get_hierarchy(store: Store = Depends(get_store)):
         "dod": store.hierarchy.dod,
         "cross_layer_rules": [r.model_dump() for r in store.hierarchy.cross_layer_rules],
         "default_relationship_types": [r.model_dump() for r in store.hierarchy.default_relationship_types],
+        "enforce": store.hierarchy.enforce,
     }
 
 
