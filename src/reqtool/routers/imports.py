@@ -14,7 +14,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from reqtool.store import Store
-from reqtool.git_ops import git_list_tags, git_create_tag, ensure_git_config, git_diff_tree, git_show_file
+from pathlib import Path
+from reqtool.git_ops import dirty_paths, git_list_tags, git_create_tag, ensure_git_config, git_diff_tree, git_show_file
 from reqtool.fileio import load_yaml as _load_yaml
 from .deps import get_store
 
@@ -92,6 +93,20 @@ async def import_csv_upload(request: Request, store: Store = Depends(get_store))
     return {"imported": len(created), "errors": errors, "uids": created}
 
 
+BASELINE_DIRS = ("requirements", "principles", "tbds", "decisions", "modules", "products")
+
+
+def _describe_dirty(store: Store, paths: list[str]) -> list[str]:
+    """Human IDs for changed artefact files (falls back to the file path)."""
+    out = []
+    for rel in paths:
+        stem = Path(rel).stem
+        item = (store.requirements.get(stem) or store.principles.get(stem)
+                or store.decisions.get(stem) or store.modules.get(stem))
+        out.append((item or {}).get("id") or rel)
+    return sorted(set(out))
+
+
 @router.get("/baselines", tags=["baselines"])
 def list_baselines(store: Store = Depends(get_store)):
     return git_list_tags(store.root, prefix="baseline/")
@@ -105,9 +120,19 @@ def create_baseline(body: dict[str, Any], store: Store = Depends(get_store)):
     tag = f"baseline/{name}"
     message = body.get("message", f"Baseline: {name}")
     ensure_git_config(store.root, store.config.git.commit_name, store.config.git.commit_email)
+    # A tag points at HEAD, so uncommitted edits would silently be left out of the baseline.
+    dirty = dirty_paths(store.root, BASELINE_DIRS)
+    uncommitted = _describe_dirty(store, dirty)
+    if uncommitted and not body.get("allow_dirty"):
+        raise HTTPException(status_code=409, detail={
+            "error": "dirty_working_tree",
+            "message": "Commit these changes first (or pass allow_dirty: true): " + ", ".join(uncommitted),
+            "uncommitted": uncommitted})
+    if uncommitted:
+        message += "\n\nCreated with uncommitted changes not included in this baseline: " + ", ".join(uncommitted)
     try:
         sha = git_create_tag(store.root, tag, message)
-        return {"tag": tag, "sha": sha, "name": name, "message": message}
+        return {"tag": tag, "sha": sha, "name": name, "message": message, "uncommitted": uncommitted}
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail={"error": "git_error", "message": str(exc)})
 

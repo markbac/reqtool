@@ -21,8 +21,17 @@ export function BaselinesPanel({ onClose }) {
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
+    const body = { name: newName.trim(), message: newMsg.trim() || undefined };
     try {
-      await api.baselines.create({ name: newName.trim(), message: newMsg.trim() || undefined });
+      try {
+        await api.baselines.create(body);
+      } catch (err) {
+        if (err.detail?.error !== 'dirty_working_tree') throw err;
+        // The tag points at the last commit, so these edits would not be in it.
+        const ok = confirm(`These items have uncommitted changes that will NOT be in the baseline:\n\n${err.detail.uncommitted.join(', ')}\n\nCreate the baseline anyway? (Cancel, commit, then try again.)`);
+        if (!ok) return;
+        await api.baselines.create({ ...body, allow_dirty: true });
+      }
       toast(`Baseline '${newName}' created`, 'success');
       setCreating(false); setNewName(''); setNewMsg('');
       load();
