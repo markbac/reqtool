@@ -13,8 +13,12 @@ from reqtool.cli import cli
 
 def main():
     if len(sys.argv) == 1 or (len(sys.argv) > 1 and sys.argv[1].startswith("-")):
-        sys.argv.insert(1, "0.0.0.0")
-        sys.argv.insert(1, "--host")
+        # A network-facing server always requires login (override with --auth local
+        # only together with --host 127.0.0.1).
+        if "--auth" not in sys.argv:
+            sys.argv[1:1] = ["--auth", "required"]
+        if "--host" not in sys.argv:
+            sys.argv[1:1] = ["--host", "0.0.0.0"]
         sys.argv.insert(1, "serve")
     cli()
 
