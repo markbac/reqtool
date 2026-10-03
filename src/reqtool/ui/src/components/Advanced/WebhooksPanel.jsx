@@ -27,7 +27,7 @@ export function WebhooksPanel({ onClose }) {
     catch (err) { toast(err.message, 'error'); }
   };
 
-  const ALL_EVENTS = ['status_changed','approved','comment_added','attachment_added'];
+  const ALL_EVENTS = ['requirement_created','requirement_updated','requirement_deleted','status_changed','approved','comment_added','attachment_added'];
 
   return (
     <Panel title="Webhooks" onClose={onClose} width={520}>

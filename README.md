@@ -228,15 +228,18 @@ Query parameters: `req_type`, `iteration`, `owner`, `assignee`.
 
 ## Real-time updates
 
-Connect to `GET /ws` (WebSocket) for a live event stream. The server broadcasts:
+Connect to `GET /ws` (WebSocket) for a live event stream. Every change to a requirement publishes exactly one event. Webhooks (configured in `.reqtool/config.yaml`) and automation rules receive the same events.
 
-- `created` -- new artefact written
-- `updated` -- artefact changed (includes `changed_fields`)
-- `deleted` -- artefact soft-deleted
-- `status_changed` -- status field changed
-- `comment_added`, `attachment_added`
+| Event | Sent when |
+|-------|-----------|
+| `requirement_created` | A requirement is created or cloned. |
+| `requirement_updated` | Content changes without a status change (edit, bulk edit, acceptance criteria). |
+| `requirement_deleted` | A requirement is deleted. |
+| `approved` | A requirement is approved (`requirement_approved` inside automation rules). |
+| `status_changed` | The status changes, by edit, bulk edit or transition. Payload has `from` and `to`. |
+| `comment_added`, `attachment_added` | A comment or attachment is added. |
 
-Event payload: `{event, uid, id, type, payload}`.
+A failed or rejected write publishes nothing. Frame format: `{event, uid, payload}`; webhook bodies are `{event, repo_id, payload}`.
 
 Outbound webhooks (configured in `.reqtool/config.yaml`) remain for external integrations.
 

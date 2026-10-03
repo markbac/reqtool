@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 
 from reqtool.store import Store
-from .deps import get_store, not_found, fire_webhook
+from .deps import get_store, not_found, publish_event
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ def add_artefact_comment(uid: str, body: dict[str, Any], store: Store = Depends(
     author = body.get("author", "anonymous")
     reply_to = body.get("reply_to")
     comment = store.add_comment(uid, text, author, reply_to=reply_to)
-    fire_webhook(store, "comment_added", {"uid": uid, "comment_uid": comment["uid"], "author": author})
+    publish_event(store, "comment_added", {"uid": uid, "comment_uid": comment["uid"], "author": author})
     return comment
 
 
@@ -84,7 +84,7 @@ def add_comment(uid: str, body: dict[str, Any], store: Store = Depends(get_store
     author = body.get("author", "anonymous")
     reply_to = body.get("reply_to")
     comment = store.add_comment(uid, text, author, reply_to=reply_to)
-    fire_webhook(store, "comment_added", {"uid": uid, "comment_uid": comment["uid"], "author": author})
+    publish_event(store, "comment_added", {"uid": uid, "comment_uid": comment["uid"], "author": author})
     return comment
 
 

@@ -19,7 +19,7 @@ from reqtool.models import (
     AddACRequest, UpdateACRequest,
 )
 from reqtool.fileio import utcnow_iso, uuid7, save_yaml
-from .deps import get_store, not_found, conflict, fire_webhook, broadcast_sync
+from .deps import get_store, not_found, conflict, publish_event
 from .auth import get_current_user
 
 log = logging.getLogger(__name__)
@@ -98,6 +98,16 @@ def get_requirement_progress(uid: str, store: Store = Depends(get_store)):
     return store.compute_progress_rollup(uid)
 
 
+def _publish_change(store: Store, uid: str, old_status, result: dict) -> None:
+    """One event per update: status_changed if the status moved, else requirement_updated."""
+    if result.get("status") != old_status:
+        publish_event(store, "status_changed", {
+            "uid": uid, "id": result.get("id"), "from": old_status, "to": result.get("status"),
+        })
+    else:
+        publish_event(store, "requirement_updated", {"uid": uid, "id": result.get("id")})
+
+
 @router.post("/requirements/bulk")
 def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get_store)):
     """Update a set of fields across multiple requirements at once.
@@ -110,6 +120,7 @@ def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get
     updated = []
     failed = []
     errors = {}
+    changes: list[tuple[str, object, dict]] = []
     new_status = body.fields.get("status") if isinstance(body.fields, dict) else None
     with store._lock:  # make the check-then-update atomic per request
         for uid in body.uids:
@@ -124,6 +135,7 @@ def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get
                     failed.append(uid)
                     errors[uid] = error
                     continue
+            old_status = existing.get("status")
             try:
                 result = store.update_requirement(
                     uid, body.fields,
@@ -136,8 +148,11 @@ def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get
                 continue
             if result:
                 updated.append(uid)
+                changes.append((uid, old_status, dict(result)))
             else:
                 failed.append(uid)
+    for uid, old_status, result in changes:
+        _publish_change(store, uid, old_status, result)
     return {"updated": updated, "failed": failed, "count": len(updated), "errors": errors}
 
 
@@ -161,7 +176,9 @@ def clone_requirement(uid: str, new_id: str = "", store: Store = Depends(get_sto
     fields["status"] = "draft"
     fields["approval"] = {"status": "draft", "approved_by": None, "approved_date": None}
     fields["verification"] = {"status": "not_started", "verified_date": None, "note": ""}
-    return store.create_requirement(fields)
+    created = store.create_requirement(fields)
+    publish_event(store, "requirement_created", {"uid": created["uid"], "id": created.get("id"), "req_type": created.get("req_type")})
+    return created
 
 
 @router.post("/requirements/{uid}/relationships/{rel_index}/clear-suspect")
@@ -177,7 +194,9 @@ def clear_suspect_link(uid: str, rel_index: int, store: Store = Depends(get_stor
 def create_requirement(body: CreateRequirementRequest, store: Store = Depends(get_store)):
     if has_conflicts(store.root):
         raise conflict("Working tree has unresolved merge conflicts")
-    return store.create_requirement(body.model_dump(exclude_none=True))
+    created = store.create_requirement(body.model_dump(exclude_none=True))
+    publish_event(store, "requirement_created", {"uid": created["uid"], "id": created.get("id"), "req_type": created.get("req_type")})
+    return created
 
 
 @router.put("/requirements/{uid}")
@@ -211,11 +230,7 @@ def update_requirement(
     result = store.update_requirement(uid, body.model_dump(exclude_none=True), summary="Updated via API")
     if result is None:
         raise not_found(uid)
-    if result.get("status") != old_status:
-        fire_webhook(store, "status_changed", {
-            "uid": uid, "id": result.get("id"),
-            "from": old_status, "to": result.get("status"),
-        })
+    _publish_change(store, uid, old_status, result)
     return result
 
 
@@ -224,6 +239,7 @@ def delete_requirement(uid: str, store: Store = Depends(get_store)):
     result = store.delete_requirement(uid)
     if result is None:
         raise not_found(uid)
+    publish_event(store, "requirement_deleted", {"uid": uid, "id": result.get("id")})
     return result
 
 
@@ -287,7 +303,7 @@ def approve_requirement(
     result = store.approve_requirement(uid, approver, identity_verified=verified)
     if result is None:
         raise not_found(uid)
-    fire_webhook(store, "approved", {
+    publish_event(store, "requirement_approved", {
         "uid": uid, "id": req.get("id"), "approved_by": approver,
         "signature": result["approval"]["signature"],
     })
@@ -356,7 +372,9 @@ def add_ac(uid: str, body: AddACRequest, store: Store = Depends(get_store)):
     }
     acs = list(req.get("acceptance_criteria", []))
     acs.append(new_ac)
-    return store.update_requirement(uid, {"acceptance_criteria": acs}, summary="Added acceptance criterion")
+    result = store.update_requirement(uid, {"acceptance_criteria": acs}, summary="Added acceptance criterion")
+    publish_event(store, "requirement_updated", {"uid": uid, "id": req.get("id")})
+    return result
 
 
 @router.put("/requirements/{uid}/ac/{ac_uid}")
@@ -368,7 +386,9 @@ def update_ac(uid: str, ac_uid: str, body: UpdateACRequest, store: Store = Depen
     for i, ac in enumerate(acs):
         if ac.get("uid") == ac_uid:
             acs[i] = {**ac, **body.model_dump(exclude_none=True)}
-            return store.update_requirement(uid, {"acceptance_criteria": acs}, summary="Updated acceptance criterion")
+            result = store.update_requirement(uid, {"acceptance_criteria": acs}, summary="Updated acceptance criterion")
+            publish_event(store, "requirement_updated", {"uid": uid, "id": req.get("id")})
+            return result
     raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"AC '{ac_uid}' not found"})
 
 
@@ -378,7 +398,9 @@ def delete_ac(uid: str, ac_uid: str, store: Store = Depends(get_store)):
     if req is None:
         raise not_found(uid)
     acs = [ac for ac in req.get("acceptance_criteria", []) if ac.get("uid") != ac_uid]
-    return store.update_requirement(uid, {"acceptance_criteria": acs}, summary="Removed acceptance criterion")
+    result = store.update_requirement(uid, {"acceptance_criteria": acs}, summary="Removed acceptance criterion")
+    publish_event(store, "requirement_updated", {"uid": uid, "id": req.get("id")})
+    return result
 
 
 @router.get("/requirements/{uid}/impact")
@@ -404,10 +426,9 @@ def transition_requirement(uid: str, body: dict, store: Store = Depends(get_stor
         raise HTTPException(status_code=409, detail={"error": "workflow_guard", "message": error})
     old_status = req.get("status")
     result = store.update_requirement(uid, {"status": to_state}, summary=f"Transitioned to {to_state}")
-    fire_webhook(store, "status_changed", {
+    publish_event(store, "status_changed", {
         "uid": uid, "id": req.get("id"), "from": old_status, "to": to_state,
     })
-    broadcast_sync("status_changed", {"uid": uid, "id": req.get("id"), "from": old_status, "to": to_state})
     return result
 
 
