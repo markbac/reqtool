@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -57,6 +58,24 @@ _MODULE_HASHED_FIELDS: set[str] = {
 _PRODUCT_HASHED_FIELDS: set[str] = {
     "id", "title", "content", "variants", "modules", "root_requirements",
 }
+
+
+_SAFE_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")
+
+
+class InvalidId(ValueError):
+    """A user-supplied identifier is not safe to use as a single path segment."""
+
+
+def validate_id(value: str, what: str = "id") -> str:
+    """Return ``value`` if it is a safe single path segment, else raise InvalidId.
+
+    Allows letters, digits, ``_``, ``.`` and ``-`` (not leading), max 64 chars.
+    Rejects separators, ``..``, whitespace and anything else.
+    """
+    if not isinstance(value, str) or not _SAFE_ID_RE.fullmatch(value) or ".." in value:
+        raise InvalidId(f"Invalid {what}: {value!r}")
+    return value
 
 
 def _yaml_instance() -> YAML:

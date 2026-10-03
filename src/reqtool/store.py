@@ -20,6 +20,7 @@ from .fileio import (
     bump_version,
     utcnow_iso,
     uuid7,
+    validate_id,
 )
 from .models import (
     RepoConfig,
@@ -1259,7 +1260,7 @@ class Store:
         if module_id not in self.modules:
             raise ValueError(f"Module '{module_id}' not found")
 
-        module_dir = self.root / "modules" / module_id
+        module_dir = self.root / "modules" / validate_id(module_id, "module id")
         module_files = sorted(p for p in module_dir.glob("*.yaml") if not p.name.startswith("_"))
         h = hashlib.sha256()
         for f in module_files:
@@ -1285,7 +1286,7 @@ class Store:
             "locked_by": locked_by,
         }
 
-        lock_path = self.root / "products" / product_id / "_product.lock"
+        lock_path = self.root / "products" / validate_id(product_id, "product id") / "_product.lock"
         if lock_path.exists():
             try:
                 existing = load_yaml(lock_path)
@@ -1312,7 +1313,8 @@ class Store:
     def verify_module(self, product_id: str, module_id: str) -> dict[str, Any]:
         """Verify module files against the lock. Returns {verified, mismatch}."""
         import hashlib
-        lock_path = self.root / "products" / product_id / "_product.lock"
+        validate_id(module_id, "module id")
+        lock_path = self.root / "products" / validate_id(product_id, "product id") / "_product.lock"
         if not lock_path.exists():
             return {"verified": False, "reason": "lock file missing"}
         try:
@@ -1324,7 +1326,7 @@ class Store:
         if not locked:
             return {"verified": False, "reason": f"module '{module_id}' not in lock"}
 
-        module_dir = self.root / "modules" / module_id
+        module_dir = self.root / "modules" / validate_id(module_id, "module id")
         files = sorted(p for p in module_dir.glob("*.yaml") if not p.name.startswith("_"))
         h = hashlib.sha256()
         for f in files:
@@ -1438,8 +1440,7 @@ class Store:
         import re
         from urllib.parse import urlparse
 
-        if not re.match(r"^[a-zA-Z0-9_\-]+$", module_id):
-            raise ValueError(f"Invalid module ID '{module_id}'")
+        validate_id(module_id, "module id")
 
         manifest_path = self.root / "modules" / module_id / "_module.yaml"
         if not manifest_path.exists():
