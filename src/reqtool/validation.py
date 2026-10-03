@@ -193,6 +193,7 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
             req_status_by_uid, open_tbd_uids,
             known_tags=known_tags, known_teams=known_teams,
             known_owners=known_owners, known_safety=known_safety,
+            req_by_uid=store.requirements,
         )
         errors.extend(e)
         warnings.extend(w)
@@ -435,6 +436,7 @@ def _validate_requirement(
     known_teams: set[str] = frozenset(),
     known_owners: set[str] = frozenset(),
     known_safety: set[str] = frozenset(),
+    req_by_uid: Optional[dict[str, dict[str, Any]]] = None,
 ) -> tuple[list[dict], list[dict]]:
     errors: list[dict] = []
     warnings: list[dict] = []
@@ -535,7 +537,7 @@ def _validate_requirement(
 
         # Schedule dependency conflict check
         if rel_type == "depends_on" and target_uid:
-            target_req = store_req_map.get(target_uid, {}) if 'store_req_map' in locals() else {}
+            target_req = (req_by_uid or {}).get(target_uid, {})
             this_rel = req.get("target_release") or req.get("iteration")
             target_rel = target_req.get("target_release") or target_req.get("iteration")
             if this_rel and target_rel and this_rel < target_rel:
@@ -776,6 +778,7 @@ def validate_single(store: "Store", uid: str) -> dict[str, list[dict[str, str]]]
             nfr_keys, req_status_by_uid, open_tbd_uids,
             known_tags=known_tags, known_teams=known_teams,
             known_owners=known_owners, known_safety=known_safety,
+            req_by_uid=store.requirements,
         )
         return {"errors": e, "warnings": w}
     if uid in store.principles:
