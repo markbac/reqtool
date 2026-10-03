@@ -15,7 +15,7 @@ def test_no_users_file_or_account_is_created_implicitly(repo_root, client):
 
 
 def test_legacy_default_account_is_refused_and_detected(repo_root, client):
-    h, salt = hash_password("admin123")
+    h, salt = hash_password("admin123", iterations=100_000)  # legacy record: no stored count
     save_yaml(repo_root / ".reqtool" / "users.yaml", {"users": {"admin": {
         "username": "admin", "role": "admin", "password_hash": h, "salt": salt}}})
     us = UserStore(repo_root)

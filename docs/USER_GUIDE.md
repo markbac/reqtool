@@ -263,7 +263,9 @@ There is no default account. Older repositories that still contain the `admin` /
 
 Only a logged-in administrator can create users through the API. While no accounts exist, the first account can be created from the local machine (`POST /auth/users` or `reqtool user add`) and is always an administrator.
 
-Send the token returned by `POST /auth/login` as `Authorization: Bearer <token>` (or `X-API-Key`). Browser downloads such as the audit package use an `access_token` query parameter, which is accepted on GET requests only. WebSocket clients connect to `/ws?token=<token>`. Deleting a user invalidates their token immediately. In the web UI, a 401 response opens the login dialog.
+Send the token returned by `POST /auth/login` as `Authorization: Bearer <token>` (or `X-API-Key`). Browser downloads such as the audit package use an `access_token` query parameter, which is accepted on GET requests only. WebSocket clients connect to `/ws?token=<token>`. Tokens are standard signed JWTs (algorithm, issuer, audience and expiry are checked) that last 12 hours, after which the user logs in again. Deleting a user, changing their password or changing their role invalidates their existing tokens immediately. In the web UI, a 401 response opens the login dialog.
+
+Passwords are stored as PBKDF2-HMAC-SHA256 with 600,000 iterations (the count is stored with each hash). Older, weaker hashes keep working and are upgraded automatically at the user's next login. Passwords are used exactly as typed, including leading and trailing spaces. After five failed logins within a minute for the same account or from the same address, `POST /auth/login` answers `429` with a `Retry-After` header. The counters are kept in memory, so they reset when the server restarts and are per process.
 
 ### 6.3 Approvals and signatures
 - The approver is the logged-in user. Sending a different `approved_by` returns 403, and viewers cannot approve. In `local` mode the name in the request is recorded with `identity_verified: false`.

@@ -6,6 +6,7 @@ Unit tests for reqtool authentication, user store, JWT handling, and REST endpoi
 
 from pathlib import Path
 import pytest
+import reqtool.auth as auth_mod
 from reqtool.auth import UserStore, hash_password, verify_password, create_token, verify_token
 
 
@@ -14,8 +15,9 @@ def test_password_hashing():
     h, salt = hash_password(pwd)
     assert len(h) > 0
     assert len(salt) > 0
-    assert verify_password(pwd, h, salt) is True
-    assert verify_password("WrongPassword", h, salt) is False
+    iters = auth_mod.PBKDF2_ITERATIONS
+    assert verify_password(pwd, h, salt, iters) is True
+    assert verify_password("WrongPassword", h, salt, iters) is False
 
 
 def test_jwt_creation_and_verification(tmp_path: Path):

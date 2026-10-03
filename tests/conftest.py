@@ -7,6 +7,16 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 
+@pytest.fixture(autouse=True)
+def _fast_password_hashing(monkeypatch):
+    """Keep the suite fast; tests of the real work factor set it back explicitly."""
+    import reqtool.auth as auth
+    monkeypatch.setattr(auth, "PBKDF2_ITERATIONS", 1000)
+    monkeypatch.setattr(auth, "login_throttle", auth.LoginThrottle())
+    import reqtool.routers.auth as rauth
+    monkeypatch.setattr(rauth, "login_throttle", auth.login_throttle)
+
+
 @pytest.fixture
 def repo_root(tmp_path: Path) -> Path:
     """Bare repo directory with required subdirectories."""
