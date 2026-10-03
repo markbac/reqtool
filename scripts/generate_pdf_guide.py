@@ -122,7 +122,8 @@ def md_to_pdf_paragraphs(text: str, styles: dict[str, ParagraphStyle]) -> list[A
         if raw_line.startswith("```"):
             if in_code_block:
                 code_text = "\n".join(code_lines).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                p = Paragraph(f"<font name='Courier' size=8>{code_text.replace('\n', '<br/>')}</font>", styles["Code"])
+                code_html = code_text.replace("\n", "<br/>")  # no backslash inside the f-string: Python 3.11 rejects it
+                p = Paragraph(f"<font name='Courier' size=8>{code_html}</font>", styles["Code"])
                 flowables.append(p)
                 flowables.append(Spacer(1, 6))
                 code_lines = []
