@@ -624,8 +624,15 @@ class ExportCsvConfig(BaseModel):
     include_fields: list[str] = Field(default_factory=list)
 
 
+class ExportPdfConfig(BaseModel):
+    header_text: str = "reqtool Requirements Specification & Architecture Dossier"  # running header
+    footer_text: str = "CONFIDENTIAL & PROPRIETARY \u2014 FOR INTERNAL USE ONLY"       # running footer (classification)
+    fallback_font: str = ""  # path to a TrueType font (.ttf/.ttc) used for CJK text; empty = look for one on the system
+
+
 class ExportConfig(BaseModel):
     output_dir: str = "exports/"
+    pdf: ExportPdfConfig = Field(default_factory=ExportPdfConfig)
     jsx: ExportJsxConfig = Field(default_factory=ExportJsxConfig)
     markdown: ExportMarkdownConfig = Field(default_factory=ExportMarkdownConfig)
     csv: ExportCsvConfig = Field(default_factory=ExportCsvConfig)

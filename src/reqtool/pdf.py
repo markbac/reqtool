@@ -9,8 +9,14 @@ running headers/footers, bookmarks/outline, ATAM decision records, and repositor
 from __future__ import annotations
 
 import io
+import logging
+import re
+import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional, TYPE_CHECKING
+
+from reqtool import __version__
 
 if TYPE_CHECKING:
     from .store import Store
@@ -24,6 +30,58 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether, HRFlowable
 )
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus.tableofcontents import TableOfContents
+
+log = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Fonts: DejaVu Sans is bundled and embedded (Latin, Greek, Cyrillic, many symbols). CJK text needs a
+# TrueType font with glyph outlines, set with export.pdf.fallback_font or found on the system.
+# ---------------------------------------------------------------------------
+FONT_DIR = Path(__file__).parent / "defaults" / "fonts"
+SANS, SANS_BOLD, SANS_ITALIC, SANS_BOLD_ITALIC = "ReqSans", "ReqSans-Bold", "ReqSans-Italic", "ReqSans-BoldItalic"
+CJK_FONT = "ReqCJK"
+
+_CJK_CANDIDATES = (
+    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+    "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+    "/usr/share/fonts/truetype/arphic/uming.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/System/Library/Fonts/PingFang.ttc",
+    "/Library/Fonts/Arial Unicode.ttf",
+    "C:/Windows/Fonts/msyh.ttc",
+    "C:/Windows/Fonts/simsun.ttc",
+)
+_CJK_RUN = re.compile(r"[\u1100-\u11ff\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]+")
+_fonts_ready = False
+_cjk_ready = False
+
+
+def _register_fonts(fallback_font: str = "") -> bool:
+    """Register the bundled fonts once and the CJK fallback if one can be embedded; True if CJK is available."""
+    global _fonts_ready, _cjk_ready
+    if not _fonts_ready:
+        for name, file in ((SANS, "DejaVuSans.ttf"), (SANS_BOLD, "DejaVuSans-Bold.ttf"),
+                           (SANS_ITALIC, "DejaVuSans-Oblique.ttf"), (SANS_BOLD_ITALIC, "DejaVuSans-BoldOblique.ttf")):
+            pdfmetrics.registerFont(TTFont(name, str(FONT_DIR / file)))
+        pdfmetrics.registerFontFamily(SANS, normal=SANS, bold=SANS_BOLD, italic=SANS_ITALIC, boldItalic=SANS_BOLD_ITALIC)
+        _fonts_ready = True
+    if not _cjk_ready:
+        for cand in ([fallback_font] if fallback_font else []) + list(_CJK_CANDIDATES):
+            if not cand or not Path(cand).is_file():
+                continue
+            try:
+                pdfmetrics.registerFont(TTFont(CJK_FONT, cand, subfontIndex=0))
+                _cjk_ready = True
+                break
+            except Exception as exc:  # e.g. CFF-outline fonts (Noto CJK) cannot be embedded by ReportLab
+                log.warning("PDF fallback font %s cannot be used: %s", cand, str(exc)[:120])
+        if not _cjk_ready and fallback_font:
+            log.warning("No usable CJK font for the PDF: set export.pdf.fallback_font to a TrueType (.ttf/.ttc) font")
+    return _cjk_ready
 
 
 class NumberedCanvas(canvas.Canvas):
@@ -31,6 +89,9 @@ class NumberedCanvas(canvas.Canvas):
     Two-pass canvas to dynamically compute and draw 'Page X of Y' footers
     and running top headers across the entire document.
     """
+    header_text = "reqtool Requirements Specification & Architecture Dossier"
+    footer_text = "CONFIDENTIAL & PROPRIETARY \u2014 FOR INTERNAL USE ONLY"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._saved_page_states = []
@@ -49,13 +110,13 @@ class NumberedCanvas(canvas.Canvas):
 
     def draw_header_footer(self, page_count: int):
         self.saveState()
-        self.setFont("Helvetica", 8)
+        self.setFont(SANS, 8)
         self.setFillColor(colors.HexColor("#4b5563"))
 
         # Skip headers/footers on page 1 (cover)
         if self._pageNumber > 1:
             # Running Header
-            self.drawString(54, 800, "reqtool Requirements Specification & Architecture Dossier")
+            self.drawString(54, 800, self.header_text)
             self.drawRightString(A4[0] - 54, 800, f"Page {self._pageNumber} of {page_count}")
             self.setStrokeColor(colors.HexColor("#d1d5db"))
             self.setLineWidth(0.5)
@@ -63,18 +124,31 @@ class NumberedCanvas(canvas.Canvas):
 
             # Running Footer
             self.line(54, 45, A4[0] - 54, 45)
-            self.drawString(54, 32, "CONFIDENTIAL & PROPRIETARY — FOR INTERNAL USE ONLY")
-            self.drawRightString(A4[0] - 54, 32, f"reqtool v0.5.0 • Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d')}")
+            self.drawString(54, 32, self.footer_text)
+            self.drawRightString(A4[0] - 54, 32, f"reqtool v{__version__} \u2022 Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d')}")
 
         self.restoreState()
+
+
+class _SpecDocTemplate(SimpleDocTemplate):
+    """Feeds every level-1 heading to the table of contents (with its page number) and the PDF outline."""
+
+    def afterFlowable(self, flowable):
+        if isinstance(flowable, Paragraph) and flowable.style.name == "Heading1_Custom":
+            text = flowable.getPlainText()
+            key = f"toc-{self.page}-{abs(hash(text)) % 100000}"
+            self.canv.bookmarkPage(key)
+            self.canv.addOutlineEntry(text, key, 0, 0)
+            self.notify("TOCEntry", (0, text, self.page, key))
 
 
 def _clean_text(text: str) -> str:
     """Escape XML characters for ReportLab Paragraphs."""
     if not text:
         return ""
-    return (
-        str(text)
+    text = str(text).replace("\ufe0f", "")  # emoji variation selector has no glyph
+    escaped = (
+        text
         .replace("&", "&amp;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
@@ -82,14 +156,37 @@ def _clean_text(text: str) -> str:
         .replace("'", "&#39;")
         .replace("\n", "<br/>")
     )
+    if _cjk_ready:
+        escaped = _CJK_RUN.sub(lambda m: f'<font name="{CJK_FONT}">{m.group(0)}</font>', escaped)
+    return escaped
+
+
+def source_revision(root: Path) -> str:
+    """Describe the Git state the document was generated from, e.g. ``a1b2c3d4e5f6 (clean, baseline v1)``."""
+    def git(*args: str) -> Optional[str]:
+        try:
+            res = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, timeout=10)
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return res.stdout.strip() if res.returncode == 0 else None
+
+    sha = git("rev-parse", "--short=12", "HEAD")
+    if not sha:
+        return "not under version control"
+    dirty = bool(git("status", "--porcelain"))
+    baselines = [t[len("baseline/"):] for t in (git("tag", "--points-at", "HEAD") or "").split() if t.startswith("baseline/")]
+    state = "uncommitted changes" if dirty else "clean"
+    return f"{sha} ({state}" + (f", baseline {', '.join(baselines)}" if baselines else "") + ")"
 
 
 def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> bytes:
     """Generate complete PDF specification bytes for a given store."""
     buffer = io.BytesIO()
+    pdf_cfg = store.config.export.pdf
+    _register_fonts(pdf_cfg.fallback_font)
 
     # Document setup: A4 size, 0.75 in (54 pt) margins
-    doc = SimpleDocTemplate(
+    doc = _SpecDocTemplate(
         buffer,
         pagesize=A4,
         leftMargin=54,
@@ -112,7 +209,7 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     style_cover_title = ParagraphStyle(
         "CoverTitle",
         parent=styles["Normal"],
-        fontName="Helvetica-Bold",
+        fontName=SANS_BOLD,
         fontSize=24,
         leading=30,
         textColor=PRIMARY,
@@ -122,7 +219,7 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     style_cover_subtitle = ParagraphStyle(
         "CoverSubtitle",
         parent=styles["Normal"],
-        fontName="Helvetica",
+        fontName=SANS,
         fontSize=12,
         leading=16,
         textColor=SECONDARY,
@@ -131,7 +228,7 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     style_h1 = ParagraphStyle(
         "Heading1_Custom",
         parent=styles["Normal"],
-        fontName="Helvetica-Bold",
+        fontName=SANS_BOLD,
         fontSize=16,
         leading=20,
         textColor=PRIMARY,
@@ -142,7 +239,7 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     style_h2 = ParagraphStyle(
         "Heading2_Custom",
         parent=styles["Normal"],
-        fontName="Helvetica-Bold",
+        fontName=SANS_BOLD,
         fontSize=12,
         leading=16,
         textColor=SECONDARY,
@@ -153,7 +250,7 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     style_body = ParagraphStyle(
         "Body_Custom",
         parent=styles["Normal"],
-        fontName="Helvetica",
+        fontName=SANS,
         fontSize=9.5,
         leading=13.5,
         textColor=TEXT_DARK,
@@ -162,12 +259,12 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     style_body_bold = ParagraphStyle(
         "Body_Bold",
         parent=style_body,
-        fontName="Helvetica-Bold",
+        fontName=SANS_BOLD,
     )
     style_meta_label = ParagraphStyle(
         "MetaLabel",
         parent=styles["Normal"],
-        fontName="Helvetica-Bold",
+        fontName=SANS_BOLD,
         fontSize=8.5,
         leading=11,
         textColor=colors.HexColor("#4b5563"),
@@ -175,7 +272,7 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     style_meta_val = ParagraphStyle(
         "MetaVal",
         parent=styles["Normal"],
-        fontName="Helvetica",
+        fontName=SANS,
         fontSize=8.5,
         leading=11,
         textColor=TEXT_DARK,
@@ -183,7 +280,7 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     style_toc_item = ParagraphStyle(
         "TOCItem",
         parent=styles["Normal"],
-        fontName="Helvetica",
+        fontName=SANS,
         fontSize=10,
         leading=14,
         textColor=PRIMARY,
@@ -228,19 +325,22 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
 
     meta_grid_data = [
         [Paragraph("<b>Export Date:</b>", style_meta_label), Paragraph(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"), style_meta_val),
-         Paragraph("<b>reqtool Version:</b>", style_meta_label), Paragraph("v0.5.0", style_meta_val)],
+         Paragraph("<b>reqtool Version:</b>", style_meta_label), Paragraph(f"v{__version__}", style_meta_val)],
         [Paragraph("<b>Requirements:</b>", style_meta_label), Paragraph(str(len(req_list)), style_meta_val),
          Paragraph("<b>Principles:</b>", style_meta_label), Paragraph(str(len(principle_list)), style_meta_val)],
         [Paragraph("<b>Decisions (ADRs):</b>", style_meta_label), Paragraph(str(len(decision_list)), style_meta_val),
          Paragraph("<b>Open TBDs:</b>", style_meta_label), Paragraph(str(len(tbd_list)), style_meta_val)],
         [Paragraph("<b>Reusable Modules:</b>", style_meta_label), Paragraph(str(len(module_list)), style_meta_val),
          Paragraph("<b>Product Variants:</b>", style_meta_label), Paragraph(str(len(product_list)), style_meta_val)],
+        [Paragraph("<b>Source Revision:</b>", style_meta_label),
+         Paragraph(_clean_text(source_revision(store.root)), style_meta_val), "", ""],
     ]
     meta_table = Table(meta_grid_data, colWidths=[110, 140, 110, 140])
     meta_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), BG_LIGHT),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
         ('PADDING', (0, 0), (-1, -1), 6),
+        ('SPAN', (1, 4), (3, 4)),
     ]))
     story.append(meta_table)
     story.append(Spacer(1, 20))
@@ -249,16 +349,9 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     # TABLE OF CONTENTS
     # =========================================================================
     story.append(Paragraph("Table of Contents", style_h2))
-    toc_entries = [
-        ("1. Architecture & Engineering Principles", "#section-principles"),
-        ("2. Architecture Decision Records (ADRs with ATAM Analysis)", "#section-decisions"),
-        ("3. System & Software Requirements Specification", "#section-requirements"),
-        ("4. Reusable Subsystem Modules", "#section-modules"),
-        ("5. Product Line Manifests", "#section-products"),
-        ("6. Open Questions & Pending Decisions (TBDs)", "#section-tbds"),
-    ]
-    for label, link_id in toc_entries:
-        story.append(Paragraph(f'<a href="{link_id}" color="#1e3a8a"><u>{label}</u></a>', style_toc_item))
+    toc = TableOfContents()
+    toc.levelStyles = [style_toc_item]
+    story.append(toc)
     story.append(Spacer(1, 25))
 
     # =========================================================================
@@ -382,7 +475,7 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
             r_block = []
             # Header with clickable target
             r_block.append(Paragraph(f'<a name="req-{rid}"/><b>[{rid}] {rtitle}</b>', ParagraphStyle(
-                "ReqHeader", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=11, leading=14, textColor=PRIMARY
+                "ReqHeader", parent=styles["Normal"], fontName=SANS_BOLD, fontSize=11, leading=14, textColor=PRIMARY
             )))
 
             # Metadata Table
@@ -516,5 +609,7 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
             story.append(KeepTogether(t_elems))
 
     # Build Document
-    doc.build(story, canvasmaker=NumberedCanvas)
+    canvas_cls = type("ConfiguredCanvas", (NumberedCanvas,), {
+        "header_text": pdf_cfg.header_text, "footer_text": pdf_cfg.footer_text})
+    doc.multiBuild(story, canvasmaker=canvas_cls)
     return buffer.getvalue()
