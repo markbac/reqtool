@@ -115,6 +115,7 @@ def create_baseline(body: dict[str, Any], store: Store = Depends(get_store)):
 @router.get("/baselines/{name}/diff", tags=["baselines"])
 def baseline_diff(name: str, store: Store = Depends(get_store)):
     tag = f"baseline/{name}"
+    _require_tag(store, tag)
     changes = git_diff_tree(store.root, tag)
     req_changes = [c for c in changes if c["path"].startswith("requirements/") and c["path"].endswith(".yaml")]
 
@@ -144,12 +145,24 @@ def baseline_diff(name: str, store: Store = Depends(get_store)):
                 current = _load_yaml(path)
             except Exception:
                 pass
+            result["changed"].append({"id": current.get("id", "?") if current else "?", "path": change["path"]})
+
+    return result
+
+
+def _require_tag(store: Store, tag: str) -> None:
+    if tag not in {t["name"] for t in git_list_tags(store.root, prefix="baseline/")}:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Baseline '{tag}' not found"})
+
+
 @router.get("/baselines/compare", tags=["baselines"])
 def compare_two_baselines(baseline_a: str, baseline_b: str, store: Store = Depends(get_store)):
     tag_a = f"baseline/{baseline_a}" if not baseline_a.startswith("baseline/") else baseline_a
     tag_b = f"baseline/{baseline_b}" if not baseline_b.startswith("baseline/") else baseline_b
 
-    changes = git_diff_tree(store.root, tag_a)
+    _require_tag(store, tag_a)
+    _require_tag(store, tag_b)
+    changes = git_diff_tree(store.root, tag_a, tag_b)
     req_changes = [c for c in changes if c["path"].startswith("requirements/") and c["path"].endswith(".yaml")]
 
     result = {
