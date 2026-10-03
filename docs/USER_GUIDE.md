@@ -275,6 +275,7 @@ Send the token returned by `POST /auth/login` as `Authorization: Bearer <token>`
 
 ### 6.4 Secrets
 - `.reqtool/.secret_key` (signs tokens and approvals) and `.reqtool/users.yaml` (password hashes) are created with owner-only permissions and are added to `.gitignore` automatically. If either was ever committed, rotate the key and remove the files from history. Existing signatures stop verifying after rotation.
+- `GET /ws` follows the same authentication as the API (`?token=` in `required` mode). A refused connection closes with code `4401` (login required) or `4403` (non-local client in local mode). Client messages are limited to 64 KB (close code `1009`), and only `PRESENCE`, `CURSOR`, `LOCK_FIELD`, `UNLOCK_FIELD` and `CO_EDIT` messages with an object payload are relayed.
 - Webhook targets are resolved before every delivery and refused if any address is loopback, private, reserved or multicast. Link-local addresses (cloud metadata, `169.254.0.0/16`) are always refused. For an internal receiver set `allow_private: true` on that webhook in `config.yaml`. Redirects are never followed. The check runs just before sending, so a DNS answer that changes between the check and the connection is not fully excluded.
 - Webhook secrets are write-only. The API returns `"secret": "********"` and `"has_secret": true`. Sending the placeholder back unchanged keeps the stored secret.
 
