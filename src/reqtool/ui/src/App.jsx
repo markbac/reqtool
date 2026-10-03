@@ -137,6 +137,7 @@ function AppShell() {
         onWebhooks={() => toggle('_showWebhooks')}
         onHelp={() => toggle('_showHelp')}
         onRepo={() => toggle('_showRepo')}
+        onLogin={() => toggle('_showLogin')}
         onDiagram={() => toggle('_showDiagram')}
         onIterations={() => toggle('_showIterations')}
         onAutomation={() => toggle('_showAutomation')}

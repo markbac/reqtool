@@ -175,4 +175,13 @@ describe('App', () => {
     await act(async () => { render(<App />); });
     expect(document.body.innerHTML.length).toBeGreaterThan(100);
   });
+
+  it('opens the login modal from the header identity button (UI-01)', async () => {
+    await act(async () => { render(<App />); });
+    const btn = document.querySelector('button[title^="User Identity"]');
+    expect(btn).toBeTruthy();
+    await act(async () => { btn.click(); });
+    expect(document.body.textContent).toMatch(/log ?in/i);
+    expect(document.querySelector('input[type="password"]')).toBeTruthy();
+  });
 });
