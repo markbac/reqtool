@@ -99,13 +99,43 @@ def get_config(store: Store = Depends(get_store)):
     return redact_config(store.config.model_dump())
 
 
+def _unknown_keys(model: Any, data: Any, prefix: str = "") -> list[str]:
+    """Dotted paths in ``data`` that are not fields of the pydantic ``model`` (recursing into models and lists of models)."""
+    import typing
+    from pydantic import BaseModel
+    if not (isinstance(model, type) and issubclass(model, BaseModel)) or not isinstance(data, dict):
+        return []
+    bad = []
+    for key, value in data.items():
+        field = model.model_fields.get(key)
+        if field is None:
+            bad.append(prefix + key)
+            continue
+        ann = field.annotation
+        if typing.get_origin(ann) is list and isinstance(value, list):
+            inner = typing.get_args(ann)[0]
+            for i, item in enumerate(value):
+                bad += _unknown_keys(inner, item, f"{prefix}{key}[{i}].")
+        else:
+            bad += _unknown_keys(ann, value, f"{prefix}{key}.")
+    return bad
+
+
 @router.put("/config", tags=["meta"])
 def update_config(body: dict[str, Any], store: Store = Depends(get_store)):
+    from reqtool.models import RepoConfig
+    for hook in body.get("webhooks") or []:
+        if isinstance(hook, dict):
+            hook.pop("has_secret", None)  # read-only marker added by GET /config
+    unknown = _unknown_keys(RepoConfig, body)
+    if unknown:
+        raise HTTPException(status_code=422, detail={
+            "error": "validation",
+            "message": "Unknown configuration setting(s): " + ", ".join(sorted(unknown))})
     config_path = store.root / ".reqtool" / "config.yaml"
     cfg = load_yaml(config_path) if config_path.exists() else {}
     _restore_redacted_secrets(body, cfg.get("webhooks") or [])
     cfg.update(body)
-    from reqtool.models import RepoConfig
     new_config = _validated(RepoConfig, cfg)  # validate BEFORE persisting
     save_yaml(config_path, cfg)
     store.config = new_config
