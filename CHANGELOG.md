@@ -16,6 +16,7 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 - **Cross-layer relationship rules (MOD-02)**: `cross_layer_rules` are enforced on write and in validation under the same `hierarchy.enforce` setting (`relationship_violation`). Shipped rules now let themes, initiatives and epics trace to stakeholder needs and themes/initiatives link to systems requirements.
 
 ### Security
+- **WebSocket hardening (SEC-06)**: distinct close codes (`4401`/`4403`), a 64 KB message limit, and only known message types with object payloads are relayed.
 - **Attachment limits (SEC-09)**: uploads are read as a stream and refused with `413` above `REQTOOL_MAX_UPLOAD_MB` (default 25), `Content-Disposition` is parsed as a header, and an item holds at most 100 attachments. The two upload routes share one implementation.
 - **Signed GitHub webhook (SEC-18)**: `POST /webhooks/github` now verifies `X-Hub-Signature-256` against `REQTOOL_GITHUB_WEBHOOK_SECRET` (constant-time compare) and is disabled without a secret. It is reachable without a login token because the signature is its authentication.
 - **Webhook SSRF guard (SEC-11)**: webhook hostnames are resolved and non-public addresses refused (opt in per webhook with `allow_private: true`; link-local/metadata always blocked).

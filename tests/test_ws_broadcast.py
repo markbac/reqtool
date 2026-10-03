@@ -31,3 +31,49 @@ def test_client_relay_is_broadcast(client):
 def test_no_clients_is_a_noop():
     from reqtool.routers.deps import broadcast_sync
     broadcast_sync("x", {"uid": "u"})  # must not raise
+
+
+# --- SEC-06: close codes and message validation -------------------------------
+
+def test_unauthenticated_close_code_is_4401(repo_root):
+    import pytest
+    from fastapi.testclient import TestClient
+    from starlette.websockets import WebSocketDisconnect
+    from reqtool.api import create_app
+    c = TestClient(create_app(repo_root, auth_mode="required"))
+    with pytest.raises(WebSocketDisconnect) as exc:
+        with c.websocket_connect("/ws"):
+            pass
+    assert exc.value.code == 4401
+
+
+def test_remote_in_local_mode_close_code_is_4403(repo_root):
+    import pytest
+    from fastapi.testclient import TestClient
+    from starlette.websockets import WebSocketDisconnect
+    from reqtool.api import create_app
+    c = TestClient(create_app(repo_root, auth_mode="local"), client=("203.0.113.9", 1))
+    with pytest.raises(WebSocketDisconnect) as exc:
+        with c.websocket_connect("/ws"):
+            pass
+    assert exc.value.code == 4403
+
+
+def test_oversized_message_closes_with_1009(client):
+    import pytest
+    from starlette.websockets import WebSocketDisconnect
+    with client.websocket_connect("/ws") as ws:
+        ws.send_text("x" * (65 * 1024))
+        with pytest.raises(WebSocketDisconnect) as exc:
+            ws.receive_text()
+    assert exc.value.code == 1009
+
+
+def test_unknown_types_and_non_object_payloads_are_not_relayed(client):
+    with client.websocket_connect("/ws") as a, client.websocket_connect("/ws") as b:
+        a.send_text(json.dumps({"type": "EVIL", "payload": {}}))
+        a.send_text(json.dumps({"type": "PRESENCE", "payload": "not-an-object"}))
+        a.send_text("not json")
+        a.send_text(json.dumps({"type": "CURSOR", "payload": {"x": 1}}))
+        got = json.loads(b.receive_text())
+        assert got == {"event": "CURSOR", "payload": {"x": 1}}
