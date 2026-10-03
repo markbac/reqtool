@@ -54,7 +54,7 @@ function OverflowMenu({ items }) {
 export default function Header({ onValidate, onExport, onCoverage, onBulk, onVocabularies,
                                onBaselines, onMetrics, onImport, onTraceability, onGlobalCommit,
                                onCustomFields, onWebhooks, onToggleSidebar, onHelp, onRepo, onLogin, onDiagram, onIterations,
-                               onAutomation, onDuplicateDetector }) {
+                               onAutomation, onDuplicateDetector, onTemplates }) {
   const { state, dispatch, toast } = useApp();
   const { products, activeProduct, activeVariant } = state;
   const [gitStatus, setGitStatus] = useState(null);
@@ -203,6 +203,7 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
           { label: '⊚ Custom fields',action: onCustomFields },
           { label: '⇌ Webhooks',     action: onWebhooks },
           { label: '⬡ Workflow',     action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showWorkflow', value: true }) },
+          { label: '▤ Templates',     action: onTemplates },
           { label: '↑ Import CSV',   action: onImport },
         ]} />
         <button

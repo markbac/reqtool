@@ -115,6 +115,9 @@ export function ExportPanel({ onClose }) {
       } else if (format === 'reqif') {
         blob = await api.exports.reqif(body);
         filename = 'requirements.reqif';
+      } else if (format === 'pdf') {
+        blob = await api.exports.pdf(body);
+        filename = 'specification.pdf';
       } else if (format === 'audit_package') {
         const url = api.exports.auditPackage(body);
         window.open(url, '_blank');
@@ -149,6 +152,7 @@ export function ExportPanel({ onClose }) {
                 { id: 'markdown', label: 'MARKDOWN' },
                 { id: 'jsx', label: 'JSX' },
                 { id: 'reqif', label: 'ReqIF 1.2' },
+                { id: 'pdf', label: 'PDF' },
                 { id: 'audit_package', label: 'Audit Package (Part 11)' }
               ].map(f => (
                 <label key={f.id} className={`export-format-option ${format === f.id ? 'active' : ''}`}>
