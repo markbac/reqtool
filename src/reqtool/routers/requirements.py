@@ -11,7 +11,7 @@ import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from reqtool.store import Store, ParentCycle
+from reqtool.store import Store, ParentCycle, HierarchyViolation
 from reqtool.git_ops import has_conflicts, stage_file, commit as git_commit, git_log
 from reqtool.models import (
     CommitRequest, ApproveRequest, BulkUpdateRequest,
@@ -130,7 +130,7 @@ def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get
                     increment=body.increment,
                     summary=body.summary,
                 )
-            except ParentCycle as exc:
+            except (ParentCycle, HierarchyViolation) as exc:
                 failed.append(uid)
                 errors[uid] = str(exc)
                 continue

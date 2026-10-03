@@ -120,7 +120,7 @@ Cross-layer: agile items link to systems requirements via explicit relationship 
 
 ## Workflows
 
-Four workflow types are defined in `defaults/hierarchy.yaml`. Override any per-project in `.reqtool/hierarchy.yaml`.
+Four workflow types are defined in `defaults/hierarchy.yaml`. Override any per-project in `.reqtool/hierarchy.yaml`. Its `hierarchy:` rules (`allowed_children`) are applied according to `enforce: off|warn|error` (default `warn`); in `error` mode a disallowed parent returns `409 hierarchy_violation`.
 
 | Workflow | Used by | States |
 |----------|---------|--------|

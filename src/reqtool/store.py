@@ -44,6 +44,10 @@ import threading
 class ParentCycle(ValueError):
     """Re-parenting would make an item its own ancestor."""
 
+
+class HierarchyViolation(ValueError):
+    """The child type is not allowed under the parent type (hierarchy.enforce: error)."""
+
 from .stores import attachment_store, comment_store, hierarchy_store
 
 
@@ -543,6 +547,7 @@ class Store:
         uid = uuid7()
         now = utcnow_iso()
         req_type = fields.get("req_type", "functional")
+        self._check_hierarchy(req_type, fields.get("parentId"))
 
         # Determine default status from workflow initial state
         wf = self.get_workflow_for_type(req_type)
@@ -625,6 +630,9 @@ class Store:
         fields = self._sanitise_requirement(fields)
         if fields.get("parentId"):
             self._check_parent(uid, fields["parentId"])
+        if "parentId" in fields or "req_type" in fields:
+            self._check_hierarchy(fields.get("req_type", data.get("req_type", "functional")),
+                                  fields.get("parentId", data.get("parentId")))
         now = utcnow_iso()
         old_hash = data.get("content_hash", "")
 
@@ -652,6 +660,21 @@ class Store:
 
         save_yaml(self.req_path(uid), data)
         return data
+
+    def hierarchy_problem(self, child_type: str, parent_uid: Optional[str]) -> Optional[str]:
+        """Message if ``child_type`` is not allowed under ``parent_uid``'s type (ignores enforce mode)."""
+        parent = self.requirements.get(parent_uid) if parent_uid else None
+        if not parent:
+            return None
+        return hierarchy_store.check_parent_type(
+            self.hierarchy, parent.get("req_type", "functional"), child_type)
+
+    def _check_hierarchy(self, child_type: str, parent_uid: Optional[str]) -> None:
+        if self.hierarchy.enforce != "error":
+            return
+        problem = self.hierarchy_problem(child_type, parent_uid)
+        if problem:
+            raise HierarchyViolation(problem)
 
     def _check_parent(self, uid: str, new_parent: str) -> None:
         """Raise ParentCycle if parenting ``uid`` under ``new_parent`` closes a loop."""

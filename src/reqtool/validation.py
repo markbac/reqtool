@@ -211,6 +211,17 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
                 uid, "parentId",
             ))
 
+    # Hierarchy rules: child type must be allowed under its parent's type
+    if store.hierarchy.enforce != "off":
+        for uid, req in store.requirements.items():
+            if req.get("deleted"):
+                continue
+            problem = store.hierarchy_problem(req.get("req_type", "functional"), req.get("parentId"))
+            if problem:
+                (errors if store.hierarchy.enforce == "error" else warnings).append(
+                    (_err if store.hierarchy.enforce == "error" else _warn)(
+                        "hierarchy_violation", problem, uid, "parentId"))
+
     # parentId cycles (reported on each member of the loop)
     for uid, req in store.requirements.items():
         if req.get("deleted"):
