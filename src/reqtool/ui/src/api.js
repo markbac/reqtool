@@ -229,6 +229,7 @@ export const api = {
     markdown:     (body) => post('/export/markdown', body),
     csv:          (body) => post('/export/csv', body),
     reqif:        () => get('/export/reqif'),
+    pdf:          (body) => post('/export/pdf', body),
     auditPackage: (params = {}) => {
       // Browser navigations cannot send an Authorization header, so pass the token as a query parameter.
       const token = localStorage.getItem('reqtool:auth_token');

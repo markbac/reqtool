@@ -150,6 +150,7 @@ function AppShell() {
         onDiagram={() => toggle('_showDiagram')}
         onIterations={() => toggle('_showIterations')}
         onAutomation={() => toggle('_showAutomation')}
+        onTemplates={() => toggle('_showTemplates')}
         onDuplicateDetector={() => toggle('_showDuplicateDetector')}
         onGlobalCommit={(status) => { setGitStatus(status); toggle('_showGlobalCommit'); }}
       />
