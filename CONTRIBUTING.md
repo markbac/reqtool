@@ -98,7 +98,7 @@ reqtool/
 - Feature branches: `feature/<short-description>`.
 - Bug fixes: `fix/<short-description>`.
 
-Open a PR against `main`. CI runs automatically.
+Open a PR against `main`. CI runs automatically. If a test job fails, the failed tests are listed as annotations on the check run and in its summary.
 
 ## Releasing
 

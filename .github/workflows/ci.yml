@@ -102,6 +102,10 @@ jobs:
             --tb=short \
             --junit-xml=junit-core-${{ matrix.python-version }}.xml
 
+      - name: Report failed tests
+        if: failure()
+        run: python scripts/ci_failures.py junit-core-${{ matrix.python-version }}.xml
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -139,6 +143,10 @@ jobs:
             -v \
             --tb=short \
             --junit-xml=junit-features-${{ matrix.python-version }}.xml
+
+      - name: Report failed tests
+        if: failure()
+        run: python scripts/ci_failures.py junit-features-${{ matrix.python-version }}.xml
 
       - name: Upload test results
         if: always()
@@ -178,6 +186,10 @@ jobs:
             --tb=short \
             --junit-xml=junit-api-${{ matrix.python-version }}.xml
         timeout-minutes: 10
+
+      - name: Report failed tests
+        if: failure()
+        run: python scripts/ci_failures.py junit-api-${{ matrix.python-version }}.xml
 
       - name: Upload test results
         if: always()
