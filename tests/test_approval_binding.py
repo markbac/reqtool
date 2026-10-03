@@ -1,7 +1,7 @@
 """SEC-08: approvals are bound to the logged-in user and to the approved content."""
 from reqtool.auth import UserStore, check_approval
 from reqtool.validation import validate_all
-from tests.conftest import make_req
+from tests.conftest import review_first, make_req
 
 PW = "correct-horse-battery"
 
@@ -14,6 +14,7 @@ def _login(client, name):
 def test_authenticated_approval_uses_login_identity(client, repo_root):
     UserStore(repo_root).create_user("alice", PW, role="editor")
     uid = make_req(client, title="A")["uid"]
+    review_first(client, uid, headers=_login(client, "alice"))
     r = client.post(f"/requirements/{uid}/approve", json={"approved_by": "alice"}, headers=_login(client, "alice"))
     assert r.status_code == 200, r.text
     a = r.json()["approval"]
@@ -38,6 +39,7 @@ def test_viewer_cannot_approve(client, repo_root):
 
 def test_local_mode_records_unverified_identity(client):
     uid = make_req(client, title="A")["uid"]
+    review_first(client, uid)
     r = client.post(f"/requirements/{uid}/approve", json={"approved_by": "bob"})
     assert r.status_code == 200
     assert r.json()["approval"]["identity_verified"] is False
@@ -46,6 +48,7 @@ def test_local_mode_records_unverified_identity(client):
 def test_signature_covers_content(client, repo_root):
     uid = make_req(client, title="Original")["uid"]
     store = client.app.state.store
+    review_first(client, uid)
     r = client.post(f"/requirements/{uid}/approve", json={"approved_by": "bob"}).json()
     assert check_approval(store.requirements[uid], repo_root) == "valid"
 
@@ -59,6 +62,7 @@ def test_signature_covers_content(client, repo_root):
 def test_tampered_record_is_invalid(client, repo_root):
     uid = make_req(client, title="T")["uid"]
     store = client.app.state.store
+    review_first(client, uid)
     client.post(f"/requirements/{uid}/approve", json={"approved_by": "bob"})
     store.requirements[uid]["approval"]["approved_by"] = "someone_else"
     assert check_approval(store.requirements[uid], repo_root) == "invalid"

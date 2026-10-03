@@ -319,7 +319,7 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     req_list = [r for r in store.requirements.values() if not r.get("deleted")]
     principle_list = [p for p in store.principles.values() if not p.get("deleted")]
     decision_list = [d for d in store.decisions.values() if not d.get("deleted")]
-    tbd_list = [t for t in store.tbds.values() if not t.get("deleted")]
+    tbd_list = [t for t in store.decisions.values() if not t.get("deleted")]
     module_list = list(store.modules.values())
     product_list = list(store.products.values())
 

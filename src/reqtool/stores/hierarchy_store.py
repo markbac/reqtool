@@ -74,6 +74,7 @@ def parse_hierarchy(data: dict) -> HierarchyConfig:
         workflows=workflows,
         dor=data.get("dor", {}),
         dod=data.get("dod", {}),
+        type_fields=data.get("type_fields") or {},
         cross_layer_rules=cross_layer_rules,
         default_relationship_types=default_rel_types,
     )
@@ -235,4 +236,5 @@ def next_id_for_type(hierarchy: HierarchyConfig, requirements: dict[str, dict[st
 def default_checklist(hierarchy: HierarchyConfig, kind: str, req_type: str) -> list[dict[str, Any]]:
     templates = hierarchy.dor if kind == "dor" else hierarchy.dod
     items = templates.get(req_type, [])
-    return [{"item": i.get("item", ""), "checked": False} for i in items]
+    return [{"item": i.get("item", ""), "checked": False, **({"advisory": True} if i.get("advisory") else {})}
+            for i in items]

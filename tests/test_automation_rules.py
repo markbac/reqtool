@@ -1,5 +1,5 @@
 """UI-12: one automation rule schema, validated on save, with a published list of events/actions."""
-from tests.conftest import make_req
+from tests.conftest import review_first, make_req
 from reqtool.automation import AutomationEngine
 
 
@@ -83,6 +83,7 @@ def test_approve_runs_matching_rule_once(client):
         {"name": "QA on approval", "event": "requirement_approved", "condition": {"status": "approved"},
          "action": "set_field", "target_field": "owner", "target_value": "qa_lead"}])
     uid = make_req(client)["uid"]
+    review_first(client, uid)
     r = client.post(f"/requirements/{uid}/approve", json={"approved_by": "alice"})
     assert r.status_code == 200
     got = client.get(f"/requirements/{uid}").json()

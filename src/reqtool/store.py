@@ -156,7 +156,7 @@ class Store:
 
         self.requirements: dict[str, dict[str, Any]] = {}
         self.principles: dict[str, dict[str, Any]] = {}
-        self.tbds: dict[str, dict[str, Any]] = {}
+        self.decisions: dict[str, dict[str, Any]] = {}
         self.modules: dict[str, dict[str, Any]] = {}
         self.products: dict[str, dict[str, Any]] = {}
         self.module_requirements: dict[str, dict[str, dict[str, Any]]] = {}
@@ -171,7 +171,6 @@ class Store:
             self.requirements = {}
             self.principles = {}
             self.decisions: dict[str, dict[str, Any]] = {}
-            self.tbds: dict[str, dict[str, Any]] = self.decisions
             self.modules = {}
             self.products = {}
             self.module_requirements = {}
@@ -250,6 +249,7 @@ class Store:
             workflows=workflows,
             dor=data.get("dor") or {},
             dod=data.get("dod") or {},
+            type_fields=data.get("type_fields") or {},
             cross_layer_rules=cross_layer,
             default_relationship_types=rel_types,
         )
@@ -330,7 +330,7 @@ class Store:
         uids: set[str] = set()
         uids.update(self.requirements)
         uids.update(self.principles)
-        uids.update(self.tbds)
+        uids.update(self.decisions)
         for reqs in self.module_requirements.values():
             uids.update(reqs)
         return uids
@@ -374,16 +374,11 @@ class Store:
         return self.root / "principles" / f"{uid}.yaml"
 
     def decision_path(self, uid: str) -> Path:
-        tbd_p = self.root / "tbds" / f"{uid}.yaml"
-        if tbd_p.exists():
-            return tbd_p
+        """File for a decision or TBD. Files not yet migrated stay in the legacy ``tbds/`` folder."""
+        legacy = self.root / "tbds" / f"{uid}.yaml"
+        if legacy.exists():
+            return legacy
         return self.root / "decisions" / f"{uid}.yaml"
-
-    def tbd_path(self, uid: str) -> Path:
-        dec_p = self.root / "decisions" / f"{uid}.yaml"
-        if dec_p.exists():
-            return dec_p
-        return self.root / "tbds" / f"{uid}.yaml"
 
     # ------------------------------------------------------------------
     # Tree construction
@@ -961,8 +956,7 @@ class Store:
                 old_item["superseded_by"] = uid
                 save_yaml(self.decision_path(old_uid), old_item)
 
-        out_path = self.tbd_path(uid) if item_type == "tbd" else self.decision_path(uid)
-        save_yaml(out_path, data)
+        save_yaml(self.decision_path(uid), data)
         return data
 
     @_locked
@@ -1097,15 +1091,17 @@ class Store:
                     self.principles[uid] = data
                 return
 
-            if top == "tbds":
+            if top in ("decisions", "tbds"):
                 if not changed_path.exists():
+                    for uid in [u for u in self.decisions if self.decision_path(u) == changed_path]:
+                        del self.decisions[uid]
                     return
                 data = load_yaml(changed_path)
                 if isinstance(data, dict) and (uid := data.get("uid")):
-                    existing = self.tbds.get(uid)
+                    existing = self.decisions.get(uid)
                     if existing and existing.get("last_modified", "") >= data.get("last_modified", ""):
                         return
-                    self.tbds[uid] = data
+                    self.decisions[uid] = data
                 return
 
             if top in ("modules", "products"):
@@ -1120,6 +1116,17 @@ class Store:
             log.warning("Incremental reload failed for %s: %s -- falling back to full reload", changed_path, exc)
 
         self.load()
+
+    def open_tbds_for(self, req: dict[str, Any]) -> list[str]:
+        """Ids of unresolved TBDs the requirement links to."""
+        out = []
+        for link in req.get("links", []) or []:
+            if link.get("type") != "tbd":
+                continue
+            t = self.decisions.get(link.get("ref", ""))
+            if t and not t.get("deleted") and t.get("type") == "tbd" and t.get("status") in ("open", "in_progress"):
+                out.append(t.get("id") or t["uid"])
+        return out
 
     def compute_affected_requirements(self, tbd_uid: str) -> list[str]:
         """Return UIDs of live requirements that reference ``tbd_uid``.
@@ -1161,8 +1168,8 @@ class Store:
             return self.requirements[uid], "requirement"
         if uid in self.principles:
             return self.principles[uid], "principle"
-        if uid in self.tbds:
-            return self.tbds[uid], "tbd"
+        if uid in self.decisions:
+            return self.decisions[uid], "tbd"
         return None
 
     def _update_artefact(self, uid: str, fields: dict, summary: str) -> Optional[dict]:
@@ -1171,7 +1178,7 @@ class Store:
             return self.update_requirement(uid, fields, summary=summary, increment="patch")
         if uid in self.principles:
             return self.update_principle(uid, fields, summary=summary, increment="patch")
-        if uid in self.tbds:
+        if uid in self.decisions:
             return self.update_tbd(uid, fields, summary=summary, increment="patch")
         return None
 

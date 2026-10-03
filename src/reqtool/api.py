@@ -24,7 +24,7 @@ from .fileio import InvalidId
 from .git_ops import InvalidRef, has_conflicts
 from .store import ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId
 from .routers import (
-    system, requirements, principles, decisions, tbds, modules,
+    system, requirements, principles, decisions, modules,
     comments, attachments, analysis, exports, git_ops,
     imports, ws, auth, iterations, github, automation,
 )
@@ -164,7 +164,6 @@ def create_app(repo_root: Path, auth_mode: str | None = None) -> FastAPI:
     app.include_router(requirements.router)
     app.include_router(principles.router)
     app.include_router(decisions.router)
-    app.include_router(tbds.router)
     app.include_router(modules.router)
     app.include_router(comments.router)
     app.include_router(attachments.router)

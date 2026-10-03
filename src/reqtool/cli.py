@@ -12,7 +12,7 @@ from .commands.scaffold import _write_base_repo, _write_enums, _write_product
 from .commands.server import _launch_ui_auto
 
 # Import subcommands to ensure they are registered on the `cli` Click group
-from .commands import scaffold, validation, exports, queries, server, users  # noqa: F401
+from .commands import scaffold, validation, exports, queries, server, users, migrate  # noqa: F401
 
 __all__ = [
     "cli",

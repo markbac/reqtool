@@ -174,7 +174,7 @@ def show(id_or_uid: str, repo: Optional[str]):
     from ..store import Store
     store = Store(root)
     store.load()
-    for collection in (store.requirements, store.principles, store.tbds):
+    for collection in (store.requirements, store.principles, store.decisions):
         for uid, item in collection.items():
             if uid == id_or_uid or item.get("id") == id_or_uid:
                 click.echo(json.dumps(item, indent=2, default=str))
@@ -207,7 +207,7 @@ def history(id_or_uid: str, repo: Optional[str]):
     store.load()
 
     uid = None
-    for collection in (store.requirements, store.principles, store.tbds):
+    for collection in (store.requirements, store.principles, store.decisions):
         for item_uid, item in collection.items():
             if item_uid == id_or_uid or item.get("id") == id_or_uid:
                 uid = item_uid
@@ -219,7 +219,7 @@ def history(id_or_uid: str, repo: Optional[str]):
         click.echo(f"Not found: {id_or_uid}", err=True)
         sys.exit(1)
 
-    for get_path in (store.req_path, store.principle_path, store.tbd_path):
+    for get_path in (store.req_path, store.principle_path, store.decision_path):
         p = get_path(uid)
         if p.exists():
             entries = git_log(root, p)

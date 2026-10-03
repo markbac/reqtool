@@ -65,7 +65,7 @@ class TestStoreLoad:
         s.load()
         assert s.requirements == {}
         assert s.principles == {}
-        assert s.tbds == {}
+        assert s.decisions == {}
 
     def test_load_persisted_requirements(self, store):
         _make_req(store)
@@ -327,7 +327,7 @@ class TestTbdCRUD:
     def test_delete(self, store):
         t = _make_tbd(store)
         store.delete_tbd(t["uid"])
-        assert store.tbds[t["uid"]]["deleted"] is True
+        assert store.decisions[t["uid"]]["deleted"] is True
 
 
 # ===========================================================================

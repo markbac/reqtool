@@ -66,6 +66,7 @@ class AcceptanceCriterion(BaseModel):
 class ChecklistItem(BaseModel):
     item: str
     checked: bool = False
+    advisory: bool = False  # shown, but does not block completion
 
 
 # ---------------------------------------------------------------------------
@@ -579,7 +580,7 @@ class WorkflowConfig(BaseModel):
         WorkflowState(id="deprecated", label="Deprecated", colour="#da3633", terminal=True),
     ])
     transitions: dict[str, list[str]] = Field(default_factory=lambda: {
-        "draft":      ["in_review", "approved"],
+        "draft":      ["in_review"],
         "in_review":  ["reviewed", "draft"],
         "reviewed":   ["approved", "in_review"],
         "approved":   ["deprecated", "in_review"],
@@ -644,6 +645,7 @@ class ValidationConfig(BaseModel):
     require_owner: bool = True
     warn_on_missing_test_ref: bool = True
     warn_on_open_tbds_in_approved: bool = True
+    block_approval_on_open_tbds: bool = False  # policy: refuse approval while a linked TBD is open
     max_history_entries: int = 20
 
 
@@ -728,6 +730,7 @@ class HierarchyConfig(BaseModel):
     workflows: dict[str, HierarchyWorkflowDef] = Field(default_factory=dict)
     dor: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     dod: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    type_fields: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     cross_layer_rules: list[CrossLayerRule] = Field(default_factory=list)
     default_relationship_types: list[RelationshipTypeDef] = Field(default_factory=list)
     # How hierarchy rules (allowed_children) are applied: off | warn | error
@@ -927,8 +930,15 @@ class ApproveRequest(BaseModel):
 
 
 class ResolveRequest(BaseModel):
-    resolution: str
-    resolved_by: str
+    """Resolve a TBD or accept a decision. ``resolution`` is the older name for ``decision``."""
+    decision: Optional[str] = None
+    resolution: Optional[str] = None
+    rationale: Optional[str] = None
+    linked_decision: Optional[str] = None
+    resolved_by: Optional[str] = None
+
+    def decision_text(self) -> Optional[str]:
+        return self.decision or self.resolution
 
 
 class ValidationResult(BaseModel):

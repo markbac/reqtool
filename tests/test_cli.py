@@ -36,7 +36,7 @@ class TestInitBlank:
         monkeypatch.chdir(tmp_path)
         runner = CliRunner()
         runner.invoke(cli, ["init", "--id", "test", "--title", "Test"])
-        for d in ("requirements", "principles", "tbds", ".reqtool"):
+        for d in ("requirements", "principles", "decisions", ".reqtool"):
             assert (tmp_path / d).is_dir()
 
     def test_init_creates_enums(self, tmp_path, monkeypatch):
@@ -123,7 +123,7 @@ class TestInitDemo:
         monkeypatch.chdir(tmp_path)
         runner = CliRunner()
         runner.invoke(cli, ["init", "demo"])
-        tbds = list((tmp_path / "tbds").glob("*.yaml"))
+        tbds = [p for p in (tmp_path / "decisions").glob("*.yaml") if "type: tbd" in p.read_text()]
         assert len(tbds) >= 5
 
     def test_init_demo_creates_principles(self, tmp_path, monkeypatch):

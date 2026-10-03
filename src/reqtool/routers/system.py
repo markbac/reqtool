@@ -152,7 +152,7 @@ def get_repo_info(store: Store = Depends(get_store)):
         "repo_description": store.config.repo_description,
         "requirements_count": len(store.requirements),
         "principles_count": len(store.principles),
-        "tbds_count": len(store.tbds),
+        "tbds_count": len(store.decisions),
         "decisions_count": len(store.decisions),
     }
 
@@ -356,6 +356,7 @@ def get_hierarchy(store: Store = Depends(get_store)):
         "workflows": {k: v.model_dump() for k, v in store.hierarchy.workflows.items()},
         "dor": store.hierarchy.dor,
         "dod": store.hierarchy.dod,
+        "type_fields": store.hierarchy.type_fields,
         "cross_layer_rules": [r.model_dump() for r in store.hierarchy.cross_layer_rules],
         "default_relationship_types": [r.model_dump() for r in store.hierarchy.default_relationship_types],
         "enforce": store.hierarchy.enforce,
@@ -461,7 +462,7 @@ def validation_badge(store: Store = Depends(get_store)):
 def get_metrics(store: Store = Depends(get_store)):
     reqs = [r for r in store.requirements.values() if not r.get("deleted")]
     principles = [p for p in store.principles.values() if not p.get("deleted")]
-    tbds = [t for t in store.tbds.values() if not t.get("deleted")]
+    tbds = [t for t in store.decisions.values() if not t.get("deleted")]
 
     status_counts = Counter(r.get("status", "draft") for r in reqs)
     domain_counts = Counter(r.get("domain") or "unclassified" for r in reqs)

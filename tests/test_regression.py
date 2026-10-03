@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from tests.conftest import make_req, make_principle, make_tbd, settle
+from tests.conftest import review_first, make_req, make_principle, make_tbd, settle
 
 
 # ---------------------------------------------------------------------------
@@ -400,6 +400,7 @@ class TestMetricsFullFlow:
     def test_approval_rate_calculation(self, client):
         r1 = make_req(client)
         r2 = make_req(client)
+        review_first(client, r1['uid'])
         client.post(f"/requirements/{r1['uid']}/approve", json={"approved_by": "alice"})
         metrics = client.get("/metrics").json()
         assert metrics["approval_funnel"]["approved"] >= 1

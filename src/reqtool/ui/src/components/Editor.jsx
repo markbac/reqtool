@@ -30,6 +30,7 @@ const oneLight = EditorView.theme({
 import { useApp } from '../AppContext';
 import { api } from '../api';
 import CommitModal from './CommitModal';
+import ResolveDialog from './ResolveDialog';
 import { AttachmentsSection, DiscussionSection as CommentsSection } from './Advanced';
 import './Editor.css';
 import { safeHtml } from '../sanitize';
@@ -749,6 +750,30 @@ function ValidationSummary({ issues }) {
 // ---------------------------------------------------------------------------
 // Custom fields value editor (reads schema, renders appropriate inputs)
 // ---------------------------------------------------------------------------
+function StrategicFieldsEditor({ fields, values, onChange }) {
+  const set = (key, val) => onChange({ ...values, [key]: val });
+  return (
+    <div className="strategic-fields">
+      {fields.map(f => (
+        <Field key={f.key} label={f.label || f.key}>
+          {f.type === 'list' ? (
+            <StringListEditor items={Array.isArray(values[f.key]) ? values[f.key] : []}
+              onChange={v => set(f.key, v)} placeholder={`Add ${(f.label || f.key).toLowerCase()}…`} />
+          ) : f.type === 'select' ? (
+            <select aria-label={f.label} value={values[f.key] ?? ''} onChange={e => set(f.key, e.target.value || null)}>
+              <option value="">—</option>
+              {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          ) : (
+            <textarea aria-label={f.label} rows={2} value={values[f.key] ?? ''} placeholder={f.description}
+              onChange={e => set(f.key, e.target.value || null)} />
+          )}
+        </Field>
+      ))}
+    </div>
+  );
+}
+
 function CustomFieldsValueEditor({ schema, values, onChange }) {
   const set = (key, val) => onChange({ ...values, [key]: val });
 
@@ -1205,6 +1230,12 @@ function RequirementEditor({ uid }) {
             <Section title="NFR Constraints" defaultOpen={false}>
               <NfrEditor nfr={draft.nfr ?? {}} nfrKeys={nfrKeys} onChange={v => patch('nfr', v)} />
             </Section>
+            {state.hierarchy?.type_fields?.[draft.req_type]?.length > 0 && (
+              <Section title="Strategic Fields">
+                <StrategicFieldsEditor fields={state.hierarchy.type_fields[draft.req_type]}
+                  values={draft.custom_fields ?? {}} onChange={v => patch('custom_fields', v)} />
+              </Section>
+            )}
             {enums?._customFieldSchema?.length > 0 && (
               <Section title="Custom Fields">
                 <CustomFieldsValueEditor schema={enums._customFieldSchema}
@@ -1546,15 +1577,13 @@ function TBDEditor({ uid }) {
     finally { setSaving(false); }
   };
 
-  const handleResolve = async () => {
-    const resolution = prompt('Resolution summary:');
-    if (resolution === null) return;
-    try {
-      await api.tbds.resolve(uid, { resolution });
-      const updated = await api.tbds.get(uid);
-      setData(updated); setDraft(updated);
-      toast('TBD resolved', 'success');
-    } catch (err) { toast(err.message, 'error'); }
+  const [showResolve, setShowResolve] = useState(false);
+  const handleResolve = async (body) => {
+    await api.tbds.resolve(uid, body);
+    const updated = await api.tbds.get(uid);
+    setData(updated); setDraft(updated);
+    setShowResolve(false);
+    toast('TBD resolved', 'success');
   };
 
   useEffect(() => {
@@ -1585,7 +1614,7 @@ function TBDEditor({ uid }) {
         </div>
         <div className="editor-header-right">
           {(draft.status === 'open' || draft.status === 'in_progress') && (
-            <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={handleResolve}>
+            <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setShowResolve(true)}>
               ✓ Resolve
             </button>
           )}
@@ -1682,6 +1711,7 @@ function TBDEditor({ uid }) {
         </Section>
       </div>
 
+      {showResolve && <ResolveDialog tbd={draft} onResolved={handleResolve} onClose={() => setShowResolve(false)} />}
       {showCommit && (
         <CommitModal onClose={() => setShowCommit(false)} onCommit={handleCommit} saving={saving}
           defaultMessage={`Update ${draft.id}: ${draft.title?.slice(0, 60) ?? ''}`} />

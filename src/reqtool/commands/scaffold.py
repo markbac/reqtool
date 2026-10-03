@@ -20,7 +20,7 @@ def _write_base_repo(root: Path, repo_id: str, title: str, theme: str = "dark") 
     """Shared scaffold used by all init variants."""
     from ..fileio import save_yaml
 
-    for d in ("requirements", "principles", "tbds", "modules", "products", ".reqtool", "exports"):
+    for d in ("requirements", "principles", "decisions", "modules", "products", ".reqtool", "exports"):
         (root / d).mkdir(parents=True, exist_ok=True)
 
     config = {

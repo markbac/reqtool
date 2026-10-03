@@ -74,7 +74,7 @@ def verify(repo: Optional[str]):
         if stored and stored != computed:
             failures.append(f"principle {p.get('id', uid)}: hash mismatch")
 
-    for uid, t in store.tbds.items():
+    for uid, t in store.decisions.items():
         stored = t.get("content_hash", "")
         computed = compute_tbd_hash(t)
         if stored and stored != computed:

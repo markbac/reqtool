@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from tests.conftest import make_req, make_principle, make_tbd, settle
+from tests.conftest import review_first, make_req, make_principle, make_tbd, settle
 
 
 # ===========================================================================
@@ -135,6 +135,7 @@ class TestRequirementsCRUD:
     def test_approve_requirement(self, client):
         created = make_req(client)
         uid = created["uid"]
+        review_first(client, uid)
         r = client.post(f"/requirements/{uid}/approve",
                         json={"approved_by": "alice", "note": "LGTM"})
         assert r.status_code == 200
@@ -742,6 +743,7 @@ class TestMetrics:
 
     def test_approval_rate(self, client):
         req = make_req(client)
+        review_first(client, req['uid'])
         client.post(f"/requirements/{req['uid']}/approve",
                     json={"approved_by": "alice"})
         r = client.get("/metrics")

@@ -313,6 +313,14 @@ def approve_requirement(
         error = store.validate_transition(req, "approved")
         if error:
             raise HTTPException(status_code=409, detail={"error": "workflow_guard", "message": error})
+    if store.config.validation.block_approval_on_open_tbds:
+        open_tbds = store.open_tbds_for(req)
+        if open_tbds:
+            raise HTTPException(status_code=409, detail={
+                "error": "open_tbd",
+                "message": "Resolve the open TBD(s) before approval: " + ", ".join(open_tbds),
+                "tbds": open_tbds,
+            })
     result = store.approve_requirement(uid, approver, identity_verified=verified)
     if result is None:
         raise not_found(uid)
