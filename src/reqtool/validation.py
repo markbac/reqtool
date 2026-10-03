@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import shutil
 import subprocess
 import tempfile
@@ -21,8 +22,13 @@ from .fileio import (
     compute_tbd_hash,
 )
 
+log = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from .store import Store
+
+
+VALE_TIMEOUT_SECONDS = 10  # a stuck Vale process must not hang validation
 
 
 def run_vale_lint(
@@ -62,7 +68,12 @@ def run_vale_lint(
             cmd.append(f"--config={config_path}")
         cmd.append(str(tmp_path))
 
-        res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                                 timeout=VALE_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired:
+            log.warning("Vale did not finish within %ss; skipping the prose check for this field", VALE_TIMEOUT_SECONDS)
+            return []
         if not res.stdout or not res.stdout.strip():
             return []
 
