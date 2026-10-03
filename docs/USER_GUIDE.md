@@ -209,6 +209,8 @@ Rules live in `.reqtool/automation_rules.yaml` and are edited in the **Automatio
 
 `GET /automation/schema` lists the supported events and actions, and `PUT /automation/rules` validates every rule before saving. An invalid rule returns `422` identifying the rule by position; the panel shows the message under that rule. Rules written in the older panel format (`actions: [...]`, dotted event names such as `requirement.created`) are rejected and must be re-created.
 
+On a new repository the panel shows two example rules from memory. Nothing is written, and the examples do not run, until you save rules.
+
 Rules run synchronously when the matching event is published (see the event list in the README). Conditions are compared with the event payload and the requirement's current fields, so `{status: approved}` on `requirement_approved` matches. Actions are idempotent (a field already holding the value, or a tag already present, is left alone), each execution is logged and recorded in the requirement's history, and changes made by rules do not publish events, so rules cannot trigger each other. Only the events listed above can trigger rules.
 
 ---

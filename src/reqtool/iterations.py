@@ -21,7 +21,7 @@ class IterationStore:
 
     def load_iterations(self) -> list[dict[str, Any]]:
         if not self.iterations_file.exists():
-            self._seed_default_iterations()
+            return self._default_iterations()  # served from memory; written on the first explicit save
         data = load_yaml(self.iterations_file)
         if isinstance(data, list):
             return data
@@ -31,7 +31,8 @@ class IterationStore:
         self.iterations_file.parent.mkdir(parents=True, exist_ok=True)
         save_yaml(self.iterations_file, iterations)
 
-    def _seed_default_iterations(self) -> None:
+    @staticmethod
+    def _default_iterations() -> list[dict[str, Any]]:
         defaults = [
             {
                 "id": "sprint-01",
@@ -64,7 +65,7 @@ class IterationStore:
                 "notes": "Hybrid Wagile cycle combining sprint velocity with formal gate sign-off",
             },
         ]
-        self.save_iterations(defaults)
+        return defaults
 
     def get_iteration(self, iteration_id: str) -> Optional[dict[str, Any]]:
         for it in self.load_iterations():
