@@ -1,7 +1,7 @@
 """
 reqtool.git_ops
 ===============
-Git integration. Wraps gitpython; falls back to subprocess where needed.
+Git integration. Wraps the git CLI via subprocess.
 """
 
 from __future__ import annotations
