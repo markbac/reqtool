@@ -24,6 +24,9 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 - **Webhook SSRF guard (SEC-11)**: webhook hostnames are resolved and non-public addresses refused (opt in per webhook with `allow_private: true`; link-local/metadata always blocked).
 - **PlantUML sandbox (SEC-10)**: `/render/plantuml` runs with `PLANTUML_SECURITY_PROFILE=SANDBOX`, rejects `!include*`, `!import` and `!theme ... from` directives (422), limits source to 100 KB (413), and keeps render errors as 400.
 
+### Changed
+- **CSV import is atomic (DAT-16)**: rows are validated up front and a bad row now rejects the whole import with `422` and a per-row error list (it used to create the good rows and return `201`); ragged rows no longer cause a `500`. Imported items start in the workflow's initial state unless an admin passes `keep_status=true`. `dry_run=true` validates only. Callers that relied on partial imports must fix their files.
+
 ### Fixed
 - **Suspect propagation (DAT-08)**: flags now spread transitively (loop-safe), each newly flagged item gets a history entry, and `suspect` / `_display` are excluded from the content hash. Previously flagging a link left the downstream item's stored hash stale, so `req validate` reported `hash_mismatch` for it. Items that were edited while carrying a suspect flag may show one `hash_mismatch` until they are re-saved.
 - **Merge guard on every write (DAT-10)**: one middleware now rejects all write requests with `409 conflict` while a merge/rebase/cherry-pick/revert is in progress or files are unmerged (previously only some routes checked). `has_conflicts` uses Git's markers and `git ls-files -u` instead of parsing `git status`.

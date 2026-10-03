@@ -12,12 +12,14 @@ import logging
 import ruamel.yaml as ry
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 
 from reqtool.store import Store
 from pathlib import Path
 from reqtool.git_ops import dirty_paths, git_list_tags, git_create_tag, ensure_git_config, git_diff_tree, git_show_file
 from reqtool.fileio import load_yaml as _load_yaml
-from .deps import get_store
+from .deps import get_store, publish_event
+from .auth import get_current_user
 
 log = logging.getLogger(__name__)
 
@@ -30,67 +32,148 @@ async def import_csv(file: bytes = None, body: dict[str, Any] = None):
         "message": "POST CSV as multipart/form-data file field 'file'"})
 
 
-@router.post("/import/csv/upload", status_code=201, tags=["import"])
-async def import_csv_upload(request: Request, store: Store = Depends(get_store)):
-    raw = await request.body()
+def _norm(name: str) -> str:
+    return name.strip().lower().replace(" ", "_").replace(".", "_")
+
+
+def _parse_csv_rows(raw: bytes) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+    """Decode and normalise a CSV body. Returns (rows, structural errors)."""
     try:
         text = raw.decode("utf-8-sig")
     except Exception:
         text = raw.decode("latin-1")
-
     reader = csv.DictReader(io.StringIO(text))
+    rows, errors = [], []
+    width = len(reader.fieldnames or [])
+    for i, row in enumerate(reader):
+        if None in row:  # more cells than headers
+            errors.append({"row": i + 1, "id": (row.get("id") or "?"), "error": f"row has more than the {width} columns in the header"})
+            rows.append({})
+            continue
+        if any(v is None for v in row.values()):  # fewer cells than headers
+            errors.append({"row": i + 1, "id": (row.get("id") or "?"), "error": f"row has fewer than the {width} columns in the header"})
+            rows.append({})
+            continue
+        rows.append({_norm(k): v.strip() for k, v in row.items() if v and v.strip()})
+    return rows, errors
 
-    def _norm(name: str) -> str:
-        return name.strip().lower().replace(" ", "_").replace(".", "_")
 
-    created = []
-    errors = []
-    id_to_uid: dict[str, str] = {}
+def _row_fields(i: int, normed: dict[str, str]) -> dict[str, Any]:
+    return {
+        "id":     normed.get("id", f"IMP-{i+1:04d}"),
+        "title":  normed.get("title", ""),
+        "status": normed.get("status"),
+        "priority": normed.get("priority", "medium"),
+        "req_type": normed.get("req_type") or normed.get("type", "functional"),
+        "domain":  normed.get("domain"),
+        "owner":   normed.get("owner"),
+        "discipline": normed.get("discipline"),
+        "component": normed.get("component"),
+        "verification_method": normed.get("verification_method"),
+        "safety_related": normed.get("safety_related", "").lower() in ("true", "1", "yes"),
+        "content": {
+            "description": normed.get("content_description") or normed.get("description", ""),
+            "rationale":   normed.get("content_rationale") or normed.get("rationale", ""),
+            "extended_description": normed.get("extended_description", ""),
+        },
+        "tags": [t.strip() for t in normed.get("tags", "").split(";") if t.strip()],
+        "allocated_to": [t.strip() for t in normed.get("allocated_to", "").split(";") if t.strip()],
+    }
 
-    rows = list(reader)
-    for i, row in enumerate(rows):
-        normed = {_norm(k): v.strip() for k, v in row.items() if v and v.strip()}
+
+def _validate_rows(store: Store, rows: list[dict[str, str]], keep_status: bool) -> tuple[list[tuple[int, dict, str]], list[dict]]:
+    """Check every row before anything is written. Returns ([(index, fields, parent_ref)], errors)."""
+    from reqtool.fileio import validate_id, InvalidId
+    plan, errors, seen_ids = [], [], set()
+    existing_ids = {r.get("id") for r in store.requirements.values() if not r.get("deleted")}
+    for i, normed in enumerate(rows):
+        if not normed:
+            continue  # structural error already reported
+        fields = _row_fields(i, normed)
+        rid = fields["id"]
+
+        def bad(msg: str) -> None:
+            errors.append({"row": i + 1, "id": rid, "error": msg})
+
+        if not fields["title"]:
+            bad("title is required"); continue
         try:
-            fields: dict[str, Any] = {
-                "id":     normed.get("id", f"IMP-{i+1:04d}"),
-                "title":  normed.get("title", ""),
-                "status": normed.get("status", "draft"),
-                "priority": normed.get("priority", "medium"),
-                "req_type": normed.get("req_type") or normed.get("type", "functional"),
-                "domain":  normed.get("domain"),
-                "owner":   normed.get("owner"),
-                "discipline": normed.get("discipline"),
-                "component": normed.get("component"),
-                "verification_method": normed.get("verification_method"),
-                "safety_related": normed.get("safety_related", "").lower() in ("true", "1", "yes"),
-                "content": {
-                    "description": normed.get("content_description") or normed.get("description", ""),
-                    "rationale":   normed.get("content_rationale") or normed.get("rationale", ""),
-                    "extended_description": normed.get("extended_description", ""),
-                },
-                "tags": [t.strip() for t in normed.get("tags", "").split(";") if t.strip()],
-                "allocated_to": [t.strip() for t in normed.get("allocated_to", "").split(";") if t.strip()],
-            }
-            if not fields["title"]:
-                errors.append({"row": i+1, "error": "title is required"})
-                continue
-            fields.pop("parentId", None)
-            req = store.create_requirement(fields)
-            id_to_uid[fields["id"]] = req["uid"]
-            created.append(req["uid"])
+            validate_id(rid, "id")
+        except InvalidId as exc:
+            bad(str(exc)); continue
+        if rid in seen_ids:
+            bad(f"ID '{rid}' appears more than once in the file"); continue
+        if rid in existing_ids:
+            bad(f"ID '{rid}' already exists in the repository"); continue
+        seen_ids.add(rid)
+        wf = store.get_workflow_for_type(fields["req_type"])
+        requested = fields.pop("status")
+        if requested and keep_status:
+            if wf and requested not in [st.id for st in wf.states]:
+                bad(f"status '{requested}' is not a state of the '{fields['req_type']}' workflow"); continue
+            fields["status"] = requested
+        # otherwise the item starts in the workflow's initial state and must be reviewed normally
+        plan.append((i, fields, normed.get("parentid") or normed.get("parent_id") or ""))
+    ids_in_file = {f["id"] for _, f, _ in plan}
+    for i, fields, parent_ref in plan:
+        if parent_ref and parent_ref not in ids_in_file and parent_ref not in existing_ids:
+            errors.append({"row": i + 1, "id": fields["id"], "error": f"parent '{parent_ref}' not found in the file or the repository"})
+    return plan, errors
+
+
+@router.post("/import/csv/upload", status_code=201, tags=["import"])
+async def import_csv_upload(
+    request: Request,
+    dry_run: bool = False,
+    keep_status: bool = False,
+    store: Store = Depends(get_store),
+    user: dict = Depends(get_current_user),
+):
+    """Import requirements from CSV, all or nothing.
+
+    Every row is validated first. If any row is invalid nothing is written and the
+    response is ``422`` with a per-row error list. ``dry_run=true`` validates only.
+    Imported items start in their workflow's initial state; ``keep_status=true``
+    (administrators) keeps a valid ``status`` column instead.
+    """
+    if keep_status and user["authenticated"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "keep_status requires the admin role"})
+    raw = await request.body()
+    rows, errors = _parse_csv_rows(raw)
+    plan, row_errors = _validate_rows(store, rows, keep_status)
+    errors += row_errors
+    if errors:
+        errors.sort(key=lambda e: e["row"])
+        raise HTTPException(status_code=422, detail={
+            "error": "import_failed", "message": f"{len(errors)} row(s) invalid; nothing was imported",
+            "errors": errors})
+    if dry_run:
+        return JSONResponse(status_code=200, content={"dry_run": True, "valid": len(plan), "imported": 0, "errors": [], "uids": []})
+
+    created: list[str] = []
+    with store._lock:  # nothing else may write while the batch is applied or rolled back
+        try:
+            id_to_uid: dict[str, str] = {}
+            for i, fields, _ in plan:
+                req = store.create_requirement(fields)
+                id_to_uid[fields["id"]] = req["uid"]
+                created.append(req["uid"])
+            for i, fields, parent_ref in plan:
+                if parent_ref:
+                    parent_uid = id_to_uid.get(parent_ref) or store.resolve_uid(parent_ref)
+                    store.update_requirement(id_to_uid[fields["id"]], {"parentId": parent_uid}, summary="Import: set parent")
         except Exception as exc:
-            errors.append({"row": i+1, "id": normed.get("id", "?"), "error": str(exc)})
-
-    for i, row in enumerate(rows):
-        normed = {_norm(k): v.strip() for k, v in row.items() if v and v.strip()}
-        req_id = normed.get("id", f"IMP-{i+1:04d}")
-        parent_ref = normed.get("parentid") or normed.get("parent_id") or normed.get("parentid", "")
-        if parent_ref and req_id in id_to_uid:
-            parent_uid = id_to_uid.get(parent_ref)
-            if parent_uid:
-                store.update_requirement(id_to_uid[req_id], {"parentId": parent_uid}, summary="Import: set parent")
-
-    return {"imported": len(created), "errors": errors, "uids": created}
+            for uid in created:  # roll back: remove files and in-memory entries
+                try:
+                    store.req_path(uid).unlink(missing_ok=True)
+                finally:
+                    store.requirements.pop(uid, None)
+            raise HTTPException(status_code=422, detail={
+                "error": "import_failed", "message": f"Import rolled back: {exc}",
+                "errors": [{"row": 0, "id": "", "error": str(exc)}]})
+    for uid in created:
+        publish_event(store, "requirement_created", {"uid": uid, "id": store.requirements[uid].get("id")})
+    return {"imported": len(created), "errors": [], "uids": created}
 
 
 BASELINE_DIRS = ("requirements", "principles", "tbds", "decisions", "modules", "products")

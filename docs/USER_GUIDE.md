@@ -269,6 +269,12 @@ Send the token returned by `POST /auth/login` as `Authorization: Bearer <token>`
 
 Passwords are stored as PBKDF2-HMAC-SHA256 with 600,000 iterations (the count is stored with each hash). Older, weaker hashes keep working and are upgraded automatically at the user's next login. Passwords are used exactly as typed, including leading and trailing spaces. After five failed logins within a minute for the same account or from the same address, `POST /auth/login` answers `429` with a `Retry-After` header. The counters are kept in memory, so they reset when the server restarts and are per process.
 
+### 6.2d CSV import
+
+`POST /import/csv/upload` (and **Import CSV** in the UI) is all or nothing. Every row is checked first: a title is required, IDs must be valid, unique within the file and not already used, parents must exist in the file or the repository, and each row needs the same number of columns as the header. If anything is wrong the response is `422` with a list of `{row, id, error}` and nothing is written. Add `?dry_run=true` to validate without importing.
+
+Imported items start in their workflow's initial state, whatever the `status` column says, so nothing arrives pre-approved. An administrator can pass `?keep_status=true` to keep a valid `status` value. If the import fails while it is being applied, the items already created are removed again. Imports are not committed automatically; commit them as you would any other change.
+
 ### 6.2c Merges in progress
 
 While a Git merge, rebase, cherry-pick or revert is in progress, or any file is unmerged, every write request (`POST`, `PUT`, `PATCH`, `DELETE`) returns `409 conflict`. Reads still work, and the `/git/`, `/repo/` and `/auth/` routes stay available so the conflict can be resolved. The check looks for Git's in-progress markers and unmerged index entries, so it costs a few milliseconds regardless of repository size.

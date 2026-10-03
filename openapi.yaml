@@ -3172,13 +3172,53 @@ paths:
       tags:
       - import
       summary: Import Csv Upload
+      description: "Import requirements from CSV, all or nothing.\n\nEvery row is validated first. If any row is invalid nothing
+        is written and the\nresponse is ``422`` with a per-row error list. ``dry_run=true`` validates only.\nImported items
+        start in their workflow's initial state; ``keep_status=true``\n(administrators) keeps a valid ``status`` column instead."
       operationId: import_csv_upload_import_csv_upload_post
+      parameters:
+      - name: dry_run
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Dry Run
+      - name: keep_status
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Keep Status
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       responses:
         '201':
           description: Successful Response
           content:
             application/json:
               schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /baselines:
     get:
       tags:
