@@ -26,7 +26,15 @@ req init demo          # full IoT sensor demo dataset
 
 # Start the server (opens http://localhost:8765 with full UI)
 req serve
+
+# Share it with other machines: login is mandatory
+req user add alice --role admin
+req serve --host 0.0.0.0 --auth required
 ```
+
+> **Security:** `req serve` defaults to `local` mode (no login, loopback clients only)
+> and refuses to bind a network address without `--auth required`. There is no default
+> account. See the [User Guide](docs/USER_GUIDE.md#6-security-and-access-control).
 
 > **Note:** The React UI (`src/reqtool/ui/dist/`) is pre-built and committed to
 > the repository. `pip install` is the only step needed. Rebuild the UI only if
@@ -275,7 +283,11 @@ req init systems                 Systems types, formal/safety-formal workflow
 req init defaults                Blank repo with engineering principles pre-populated
 req init demo                    Full IoT sensor demo dataset
 
-req serve                        Start API + UI at http://localhost:8765
+req serve                        Start API + UI at http://localhost:8765 (local mode)
+req serve --auth required        Require login (needed for any non-loopback --host)
+req user add <name> --role <r>   Create an account (admin | editor | viewer)
+req user passwd <name>           Reset a password
+req user list                    List accounts
 req validate                     Full validation suite; exit 1 on errors
 req verify                       Verify all content hashes; exit 1 on mismatch
 
@@ -385,6 +397,10 @@ POST /baselines                          Create baseline tag
 GET  /baselines/{name}/diff              Diff against baseline
 GET  /diff                               Requirement diff since ref
 POST /render/markdown                    Render Markdown to HTML
+POST /auth/login                         Obtain a token (public)
+GET  /auth/me                            Current user
+GET  /auth/users                         List users (login required)
+POST /auth/users                         Create a user (admin; first account from localhost)
 GET  /health                             Health check
 GET  /version                            Tool + schema version
 ```
@@ -437,6 +453,8 @@ Common warnings and how to resolve them:
 ---
 
 ## Configuration
+
+Server behaviour is set with `--auth` and environment variables (`REQTOOL_AUTH`, `REQTOOL_CORS_ORIGINS`, `REQTOOL_REPO_ROOTS`, `REQTOOL_DISABLE_REPO_SWITCH`); see the [User Guide](docs/USER_GUIDE.md#65-environment-variables).
 
 `.reqtool/config.yaml` controls git settings, export paths, validation flags, and the fallback workflow config (used when no `hierarchy.yaml` is present).
 

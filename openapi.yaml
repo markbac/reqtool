@@ -1,10 +1,9 @@
 openapi: 3.1.0
 info:
   title: reqtool
-  description: Git-backed YAML requirements management tool. Requirements, principles,
-    and TBDs live as individual YAML files; the API handles hashing, versioning, validation,
-    and export.
-  version: 0.4.0
+  description: Git-backed YAML requirements management tool. Requirements, principles, and TBDs live as individual YAML 
+    files; the API handles hashing, versioning, validation, and export.
+  version: 0.5.0
 paths:
   /health:
     get:
@@ -75,6 +74,31 @@ paths:
           content:
             application/json:
               schema: {}
+    put:
+      tags:
+      - meta
+      summary: Update Config
+      operationId: update_config_config_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /repo:
     get:
       tags:
@@ -680,8 +704,7 @@ paths:
       tags:
       - meta
       summary: Render Plantuml
-      description: Render PlantUML code to SVG using a backend plantuml.jar or java
-        process.
+      description: Render PlantUML code to SVG using a backend plantuml.jar or java process.
       operationId: render_plantuml_render_plantuml_post
       requestBody:
         content:
@@ -870,8 +893,7 @@ paths:
       tags:
       - requirements
       summary: Update Requirement
-      description: Update a requirement. Pass if_version=<current_version> to detect
-        concurrent edits.
+      description: Update a requirement. Pass if_version=<current_version> to detect concurrent edits.
       operationId: update_requirement_requirements__uid__put
       parameters:
       - name: uid
@@ -935,8 +957,7 @@ paths:
       tags:
       - requirements
       summary: Get Requirement Progress
-      description: Return hierarchical progress percentage and estimate completion
-        metrics.
+      description: Return hierarchical progress percentage and estimate completion metrics.
       operationId: get_requirement_progress_requirements__uid__progress_get
       parameters:
       - name: uid
@@ -962,7 +983,8 @@ paths:
       tags:
       - requirements
       summary: Bulk Update Requirements
-      description: Update a set of fields across multiple requirements at once.
+      description: "Update a set of fields across multiple requirements at once.\n\nSame guards as single updates: no writes
+        while the tree has merge conflicts,\nand a status change must be a legal workflow transition for each item."
       operationId: bulk_update_requirements_requirements_bulk_post
       requestBody:
         content:
@@ -1091,6 +1113,22 @@ paths:
         schema:
           type: string
           title: Uid
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       requestBody:
         required: true
         content:
@@ -1476,6 +1514,213 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CommitRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /decisions:
+    get:
+      tags:
+      - decisions
+      summary: List Decisions
+      operationId: list_decisions_decisions_get
+      parameters:
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: priority
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Priority
+      - name: owner
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - decisions
+      summary: Create Decision
+      operationId: create_decision_decisions_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTBDRequest'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /decisions/{uid}:
+    get:
+      tags:
+      - decisions
+      summary: Get Decision
+      operationId: get_decision_decisions__uid__get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - decisions
+      summary: Update Decision
+      operationId: update_decision_decisions__uid__put
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTBDRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - decisions
+      summary: Delete Decision
+      operationId: delete_decision_decisions__uid__delete
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /decisions/{uid}/commit:
+    post:
+      tags:
+      - decisions
+      summary: Commit Decision
+      operationId: commit_decision_decisions__uid__commit_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommitRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /decisions/{uid}/resolve:
+    post:
+      tags:
+      - decisions
+      summary: Resolve Decision
+      operationId: resolve_decision_decisions__uid__resolve_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveRequest'
       responses:
         '200':
           description: Successful Response
@@ -2619,6 +2864,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /export/pdf:
+    get:
+      tags:
+      - export
+      summary: Export Pdf Get Endpoint
+      description: Export the complete repository specification as a PDF document.
+      operationId: export_pdf_get_endpoint_export_pdf_get
+      parameters:
+      - name: product
+        in: query
+        required: false
+        schema:
+          type: string
+          title: Product
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    post:
+      tags:
+      - export
+      summary: Export Pdf Post Endpoint
+      description: Export the complete repository specification as a PDF document.
+      operationId: export_pdf_post_endpoint_export_pdf_post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /export/adr:
+    get:
+      tags:
+      - export
+      summary: Export Adr Endpoint
+      description: Export all Decision Records as standard Nygard-style ADR Markdown format.
+      operationId: export_adr_endpoint_export_adr_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
   /export/jsx:
     post:
       tags:
@@ -2709,8 +3017,7 @@ paths:
       tags:
       - export
       summary: Get Coverage Matrix
-      description: Return 2D coverage matrix mapping source_type requirements to target_type
-        requirements.
+      description: Return 2D coverage matrix mapping source_type requirements to target_type requirements.
       operationId: get_coverage_matrix_traceability_matrix_get
       parameters:
       - name: source_type
@@ -2744,8 +3051,7 @@ paths:
       tags:
       - export
       summary: Get Gap Analysis
-      description: Audit requirements lacking acceptance criteria, verification methods,
-        or upstream links.
+      description: Audit requirements lacking acceptance criteria, verification methods, or upstream links.
       operationId: get_gap_analysis_traceability_gaps_get
       responses:
         '200':
@@ -2758,8 +3064,7 @@ paths:
       tags:
       - export
       summary: Export Audit Package
-      description: Export 21 CFR Part 11 / ISO 26262 Regulatory Compliance Audit Package
-        (Zip).
+      description: Export 21 CFR Part 11 / ISO 26262 Regulatory Compliance Audit Package (Zip).
       operationId: export_audit_package_export_audit_package_get
       responses:
         '200':
@@ -3066,6 +3371,8 @@ paths:
       tags:
       - auth
       summary: Create User
+      description: "Create an account.\n\nOnly an authenticated administrator may create users. The single exception\nis bootstrap:
+        while NO accounts exist, a request from the local machine may\ncreate the first one, which is always an administrator."
       operationId: create_user_auth_users_post
       parameters:
       - name: Authorization
@@ -3220,8 +3527,7 @@ paths:
       tags:
       - integrations
       summary: Github Webhook Handler
-      description: Receive and process GitHub webhook events (push, pull_request,
-        issues).
+      description: Receive and process GitHub webhook events (push, pull_request, issues).
       operationId: github_webhook_handler_webhooks_github_post
       parameters:
       - name: X-GitHub-Event
@@ -3682,6 +3988,11 @@ components:
           - type: string
           - type: 'null'
           title: Due
+        supersedes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Supersedes
         tags:
           anyOf:
           - items:
@@ -4116,6 +4427,16 @@ components:
           - type: string
           - type: 'null'
           title: Due
+        supersedes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Supersedes
+        superseded_by:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Superseded By
         tags:
           anyOf:
           - items:

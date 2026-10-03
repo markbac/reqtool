@@ -68,15 +68,55 @@ class NumberedCanvas(canvas.Canvas):
         self.restoreState()
 
 
+def _inline(text: str) -> str:
+    """Escape XML special characters, then apply bold and inline-code markup."""
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+    return re.sub(r'`(.*?)`', r'<font name="Courier">\1</font>', text)
+
+
+def _table_flowable(rows: list[list[str]], styles: dict[str, ParagraphStyle]) -> Any:
+    """Render a Markdown pipe table (first row is the header)."""
+    cell_style = ParagraphStyle("TableCell", parent=styles["BodyText"], fontSize=8, leading=10)
+    head_style = ParagraphStyle("TableHead", parent=cell_style, fontName="Helvetica-Bold")
+    data = [[Paragraph(_inline(c), head_style if i == 0 else cell_style) for c in row] for i, row in enumerate(rows)]
+    ncols = max(len(r) for r in data)
+    for r in data:
+        r.extend([Paragraph("", cell_style)] * (ncols - len(r)))
+    t = Table(data, colWidths=[504 / ncols] * ncols, repeatRows=1)
+    t.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#999999")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E8EEF4")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    return t
+
+
 def md_to_pdf_paragraphs(text: str, styles: dict[str, ParagraphStyle]) -> list[Any]:
     """Parse Markdown text into ReportLab Flowable objects."""
     flowables = []
     lines = text.split("\n")
     in_code_block = False
     code_lines = []
+    table_rows: list[list[str]] = []
+
+    def _flush_table() -> None:
+        nonlocal table_rows
+        if table_rows:
+            flowables.append(_table_flowable(table_rows, styles))
+            flowables.append(Spacer(1, 6))
+            table_rows = []
 
     for line in lines:
         raw_line = line.rstrip()
+
+        # Pipe tables: collect consecutive rows, skip the |---|---| separator
+        if not in_code_block and raw_line.startswith("|") and raw_line.endswith("|"):
+            cells = [c.strip() for c in raw_line.strip("|").split("|")]
+            if not all(re.fullmatch(r":?-{2,}:?", c) for c in cells):
+                table_rows.append(cells)
+            continue
+        _flush_table()
 
         # Code block handling
         if raw_line.startswith("```"):
@@ -116,19 +156,16 @@ def md_to_pdf_paragraphs(text: str, styles: dict[str, ParagraphStyle]) -> list[A
             flowables.append(Paragraph(title, styles["Heading3"]))
             flowables.append(Spacer(1, 3))
         elif raw_line.startswith("- ") or raw_line.startswith("* "):
-            item = raw_line[2:].strip()
-            item_formatted = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', item)
-            item_formatted = re.sub(r'`(.*?)`', r'<font name="Courier">\1</font>', item_formatted)
+            item_formatted = _inline(raw_line[2:].strip())
             flowables.append(Paragraph(f"• {item_formatted}", styles["Bullet"]))
         elif raw_line.startswith("> "):
-            quote = raw_line[2:].strip()
+            quote = _inline(raw_line[2:].strip())
             flowables.append(Paragraph(f"<i>{quote}</i>", styles["Callout"]))
             flowables.append(Spacer(1, 4))
         else:
-            p_formatted = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', raw_line)
-            p_formatted = re.sub(r'`(.*?)`', r'<font name="Courier">\1</font>', p_formatted)
-            flowables.append(Paragraph(p_formatted, styles["BodyText"]))
+            flowables.append(Paragraph(_inline(raw_line), styles["BodyText"]))
 
+    _flush_table()
     return flowables
 
 
