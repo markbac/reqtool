@@ -20,6 +20,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from . import __version__
 from .store import Store
+from .fileio import InvalidId
 from .git_ops import InvalidRef
 from .routers import (
     system, requirements, principles, decisions, tbds, modules,
@@ -100,8 +101,9 @@ def create_app(repo_root: Path) -> FastAPI:
     # ------------------------------------------------------------------
     # Include APIRouters
     # ------------------------------------------------------------------
+    @app.exception_handler(InvalidId)
     @app.exception_handler(InvalidRef)
-    async def _invalid_ref_handler(request, exc: InvalidRef):
+    async def _invalid_input_handler(request, exc):
         return JSONResponse(status_code=422, content={"detail": {"error": "validation", "message": str(exc)}})
 
     app.include_router(system.router)
