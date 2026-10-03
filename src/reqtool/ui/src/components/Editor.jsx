@@ -34,6 +34,7 @@ import { AttachmentsSection, DiscussionSection as CommentsSection } from './Adva
 import './Editor.css';
 import { safeHtml } from '../sanitize';
 import { buildBreadcrumb } from '../breadcrumb';
+import { resolveWorkflow } from '../workflow';
 
 // Domain colours matching the JSX viewer
 const DOMAIN_COLOURS = {
@@ -781,40 +782,12 @@ function CustomFieldsValueEditor({ schema, values, onChange }) {
 }
 
 // ---------------------------------------------------------------------------
-const AGILE_TYPES = new Set(['theme','initiative','epic','feature','story','task','bug','spike']);
-
-const SPRINT_STATES = [
-  { id: 'backlog',     label: 'Backlog',      colour: '#8b949e' },
-  { id: 'ready',       label: 'Ready',        colour: '#d29922' },
-  { id: 'in_progress', label: 'In Progress',  colour: '#1f6feb' },
-  { id: 'in_review',   label: 'In Review',    colour: '#f97316' },
-  { id: 'done',        label: 'Done',         colour: '#238636', terminal: true },
-  { id: 'cancelled',   label: 'Cancelled',    colour: '#da3633', terminal: true },
-];
-const SPRINT_TRANSITIONS = {
-  backlog:     ['ready', 'in_progress'],
-  ready:       ['in_progress', 'backlog'],
-  in_progress: ['in_review', 'done', 'backlog'],
-  in_review:   ['done', 'in_progress'],
-  done:        ['backlog'],
-  cancelled:   [],
-};
-
-function WorkflowStateWidget({ uid, status, reqType, onTransition }) {
+export function WorkflowStateWidget({ uid, status, reqType, onTransition }) {
   const { state } = useApp();
 
-  // Choose the right workflow based on req type
-  const isAgile = AGILE_TYPES.has(reqType);
-  let states, transitions;
-  if (isAgile) {
-    states = SPRINT_STATES;
-    transitions = SPRINT_TRANSITIONS;
-  } else {
-    const wf = state.workflow;
-    if (!wf?.states?.length) return null;
-    states = wf.states;
-    transitions = wf.transitions || {};
-  }
+  const wf = resolveWorkflow(reqType, state.hierarchy, state.workflow);
+  if (!wf) return null;
+  const { states, transitions } = wf;
 
   const currentState = states.find(s => s.id === status);
   const nextTransitions = (transitions[status] || [])
