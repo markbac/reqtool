@@ -943,10 +943,8 @@ class TestCsvImport:
             content=csv.encode(),
             headers={"content-type": "text/csv"},
         )
-        assert r.status_code == 201
-        result = r.json()
-        assert result["imported"] == 0
-        assert len(result["errors"]) >= 1
+        assert r.status_code == 422  # all-or-nothing import (DAT-16)
+        assert len(r.json()["detail"]["errors"]) >= 1
 
 
 # ===========================================================================

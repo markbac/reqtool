@@ -205,7 +205,12 @@ export const api = {
     });
     if (!res.ok) {
       let detail; try { detail = await res.json(); } catch { detail = { message: res.statusText }; }
-      throw new Error(detail?.detail?.message ?? detail?.message ?? res.statusText);
+      const rows = (detail?.detail?.errors ?? []).slice(0, 5).map(e => `row ${e.row}${e.id ? ` (${e.id})` : ''}: ${e.error}`);
+      const more = (detail?.detail?.errors?.length ?? 0) > 5 ? `; and ${detail.detail.errors.length - 5} more` : '';
+      const base = detail?.detail?.message ?? detail?.message ?? res.statusText;
+      const err = new Error(rows.length ? `${base}. ${rows.join('; ')}${more}` : base);
+      err.detail = detail?.detail;
+      throw err;
     }
     return res.json();
   },

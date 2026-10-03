@@ -438,9 +438,8 @@ class TestCsvImportRegression:
         r = client.post("/import/csv/upload",
                         content=csv.encode(),
                         headers={"content-type": "text/csv"})
-        assert r.status_code == 201
-        assert r.json()["imported"] == 0
-        assert len(r.json()["errors"]) >= 1
+        assert r.status_code == 422  # all-or-nothing import (DAT-16)
+        assert len(r.json()["detail"]["errors"]) >= 1
 
     def test_import_with_parent_links(self, client):
         csv = "id,title,parentId\nREQ-P,Parent,\nREQ-C,Child,REQ-P"
