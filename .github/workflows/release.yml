@@ -193,12 +193,14 @@ jobs:
         with:
           files: final-dist/*
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   publish-github-pages:
     name: Build & Deploy Documentation to GitHub Pages
     needs: publish-release
+    if: ${{ !contains(github.ref_name, '-') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

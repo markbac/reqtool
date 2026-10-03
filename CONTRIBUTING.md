@@ -118,6 +118,6 @@ Open a PR against `main`. CI runs automatically. If a test job fails, the failed
 1. Update the version in `src/reqtool/__init__.py` and `pyproject.toml`.
 2. Move the `[Unreleased]` section of `CHANGELOG.md` to a versioned heading.
 3. Commit: `chore: release v<version>`.
-4. Tag: `git tag v<version> && git push --tags`.
+4. Tag: `git tag v<version> && git push --tags`. A tag with a hyphen (for example `v0.6.0-rc1`) is published as a GitHub pre-release and does not deploy the documentation site.
 
 The release workflow first runs the full CI suite on the tagged commit and builds nothing if it fails. It then smoke-tests the installed wheel and the standalone CLI binary (server start, UI, a requirement round trip, PDF and ReqIF export) and publishes a GitHub Release. Nothing is uploaded to PyPI: `twine` only checks the package metadata.
