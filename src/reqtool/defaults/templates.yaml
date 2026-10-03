@@ -257,3 +257,39 @@
         text: "Output artifact produced and shared with team before end of sprint."
       - id: AC-2
         text: "Follow-on stories/tasks created based on findings."
+
+- id: theme
+  label: Theme
+  icon: 🎯
+  description: Strategic area of investment that groups initiatives.
+  fields:
+    req_type: theme
+    priority: medium
+    content:
+      description: "[Strategic area and the outcome it aims for.]"
+      rationale: "Why this theme matters to the business or the customer."
+
+- id: initiative
+  label: Initiative
+  icon: 🚀
+  description: Large body of work within a theme, spanning multiple quarters.
+  fields:
+    req_type: initiative
+    priority: medium
+    content:
+      description: "[Goal of the initiative and how success is measured.]"
+      rationale: "Why now, and which theme it supports."
+
+- id: feature
+  label: Feature
+  icon: ✨
+  description: Significant user-facing capability within an epic.
+  fields:
+    req_type: feature
+    priority: medium
+    content:
+      description: "[What the user can do once this feature exists.]"
+      rationale: "Which user need it serves."
+    acceptance_criteria:
+      - id: AC-1
+        text: "Given [precondition], when [action], then [observable outcome]."
