@@ -21,6 +21,7 @@ from .fileio import (
     bump_version,
     utcnow_iso,
     uuid7,
+    validate_id,
 )
 from .models import (
     RepoConfig,
@@ -621,7 +622,7 @@ class Store:
 
         data["last_modified"] = now
         history = data.get("history", [])
-        history = history[-19:]  # Keep max 19 + this new entry = 20
+        history = list(history)  # append-only audit trail: never truncate
         history.append({"version": data["version"], "date": now, "modified_by": author,
                         "summary": summary, "commit_sha": None, "change_ref": change_ref})
         data["history"] = history
@@ -718,7 +719,7 @@ class Store:
             data["content_hash"] = new_hash
         data["last_modified"] = now
         history = data.get("history", [])
-        history = history[-19:]
+        history = list(history)  # append-only audit trail: never truncate
         history.append({"version": data["version"], "date": now, "modified_by": author,
                         "summary": summary, "commit_sha": None, "change_ref": change_ref})
         data["history"] = history
@@ -824,7 +825,7 @@ class Store:
             data["content_hash"] = new_hash
         data["last_modified"] = now
         history = data.get("history", [])
-        history = history[-19:]
+        history = list(history)  # append-only audit trail: never truncate
         history.append({"version": data["version"], "date": now, "modified_by": author,
                         "summary": summary, "commit_sha": None, "change_ref": change_ref})
         data["history"] = history
@@ -941,21 +942,30 @@ class Store:
         self.load()
 
     def compute_affected_requirements(self, tbd_uid: str) -> list[str]:
-        """Return UIDs of requirements that reference this TBD in their links or relationships."""
+        """Return UIDs of live requirements that reference ``tbd_uid``.
+
+        A requirement is affected if it has a ``tbd`` link whose ``ref`` is the
+        UID, or a relationship that points at it via ``target.uid``, ``uid`` or
+        ``ref``. (Also used for decisions, which are referenced the same way.)
+        """
         affected = []
         for uid, req in self.requirements.items():
             if req.get("deleted"):
                 continue
-            for link in req.get("links", []):
+            hit = False
+            for link in req.get("links") or []:
                 if link.get("type") == "tbd" and link.get("ref") == tbd_uid:
-                    affected.append(uid)
+                    hit = True
                     break
-            else:
-                for rel in req.get("relationships", []):
-                    tgt = rel.get("target", {})
-                    if isinstance(tgt, dict) and tgt.get("uid") == tbd_uid:
-                        affected.append(uid)
+            if not hit:
+                for rel in req.get("relationships") or []:
+                    tgt = rel.get("target")
+                    if (isinstance(tgt, dict) and tgt.get("uid") == tbd_uid) \
+                            or rel.get("uid") == tbd_uid or rel.get("ref") == tbd_uid:
+                        hit = True
                         break
+            if hit:
+                affected.append(uid)
         return affected
 
     # ------------------------------------------------------------------
@@ -1310,7 +1320,7 @@ class Store:
         if module_id not in self.modules:
             raise ValueError(f"Module '{module_id}' not found")
 
-        module_dir = self.root / "modules" / module_id
+        module_dir = self.root / "modules" / validate_id(module_id, "module id")
         module_files = sorted(p for p in module_dir.glob("*.yaml") if not p.name.startswith("_"))
         h = hashlib.sha256()
         for f in module_files:
@@ -1336,7 +1346,7 @@ class Store:
             "locked_by": locked_by,
         }
 
-        lock_path = self.root / "products" / product_id / "_product.lock"
+        lock_path = self.root / "products" / validate_id(product_id, "product id") / "_product.lock"
         if lock_path.exists():
             try:
                 existing = load_yaml(lock_path)
@@ -1363,7 +1373,8 @@ class Store:
     def verify_module(self, product_id: str, module_id: str) -> dict[str, Any]:
         """Verify module files against the lock. Returns {verified, mismatch}."""
         import hashlib
-        lock_path = self.root / "products" / product_id / "_product.lock"
+        validate_id(module_id, "module id")
+        lock_path = self.root / "products" / validate_id(product_id, "product id") / "_product.lock"
         if not lock_path.exists():
             return {"verified": False, "reason": "lock file missing"}
         try:
@@ -1375,7 +1386,7 @@ class Store:
         if not locked:
             return {"verified": False, "reason": f"module '{module_id}' not in lock"}
 
-        module_dir = self.root / "modules" / module_id
+        module_dir = self.root / "modules" / validate_id(module_id, "module id")
         files = sorted(p for p in module_dir.glob("*.yaml") if not p.name.startswith("_"))
         h = hashlib.sha256()
         for f in files:
@@ -1394,18 +1405,6 @@ class Store:
     # ------------------------------------------------------------------
     # UID search (for relationships editor)
     # ------------------------------------------------------------------
-
-    def compute_affected_requirements(self, tbd_uid: str) -> list[str]:
-        """Return UIDs of requirements that reference this TBD in their relationships."""
-        affected = []
-        for uid, req in self.requirements.items():
-            if req.get("deleted"):
-                continue
-            for rel in req.get("relationships", []):
-                if rel.get("uid") == tbd_uid or rel.get("ref") == tbd_uid:
-                    affected.append(uid)
-                    break
-        return affected
 
     def compute_progress_rollup(self, uid: str) -> dict[str, Any]:
         """Compute hierarchical estimate progress percentage and completed item counts."""
@@ -1488,8 +1487,7 @@ class Store:
         """Fetch an external Git repository module into modules/<module_id>/."""
         import re
 
-        if not re.match(r"^[a-zA-Z0-9_\-]+$", module_id):
-            raise ValueError(f"Invalid module ID '{module_id}'")
+        validate_id(module_id, "module id")
 
         manifest_path = self.root / "modules" / module_id / "_module.yaml"
         if not manifest_path.exists():

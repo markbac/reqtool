@@ -8,8 +8,10 @@ Uses ruamel.yaml for round-trip comment preservation on write.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -59,6 +61,24 @@ _PRODUCT_HASHED_FIELDS: set[str] = {
 }
 
 
+_SAFE_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")
+
+
+class InvalidId(ValueError):
+    """A user-supplied identifier is not safe to use as a single path segment."""
+
+
+def validate_id(value: str, what: str = "id") -> str:
+    """Return ``value`` if it is a safe single path segment, else raise InvalidId.
+
+    Allows letters, digits, ``_``, ``.`` and ``-`` (not leading), max 64 chars.
+    Rejects separators, ``..``, whitespace and anything else.
+    """
+    if not isinstance(value, str) or not _SAFE_ID_RE.fullmatch(value) or ".." in value:
+        raise InvalidId(f"Invalid {what}: {value!r}")
+    return value
+
+
 def _yaml_instance() -> YAML:
     y = YAML()
     y.default_flow_style = False
@@ -76,11 +96,25 @@ def load_yaml(path: Path) -> dict[str, Any]:
 
 
 def save_yaml(path: Path, data: dict[str, Any]) -> None:
-    """Write a dict to YAML. Creates parent directories if needed."""
+    """Write a dict to YAML atomically. Creates parent directories if needed.
+
+    The document is serialised in memory first, written to a temporary file in
+    the same directory, fsynced, then moved over the target with os.replace so
+    a crash or serialisation error can never leave a truncated file behind.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    y = _yaml_instance()
-    with path.open("w", encoding="utf-8") as fh:
-        y.dump(data, fh)
+    buf = io.StringIO()
+    _yaml_instance().dump(data, buf)
+    tmp = path.with_name(f".{path.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
+    try:
+        with tmp.open("w", encoding="utf-8", newline="") as fh:
+            fh.write(buf.getvalue())
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 def _to_plain(obj: Any) -> Any:

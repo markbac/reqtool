@@ -11,7 +11,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from reqtool.store import Store
-from reqtool.fileio import save_yaml, uuid7, utcnow_iso
+from reqtool.fileio import save_yaml, uuid7, utcnow_iso, validate_id
 from .deps import get_store, not_found
 
 log = logging.getLogger(__name__)
@@ -88,12 +88,15 @@ def list_products(store: Store = Depends(get_store)):
 @router.post("/products", status_code=201, tags=["products"])
 def create_product(body: dict[str, Any], store: Store = Depends(get_store)):
     """Create a new product manifest."""
-    product_id = body.get("id", "").strip()
+    product_id = str(body.get("id", "")).strip()
     if not product_id:
         raise HTTPException(status_code=422, detail={"error": "validation", "message": "id is required"})
+    validate_id(product_id, "product id")
     if product_id in store.products:
         raise HTTPException(status_code=409, detail={"error": "conflict", "message": f"Product '{product_id}' already exists"})
     prod_dir = store.root / "products" / product_id
+    if not prod_dir.resolve().is_relative_to((store.root / "products").resolve()):
+        raise HTTPException(status_code=422, detail={"error": "validation", "message": "invalid product id"})
     prod_dir.mkdir(parents=True, exist_ok=True)
     now = utcnow_iso()
     product = {

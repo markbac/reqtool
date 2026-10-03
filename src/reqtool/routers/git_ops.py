@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from reqtool.store import Store
 from reqtool.models import CommitRequest
-from reqtool.git_ops import has_conflicts, stage_file, commit as git_commit, git_status, git_log
+from reqtool.git_ops import has_conflicts, stage_file, commit as git_commit, git_status, git_log, NothingToCommit
 from .deps import get_store, not_found, conflict
 
 log = logging.getLogger(__name__)
@@ -40,6 +40,8 @@ def batch_commit(body: CommitRequest, store: Store = Depends(get_store)):
             store.config.git.commit_name, store.config.git.commit_email,
         )
         return {"commit_sha": sha}
+    except NothingToCommit as exc:
+        raise conflict(str(exc))
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail={"error": "git_error", "message": str(exc)})
 
