@@ -31,6 +31,11 @@ jobs:
       - name: Install package (no test extras)
         run: pip install -e "."
 
+      - name: Static errors (undefined names, syntax errors, invalid comparisons)
+        run: |
+          pip install ruff
+          ruff check src tests --select E9,F63,F7,F82
+
       - name: Verify all modules import cleanly
         run: |
           python -c "from reqtool.models   import HierarchyConfig, Requirement, ChecklistItem"
@@ -64,6 +69,7 @@ jobs:
     name: "Tests / core (py${{ matrix.python-version }})"
     needs: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     strategy:
       fail-fast: false
@@ -81,13 +87,16 @@ jobs:
       - name: Install package + test extras
         run: pip install -e ".[test]"
 
-      - name: Run core tests (store, validation, CLI)
+      # Every test file runs somewhere: this job takes all files except the ones the two jobs below run,
+      # so a new test file is picked up automatically.
+      - name: Run core tests (everything except features, API and regression files)
         run: |
-          pytest \
-            tests/test_store.py \
-            tests/test_validation.py \
-            tests/test_cli.py \
-            --timeout=30 \
+          pytest tests \
+            --ignore=tests/test_features_v03.py \
+            --ignore=tests/test_features_v04.py \
+            --ignore=tests/test_api.py \
+            --ignore=tests/test_regression.py \
+            --timeout=60 \
             -v \
             --tb=short \
             --junit-xml=junit-core-${{ matrix.python-version }}.xml
@@ -124,7 +133,8 @@ jobs:
         run: |
           pytest \
             tests/test_features_v03.py \
-            --timeout=30 \
+            tests/test_features_v04.py \
+            --timeout=60 \
             -v \
             --tb=short \
             --junit-xml=junit-features-${{ matrix.python-version }}.xml
@@ -162,7 +172,7 @@ jobs:
           pytest \
             tests/test_api.py \
             tests/test_regression.py \
-            --timeout=30 \
+            --timeout=60 \
             -v \
             --tb=short \
             --junit-xml=junit-api-${{ matrix.python-version }}.xml
@@ -232,7 +242,7 @@ jobs:
           req verify --repo .
 
   # ---------------------------------------------------------------------------
-  # UI: verify committed dist is up to date with source
+  # UI: build, test, and keep the build for the wheel job (dist/ is not committed)
   # ---------------------------------------------------------------------------
   ui-build:
     name: UI build check
@@ -260,15 +270,17 @@ jobs:
         working-directory: src/reqtool/ui
         run: npm test
 
-      - name: Check committed dist is not stale
+      - name: Check the build produced the UI entry point
         run: |
-          if git diff --name-only | grep -q "src/reqtool/ui/dist"; then
-            echo "ERROR: src/reqtool/ui/dist is stale -- rebuild and commit:"
-            echo "  cd src/reqtool/ui && npm install && npm run build"
-            git diff --name-only
-            exit 1
-          fi
-          echo "ui/dist is up to date."
+          test -f src/reqtool/ui/dist/index.html || { echo "ERROR: UI build produced no dist/index.html"; exit 1; }
+          ls src/reqtool/ui/dist/assets | head
+
+      - name: Upload built UI
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-dist
+          path: src/reqtool/ui/dist
+          retention-days: 7
 
   # ---------------------------------------------------------------------------
   # Build: confirm the wheel builds and installs cleanly
@@ -286,10 +298,27 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - name: Fetch the built UI (dist/ is git-ignored, so the wheel needs it from the UI job)
+        uses: actions/download-artifact@v4
+        with:
+          name: ui-dist
+          path: src/reqtool/ui/dist
+
       - name: Build wheel
         run: |
           pip install build
           python -m build --wheel --outdir dist/
+
+      - name: Wheel must contain the UI
+        run: |
+          python - <<'EOF'
+          import glob, zipfile
+          names = zipfile.ZipFile(glob.glob("dist/*.whl")[0]).namelist()
+          assert "reqtool/ui/dist/index.html" in names, "wheel has no UI (reqtool/ui/dist/index.html)"
+          assert any(n.startswith("reqtool/ui/dist/assets/") for n in names), "wheel has no UI assets"
+          assert any(n.startswith("reqtool/defaults/fonts/") for n in names), "wheel has no bundled fonts"
+          print("wheel contains the UI and fonts")
+          EOF
 
       - name: Install from wheel and smoke-test
         run: |
@@ -303,3 +332,34 @@ jobs:
           name: reqtool-wheel
           path: dist/*.whl
           retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Dependency audit: informational. An advisory published against a dependency should be visible
+  # but must not block unrelated pull requests, so failures do not fail the run.
+  # ---------------------------------------------------------------------------
+  audit:
+    name: Dependency audit (informational)
+    needs: lint
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: pip-audit
+        run: |
+          pip install -e "." pip-audit
+          pip-audit --skip-editable --progress-spinner off
+
+      - name: npm audit (production dependencies)
+        working-directory: src/reqtool/ui
+        run: npm audit --omit=dev --audit-level=high

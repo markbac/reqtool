@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from reqtool.cli import cli
 
 
-def run(*args, cwd=None) -> "Result":
+def run(*args, cwd=None):
     runner = CliRunner(mix_stderr=False)
     return runner.invoke(cli, list(args), catch_exceptions=False)
 
