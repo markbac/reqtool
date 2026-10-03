@@ -33,6 +33,8 @@ MODES = ("local", "required")
 
 # Reachable without a token in `required` mode.
 PUBLIC_PATHS = {"/health", "/version", "/auth/login"}
+# Authenticated by its own HMAC signature instead of a login token.
+SIGNED_PATHS = {"/webhooks/github"}
 PUBLIC_PREFIXES = ("/badge/", "/assets/")
 STATIC_SUFFIXES = (".js", ".css", ".map", ".ico", ".png", ".svg", ".jpg", ".jpeg", ".gif", ".webp", ".woff", ".woff2", ".ttf")
 
@@ -112,6 +114,9 @@ def install(app, mode: str) -> None:
         if method == "OPTIONS":  # CORS preflight carries no credentials
             return await call_next(request)
         host = request.client.host if request.client else ""
+
+        if method == "POST" and path in SIGNED_PATHS:
+            return await call_next(request)
 
         if mode == "local":
             if path == "/health" or host in LOCAL_HOSTS or is_loopback_host(host):
