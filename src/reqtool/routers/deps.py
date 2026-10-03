@@ -105,6 +105,35 @@ from concurrent.futures import ThreadPoolExecutor
 _webhook_executor = ThreadPoolExecutor(max_workers=5, thread_name_prefix="reqtool-webhook-")
 
 
+def check_webhook_target(url: str, allow_private: bool = False) -> Optional[str]:
+    """Return a reason string if ``url`` must not be called, else None.
+
+    Resolves the hostname and rejects loopback, private, link-local, reserved and
+    multicast addresses (any of the resolved ones) unless ``allow_private``.
+    Called immediately before each delivery.
+    """
+    import ipaddress, socket
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return "only http(s) URLs with a host are allowed"
+    if parsed.hostname.lower() in ("metadata.google.internal",):
+        return "cloud metadata host is blocked"
+    try:
+        infos = socket.getaddrinfo(parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80),
+                                   type=socket.SOCK_STREAM)
+    except OSError as exc:
+        return f"host does not resolve ({exc})"
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0].split("%")[0])
+        if ip.is_link_local or str(ip).startswith("169.254."):
+            return f"address {ip} is link-local (cloud metadata range) and is always blocked"
+        if not allow_private and (ip.is_private or ip.is_loopback or ip.is_reserved
+                                  or ip.is_multicast or ip.is_unspecified):
+            return f"address {ip} is not public (set allow_private on the webhook to permit it)"
+    return None
+
+
 def _webhook_subscriber(store: Store, event: str, payload: dict) -> None:
     """Deliver the event to matching outbound HTTP webhooks."""
     hooks = [w for w in store.config.webhooks if w.enabled and subscription_matches(w.events, event)]
@@ -117,16 +146,12 @@ def _webhook_subscriber(store: Store, event: str, payload: dict) -> None:
         "payload": payload,
     }).encode()
 
-    def _send(url: str, secret: Optional[str]) -> None:
+    def _send(url: str, secret: Optional[str], allow_private: bool = False) -> None:
         try:
             import httpx, hashlib, hmac
-            from urllib.parse import urlparse
-            parsed = urlparse(url)
-            if parsed.scheme not in ("http", "https"):
-                log.warning("Invalid webhook URL scheme for %s", url)
-                return
-            if parsed.hostname in ("169.254.169.254", "metadata.google.internal"):
-                log.warning("Blocked potential SSRF webhook URL: %s", url)
+            reason = check_webhook_target(url, allow_private)
+            if reason:
+                log.warning("Webhook to %s blocked: %s", url, reason)
                 return
 
             headers = {
@@ -142,7 +167,7 @@ def _webhook_subscriber(store: Store, event: str, payload: dict) -> None:
             log.warning("Webhook delivery failed to %s: %s", url, exc)
 
     for hook in hooks:
-        _webhook_executor.submit(_send, hook.url, hook.secret)
+        _webhook_executor.submit(_send, hook.url, hook.secret, hook.allow_private)
 
 
 def _ws_subscriber(store: Store, event: str, payload: dict) -> None:

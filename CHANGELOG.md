@@ -16,6 +16,7 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 - **Cross-layer relationship rules (MOD-02)**: `cross_layer_rules` are enforced on write and in validation under the same `hierarchy.enforce` setting (`relationship_violation`). Shipped rules now let themes, initiatives and epics trace to stakeholder needs and themes/initiatives link to systems requirements.
 
 ### Security
+- **Webhook SSRF guard (SEC-11)**: webhook hostnames are resolved and non-public addresses refused (opt in per webhook with `allow_private: true`; link-local/metadata always blocked).
 - **PlantUML sandbox (SEC-10)**: `/render/plantuml` runs with `PLANTUML_SECURITY_PROFILE=SANDBOX`, rejects `!include*`, `!import` and `!theme ... from` directives (422), limits source to 100 KB (413), and keeps render errors as 400.
 
 ### Fixed
