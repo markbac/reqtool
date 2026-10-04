@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import re
 import zipfile
 from pathlib import Path
@@ -16,37 +17,64 @@ from reqtool.store import Store
 from reqtool.fileio import utcnow_iso, save_yaml
 
 
+def _tokenize(text: str) -> frozenset[str]:
+    return frozenset(w for w in re.findall(r"\w+", text.lower()) if len(w) > 3)
+
+
 def detect_duplicate_requirements(store: Store, threshold: float = 0.5) -> list[dict[str, Any]]:
-    """Scan all requirements and detect potential duplicates/overlaps using word token similarity."""
-    reqs = list(store.requirements.values())
-    duplicates = []
+    """Find pairs of live requirements whose title and description share enough words (Jaccard similarity).
 
-    def _tokenize(text: str) -> set[str]:
-        words = re.findall(r'\w+', text.lower())
-        return set(w for w in words if len(w) > 3)
+    Exact, but not quadratic: each item is tokenised once, and prefix filtering over a global
+    rarest-first token order means only pairs that share a rare token are compared
+    (a pair with Jaccard >= t must share a token in the first |a| - ceil(t*|a|) + 1 tokens of each).
+    """
+    return [dict(d) for d in store.memo("duplicates", threshold, lambda: _find_duplicates(store, threshold))]
 
-    for i in range(len(reqs)):
-        for j in range(i + 1, len(reqs)):
-            r1, r2 = reqs[i], reqs[j]
-            t1 = _tokenize(f"{r1.get('title','')} {r1.get('content',{}).get('description','')}")
-            t2 = _tokenize(f"{r2.get('title','')} {r2.get('content',{}).get('description','')}")
 
-            if not t1 or not t2:
-                continue
+def _find_duplicates(store: Store, threshold: float) -> list[dict[str, Any]]:
+    reqs = [r for r in store.requirements.values() if not r.get("deleted")]
+    tokens = [_tokenize(f"{r.get('title') or ''} {(r.get('content') or {}).get('description') or ''}") for r in reqs]
 
-            intersection = t1.intersection(t2)
-            union = t1.union(t2)
-            similarity = len(intersection) / len(union) if union else 0.0
+    freq: dict[str, int] = {}
+    for toks in tokens:
+        for t in toks:
+            freq[t] = freq.get(t, 0) + 1
+    order = lambda t: (freq[t], t)  # rarest first, ties broken by text so the order is total
 
+    ranked = [sorted(toks, key=order) for toks in tokens]
+    postings: dict[str, list[int]] = {}
+    found: list[tuple[float, int, int, frozenset[str]]] = []
+
+    for i, toks in enumerate(ranked):
+        n = len(toks)
+        if not n:
+            continue
+        prefix_len = n - math.ceil(threshold * n) + 1 if threshold > 0 else n
+        candidates: set[int] = set()
+        for t in toks[:max(prefix_len, 1)]:
+            candidates.update(postings.get(t, ()))
+        a = tokens[i]
+        for j in candidates:
+            b = tokens[j]
+            if len(b) < threshold * n or n < threshold * len(b):
+                continue  # sizes too different to reach the threshold
+            inter = a & b
+            similarity = len(inter) / (n + len(b) - len(inter))
             if similarity >= threshold:
-                duplicates.append({
-                    "req_a": {"uid": r1["uid"], "id": r1["id"], "title": r1["title"]},
-                    "req_b": {"uid": r2["uid"], "id": r2["id"], "title": r2["title"]},
-                    "similarity_score": round(similarity, 2),
-                    "overlapping_terms": list(intersection)[:8],
-                })
+                found.append((similarity, j, i, inter))
+        for t in toks[:max(prefix_len, 1)]:
+            postings.setdefault(t, []).append(i)
 
-    return sorted(duplicates, key=lambda x: -x["similarity_score"])
+    duplicates = []
+    for similarity, j, i, inter in sorted(found, key=lambda f: (-round(f[0], 2), f[1], f[2])):
+        r1, r2 = reqs[j], reqs[i]
+        duplicates.append({
+            "req_a": {"uid": r1["uid"], "id": r1["id"], "title": r1["title"]},
+            "req_b": {"uid": r2["uid"], "id": r2["id"], "title": r2["title"]},
+            "similarity_score": round(similarity, 2),
+            "overlapping_terms": sorted(inter)[:8],
+        })
+    return duplicates
 
 
 def generate_test_cases_from_spec(requirement: dict[str, Any]) -> list[dict[str, Any]]:

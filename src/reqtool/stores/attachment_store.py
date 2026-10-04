@@ -58,7 +58,7 @@ def add_attachment(
         "description": description,
     }
 
-    result = store._get_artefact(uid)
+    result = store.get_artefact(uid)
     if result is None:
         raise ValueError(f"Artefact {uid} not found")
     artefact, _ = result
@@ -66,7 +66,7 @@ def add_attachment(
     attachments = [a for a in attachments if a.get("filename") != filename]
     attachments.append(record)
 
-    store._update_artefact(uid, {"attachments": attachments}, summary=f"Added attachment: {filename}")
+    store.update_artefact(uid, {"attachments": attachments}, summary=f"Added attachment: {filename}")
     dest.write_bytes(data)
     return record
 
@@ -82,7 +82,7 @@ def delete_attachment(store: Any, uid: str, filename: str) -> bool:
         return False
     if dest.exists():
         dest.unlink()
-    result = store._get_artefact(uid)
+    result = store.get_artefact(uid)
     if result is None:
         return False
     artefact, _ = result
@@ -90,12 +90,12 @@ def delete_attachment(store: Any, uid: str, filename: str) -> bool:
     after = [a for a in before if a.get("filename") != filename]
     if len(after) == len(before) and not dest.exists():
         return False
-    store._update_artefact(uid, {"attachments": after}, summary=f"Removed attachment: {filename}")
+    store.update_artefact(uid, {"attachments": after}, summary=f"Removed attachment: {filename}")
     return True
 
 
 def list_attachments(store: Any, uid: str) -> list[dict[str, Any]]:
-    result = store._get_artefact(uid)
+    result = store.get_artefact(uid)
     if result is None:
         return []
     artefact, _ = result

@@ -46,7 +46,7 @@ def list_artefact_comments(uid: str, store: Store = Depends(get_store)):
 
 @router.post("/artefacts/{uid}/comments", status_code=201)
 def add_artefact_comment(uid: str, body: dict[str, Any], store: Store = Depends(get_store)):
-    if store._get_artefact(uid) is None:
+    if not store.has_artefact(uid):
         raise not_found(uid)
     text = _text(body)
     author = body.get("author") if isinstance(body.get("author"), str) else "anonymous"

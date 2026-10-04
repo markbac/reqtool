@@ -77,7 +77,7 @@ def list_artefact_attachments(uid: str, store: Store = Depends(get_store)):
 
 @router.post("/artefacts/{uid}/attachments", status_code=201)
 async def upload_artefact_attachment(uid: str, request: Request, author: str = "reqtool", store: Store = Depends(get_store)):
-    if store._get_artefact(uid) is None:
+    if not store.has_artefact(uid):
         raise not_found(uid)
     data = await _read_limited(request)
     if not data:

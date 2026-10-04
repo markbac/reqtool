@@ -463,3 +463,170 @@ def test_pkg02_git_runs_with_utf8_and_a_committer(repo_root):
     assert r.status_code == 200, r.text
     assert _git(repo_root, "log", "-1", "--pretty=%B") == "änderung – ✓"
     assert _git(repo_root, "log", "-1", "--pretty=%cn") == "Requirements Tool"
+
+
+# --- Phase 2: DAT-05, DAT-06, DAT-13, PERF-01, PERF-02, PERF-04 -----------------
+
+def test_dat05_getters_return_copies(store):
+    r = store.create_requirement({"title": "x"})
+    got = store.get_requirement(r["uid"])
+    got["title"] = "tampered"
+    got["history"].clear()
+    assert store.requirements[r["uid"]]["title"] == "x"
+    assert store.requirements[r["uid"]]["history"]
+    p = store.create_principle({"title": "p"})
+    store.get_principle(p["uid"])["title"] = "tampered"
+    assert store.principles[p["uid"]]["title"] == "p"
+    d = store.create_decision({"title": "d"})
+    store.get_decision(d["uid"])["title"] = "tampered"
+    assert store.decisions[d["uid"]]["title"] == "d"
+
+
+def test_dat06_deleting_a_tbd_or_decision_file_removes_it_incrementally(store):
+    tbd = store.create_tbd({"title": "t"})
+    dec = store.create_decision({"title": "d"})
+    for item in (tbd, dec):
+        path = store.decision_path(item["uid"])
+        path.unlink()
+        store.reload_file(path)
+        assert item["uid"] not in store.decisions
+
+
+def test_dat06_legacy_tbds_folder_files_load_and_delete(store):
+    legacy = store.root / "tbds"
+    legacy.mkdir()
+    store.create_tbd({"title": "t"})
+    uid = next(iter(store.decisions))
+    src = store.decision_path(uid)
+    moved = legacy / src.name
+    src.rename(moved)
+    store.load()
+    assert uid in store.decisions and store.decision_path(uid) == moved
+    moved.unlink()
+    store.reload_file(moved)
+    assert uid not in store.decisions
+
+
+def test_dat06_collections_exist_before_load(tmp_path):
+    from reqtool.store import Store
+    s = Store(tmp_path)
+    assert s.decisions == {} and s.requirements == {}
+
+
+def test_dat13_cli_edit_is_seen_by_a_running_server_after_a_reload(repo_root):
+    from click.testing import CliRunner
+    from reqtool.cli import cli
+    c = TestClient(create_app(repo_root))
+    uid = make_req(c, title="before")["uid"]
+    path = repo_root / "requirements" / f"{uid}.yaml"
+    data = load_yaml(path)
+    data["title"] = "after (CLI)"  # what an offline CLI write leaves behind, last_modified untouched
+    save_yaml(path, data)
+    c.app.state.store.reload_file(path)
+    assert c.get(f"/requirements/{uid}").json()["title"] == "after (CLI)"
+    assert CliRunner().invoke(cli, ["--help"]).exit_code == 0
+
+
+def test_perf01_graph_matches_the_scan_and_is_fast_on_10k_items(store):
+    import time
+    n = 10_000
+    chain = {}
+    for i in range(n):
+        uid = f"u{i:05d}"
+        chain[uid] = {"uid": uid, "id": f"R{i}", "title": "t", "status": "draft", "req_type": "functional",
+                      "parentId": f"u{(i - 1) // 2:05d}" if i else None,
+                      "relationships": [{"type": "derived_from", "target": {"uid": f"u{i - 1:05d}"}}] if i else []}
+    store.requirements = chain
+    store._revision += 1
+    t = time.perf_counter()
+    store.compute_impact("u00000")  # builds the graph once
+    first = time.perf_counter() - t
+    t = time.perf_counter()
+    for _ in range(20):
+        impact = store.compute_impact("u00100")
+        store.compute_progress_rollup("u00001")
+    warm = (time.perf_counter() - t) / 20
+    assert impact["downstream_count"] == n - 101  # the chain below u00100
+    assert first < 5 and warm < 0.25, (first, warm)
+
+
+def test_perf02_duplicate_detection_matches_brute_force_and_scales(store):
+    import random
+    import re
+    import time
+    from reqtool.intelligence import detect_duplicate_requirements
+    rnd = random.Random(7)
+    vocab = [f"word{i}" for i in range(40)]
+
+    def req(k, lo, hi):
+        return {"uid": f"u{k}", "id": f"R{k}", "title": " ".join(rnd.choices(vocab, k=rnd.randint(2, 4))),
+                "content": {"description": " ".join(rnd.choices(vocab, k=rnd.randint(lo, hi)))}}
+    store.requirements = {f"u{k}": req(k, 3, 10) for k in range(200)}
+    store._revision += 1
+    tok = lambda r: {w for w in re.findall(r"\w+", f"{r['title']} {r['content']['description']}".lower()) if len(w) > 3}
+    items = list(store.requirements.values())
+    for threshold in (0.25, 0.5):
+        expected = set()
+        for i in range(len(items)):
+            for j in range(i + 1, len(items)):
+                a, b = tok(items[i]), tok(items[j])
+                if a and b and len(a & b) / len(a | b) >= threshold:
+                    expected.add(frozenset((items[i]["uid"], items[j]["uid"])))
+        got = {frozenset((d["req_a"]["uid"], d["req_b"]["uid"])) for d in detect_duplicate_requirements(store, threshold)}
+        assert got == expected
+    words = [f"term{i}" for i in range(4000)]
+    store.requirements = {f"v{k}": {"uid": f"v{k}", "id": f"R{k}", "title": " ".join(rnd.choices(words, k=4)),
+                                    "content": {"description": " ".join(rnd.choices(words, k=15))}} for k in range(3000)}
+    store._revision += 1
+    t = time.perf_counter()
+    detect_duplicate_requirements(store, 0.5)
+    assert time.perf_counter() - t < 5  # was ~34 s for 2,000 items
+
+
+def test_perf04_resolved_set_is_cached_until_a_write(store):
+    store.create_requirement({"title": "a"})
+    first = store.resolved_requirements()
+    assert store.resolved_requirements() is first
+    store.create_requirement({"title": "b"})
+    second = store.resolved_requirements()
+    assert second is not first and len(second) == 2
+
+
+# --- ARC-12 / ARC-07 / ARC-08 ----------------------------------------------------
+
+def test_arc12_watcher_is_a_parameter_not_a_guess_about_pytest(repo_root):
+    import time
+    assert create_app(repo_root).state.watcher is None  # REQTOOL_WATCHER=0 in the test environment
+    app = create_app(repo_root, enable_watcher=True)
+    try:
+        assert app.state.watcher is not None
+        uid = app.state.store.create_requirement({"title": "x"})["uid"]
+        path = repo_root / "requirements" / f"{uid}.yaml"
+        data = load_yaml(path)
+        data["title"] = "edited outside"
+        save_yaml(path, data)
+        for _ in range(50):
+            if app.state.store.requirements[uid]["title"] == "edited outside":
+                break
+            time.sleep(0.1)
+        assert app.state.store.requirements[uid]["title"] == "edited outside"
+    finally:
+        from reqtool.watcher import stop_watcher
+        stop_watcher(app.state.watcher)
+
+
+def test_arc07_no_import_cycle_between_cli_and_api(tmp_path):
+    out = subprocess.run(
+        [__import__("sys").executable, "-c",
+         "import sys; import reqtool.api; assert 'reqtool.cli' not in sys.modules, 'api pulled in the CLI'"],
+        capture_output=True, text=True, env={**__import__("os").environ, "PYTHONPATH": "src"})
+    assert out.returncode == 0, out.stderr
+
+
+def test_arc08_public_artefact_api(store):
+    r = store.create_requirement({"title": "x"})
+    assert store.has_artefact(r["uid"]) and not store.has_artefact("nope")
+    got, kind = store.get_artefact(r["uid"])
+    got["title"] = "tampered"
+    assert kind == "requirement" and store.requirements[r["uid"]]["title"] == "x"
+    assert store.update_artefact(r["uid"], {"title": "y"}, summary="s")["title"] == "y"

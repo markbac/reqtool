@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from reqtool import __version__
 from reqtool.store import Store
 from reqtool.validation import validate_all
+from reqtool.repo_init import write_base_repo, write_enums
 from reqtool.watcher import restart_watcher
 from reqtool.fileio import load_yaml, save_yaml
 from reqtool.models import RepoEnums, WorkflowConfig
@@ -211,8 +212,7 @@ def init_repo(body: dict[str, Any], request: Request, store: Store = Depends(get
     if (target_path / ".reqtool" / "config.yaml").exists():
         raise HTTPException(status_code=409, detail=f"Repository already initialised at '{target_path}'")
 
-    from reqtool.cli import _write_base_repo, _write_enums
-    _write_base_repo(target_path, repo_id, title)
+    write_base_repo(target_path, repo_id, title)
 
     if mode == "defaults":
         defaults_dir = Path(__file__).parent.parent / "defaults"
@@ -247,7 +247,7 @@ def init_repo(body: dict[str, Any], request: Request, store: Store = Depends(get
                     },
                 })
     else:
-        _write_enums(target_path, domains=[])
+        write_enums(target_path, domains=[])
         store.root = target_path
         store.load()
 

@@ -1,0 +1,314 @@
+# Which API operations the UI uses (QA-04). Checked by scripts/check_ui_coverage.py and tests/test_ui_coverage.py.
+# status: surfaced | partial (note) | backend-only (reason) | planned (ref: issue)
+DELETE /artefacts/{uid}/attachments/{filename}:
+  status: surfaced
+DELETE /artefacts/{uid}/comments/{comment_uid}:
+  status: surfaced
+DELETE /decisions/{uid}:
+  status: surfaced
+DELETE /filter-presets/{preset_id}:
+  status: planned
+  ref: 'UI-09 #163'
+DELETE /iterations/{iteration_id}:
+  status: surfaced
+DELETE /principles/{uid}:
+  status: surfaced
+DELETE /requirements/{uid}:
+  status: surfaced
+DELETE /requirements/{uid}/ac/{ac_uid}:
+  status: surfaced
+DELETE /requirements/{uid}/attachments/{filename}:
+  status: backend-only
+  reason: the UI uses the /artefacts/{uid}/... attachment routes
+DELETE /requirements/{uid}/comments/{comment_uid}:
+  status: backend-only
+  reason: the UI uses the /artefacts/{uid}/comments routes
+DELETE /tbds/{uid}:
+  status: surfaced
+DELETE /webhooks/{idx}:
+  status: surfaced
+GET /analysis/detect-duplicates:
+  status: surfaced
+GET /artefacts/{uid}/attachments:
+  status: surfaced
+GET /artefacts/{uid}/attachments/{filename}:
+  status: surfaced
+GET /artefacts/{uid}/comments:
+  status: surfaced
+GET /auth/me:
+  status: surfaced
+GET /auth/users:
+  status: surfaced
+GET /automation/rules:
+  status: surfaced
+GET /automation/schema:
+  status: surfaced
+GET /badge/validated:
+  status: backend-only
+  reason: an image URL for READMEs and dashboards, not a UI call
+GET /baselines:
+  status: surfaced
+GET /baselines/compare:
+  status: planned
+  ref: 'ENH-04 #207'
+GET /baselines/{name}/diff:
+  status: surfaced
+GET /config:
+  status: surfaced
+GET /custom-fields:
+  status: surfaced
+GET /decisions:
+  status: surfaced
+GET /decisions/{uid}:
+  status: surfaced
+GET /diff:
+  status: surfaced
+GET /enums:
+  status: surfaced
+GET /enums/core:
+  status: surfaced
+GET /enums/repo:
+  status: surfaced
+GET /export/adr:
+  status: planned
+  ref: 'UI-06 #160'
+GET /export/audit-package:
+  status: surfaced
+GET /export/pdf:
+  status: backend-only
+  reason: the UI uses POST /export/pdf
+GET /export/reqif:
+  status: surfaced
+GET /filter-presets:
+  status: planned
+  ref: 'UI-09 #163'
+GET /git/log/{uid}:
+  status: surfaced
+GET /git/status:
+  status: surfaced
+GET /health:
+  status: surfaced
+GET /help:
+  status: surfaced
+  unscanned: true
+GET /hierarchy:
+  status: surfaced
+GET /hierarchy/children/{req_type}:
+  status: surfaced
+GET /hierarchy/types:
+  status: surfaced
+GET /iterations:
+  status: surfaced
+GET /iterations/{iteration_id}:
+  status: surfaced
+GET /iterations/{iteration_id}/metrics:
+  status: surfaced
+GET /kanban:
+  status: surfaced
+GET /metrics:
+  status: surfaced
+GET /modules:
+  status: surfaced
+GET /modules/{module_id}:
+  status: surfaced
+GET /modules/{module_id}/verify:
+  status: surfaced
+GET /principles:
+  status: surfaced
+GET /principles/{uid}:
+  status: surfaced
+GET /products:
+  status: surfaced
+GET /products/{product_id}:
+  status: surfaced
+GET /products/{product_id}/matrix:
+  status: surfaced
+GET /products/{product_id}/tree:
+  status: surfaced
+GET /repo:
+  status: surfaced
+GET /requirements:
+  status: surfaced
+GET /requirements/tree:
+  status: surfaced
+GET /requirements/{uid}:
+  status: surfaced
+GET /requirements/{uid}/attachments:
+  status: backend-only
+  reason: the UI uses the /artefacts/{uid}/... attachment routes
+GET /requirements/{uid}/attachments/{filename}:
+  status: backend-only
+  reason: the UI uses the /artefacts/{uid}/... attachment routes
+GET /requirements/{uid}/comments:
+  status: backend-only
+  reason: the UI uses the /artefacts/{uid}/comments routes
+GET /requirements/{uid}/commits:
+  status: backend-only
+  reason: GitHub commit links are API-only until FEAT-04 work surfaces them
+GET /requirements/{uid}/history:
+  status: surfaced
+GET /requirements/{uid}/impact:
+  status: planned
+  ref: 'UI-07 #161'
+GET /requirements/{uid}/progress:
+  status: planned
+  ref: 'UI-07 #161'
+GET /requirements/{uid}/relationships:
+  status: surfaced
+GET /requirements/{uid}/rollup:
+  status: planned
+  ref: 'UI-07 #161'
+GET /search:
+  status: surfaced
+GET /tbds:
+  status: surfaced
+GET /tbds/{uid}:
+  status: surfaced
+GET /templates:
+  status: surfaced
+GET /traceability/gaps:
+  status: surfaced
+GET /traceability/matrix:
+  status: planned
+  ref: 'ENH-01 #204'
+GET /validate:
+  status: surfaced
+GET /validate/{uid}:
+  status: surfaced
+GET /version:
+  status: backend-only
+  reason: for scripts and monitoring
+GET /webhooks:
+  status: surfaced
+GET /workflow:
+  status: surfaced
+POST /analysis/generate-ac:
+  status: surfaced
+POST /analysis/generate-tests/{uid}:
+  status: surfaced
+POST /artefacts/{uid}/attachments:
+  status: surfaced
+POST /artefacts/{uid}/comments:
+  status: surfaced
+POST /artefacts/{uid}/comments/{comment_uid}/resolve:
+  status: surfaced
+POST /auth/login:
+  status: surfaced
+POST /auth/logout:
+  status: surfaced
+POST /auth/refresh:
+  status: surfaced
+POST /auth/users:
+  status: surfaced
+POST /baselines:
+  status: surfaced
+POST /decisions:
+  status: surfaced
+POST /decisions/{uid}/commit:
+  status: surfaced
+POST /decisions/{uid}/resolve:
+  status: planned
+  ref: 'UI-06 #160'
+POST /export/csv:
+  status: surfaced
+POST /export/jsx:
+  status: surfaced
+POST /export/markdown:
+  status: surfaced
+POST /export/pdf:
+  status: surfaced
+POST /git/commit:
+  status: surfaced
+POST /import/csv:
+  status: backend-only
+  reason: the UI uses POST /import/csv/upload
+POST /import/csv/upload:
+  status: surfaced
+POST /iterations:
+  status: surfaced
+POST /modules/{module_id}/fetch-remote:
+  status: planned
+  ref: 'ENH-08 #211'
+POST /modules/{module_id}/import:
+  status: surfaced
+POST /principles:
+  status: surfaced
+POST /principles/{uid}/commit:
+  status: surfaced
+POST /products:
+  status: surfaced
+POST /render/markdown:
+  status: surfaced
+POST /render/plantuml:
+  status: surfaced
+POST /repo/init:
+  status: surfaced
+POST /repo/switch:
+  status: surfaced
+POST /requirements:
+  status: surfaced
+POST /requirements/bulk:
+  status: surfaced
+POST /requirements/{uid}/ac:
+  status: surfaced
+POST /requirements/{uid}/approve:
+  status: surfaced
+POST /requirements/{uid}/attachments:
+  status: backend-only
+  reason: the UI uses the /artefacts/{uid}/... attachment routes
+POST /requirements/{uid}/clone:
+  status: surfaced
+POST /requirements/{uid}/comments:
+  status: backend-only
+  reason: the UI uses the /artefacts/{uid}/comments routes
+POST /requirements/{uid}/comments/{comment_uid}/resolve:
+  status: backend-only
+  reason: the UI uses the /artefacts/{uid}/comments routes
+POST /requirements/{uid}/commit:
+  status: surfaced
+POST /requirements/{uid}/relationships/{rel_index}/clear-suspect:
+  status: surfaced
+POST /requirements/{uid}/transition:
+  status: surfaced
+POST /tbds:
+  status: surfaced
+POST /tbds/{uid}/commit:
+  status: surfaced
+POST /tbds/{uid}/resolve:
+  status: surfaced
+POST /webhooks:
+  status: surfaced
+POST /webhooks/github:
+  status: backend-only
+  reason: called by GitHub with an HMAC signature
+PUT /artefacts/{uid}/comments/{comment_uid}:
+  status: surfaced
+PUT /automation/rules:
+  status: surfaced
+PUT /config:
+  status: backend-only
+  reason: configuration is edited in .reqtool/config.yaml
+PUT /custom-fields:
+  status: surfaced
+PUT /decisions/{uid}:
+  status: surfaced
+PUT /enums/repo:
+  status: surfaced
+PUT /filter-presets/{preset_id}:
+  status: planned
+  ref: 'UI-09 #163'
+PUT /principles/{uid}:
+  status: surfaced
+PUT /requirements/{uid}:
+  status: surfaced
+PUT /requirements/{uid}/ac/{ac_uid}:
+  status: surfaced
+PUT /requirements/{uid}/comments/{comment_uid}:
+  status: backend-only
+  reason: the UI uses the /artefacts/{uid}/comments routes
+PUT /tbds/{uid}:
+  status: surfaced
+PUT /templates:
+  status: surfaced
+PUT /workflow:
+  status: surfaced

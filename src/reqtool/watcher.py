@@ -9,19 +9,12 @@ when the repository is switched.
 from __future__ import annotations
 
 import logging
-import os
-import sys
 from pathlib import Path
 from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
 WATCHED_DIRS = ("requirements", "principles", "decisions", "tbds", "modules", "products", ".reqtool")
-
-
-def watcher_disabled() -> bool:
-    """The watcher is off under pytest, where it would leak inotify descriptors."""
-    return "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ
 
 
 def make_handler(store: Any):
@@ -44,9 +37,7 @@ def make_handler(store: Any):
 
 
 def start_watcher(store: Any) -> Optional[Any]:
-    """Start watching ``store.root``. Returns the observer, or None when disabled or unavailable."""
-    if watcher_disabled():
-        return None
+    """Start watching ``store.root``. Returns the observer, or None when it cannot start."""
     try:
         from watchdog.observers import Observer
         observer = Observer()
@@ -75,6 +66,10 @@ def stop_watcher(observer: Optional[Any]) -> None:
 
 
 def restart_watcher(app: Any, store: Any) -> None:
-    """Point the watcher at the store's current root (call after switching repository)."""
-    stop_watcher(getattr(app.state, "watcher", None))
+    """Point the watcher at the store's current root (call after switching repository).
+
+    Does nothing when the application was created without a watcher."""
+    if getattr(app.state, "watcher", None) is None:
+        return
+    stop_watcher(app.state.watcher)
     app.state.watcher = start_watcher(store)

@@ -1105,7 +1105,7 @@ def populate_demo_data(root: Path, store) -> None:
     default_hierarchy = Path(__file__).parent / "defaults" / "hierarchy.yaml"
     if default_hierarchy.exists():
         shutil.copy(str(default_hierarchy), str(root / ".reqtool" / "hierarchy.yaml"))
-        store._load_hierarchy()  # reload so prefixes are available
+        store.reload_hierarchy()  # reload so prefixes are available
 
     # Update enums with agile types
     enums_path = root / ".reqtool" / "enums.yaml"
@@ -1116,7 +1116,7 @@ def populate_demo_data(root: Path, store) -> None:
                           "TH": "theme", "EP": "epic", "FT": "feature",
                           "US": "story", "TK": "task", "BG": "bug"}
     save_yaml(enums_path, enums)
-    store._load_enums()
+    store.reload_enums()
 
     def req(id_):
         """Look up uid by id."""
@@ -1374,8 +1374,7 @@ def populate_demo_data(root: Path, store) -> None:
         "modules": [{"id": "comms-security", "version": "1.0.0"}, {"id": "MOD-SENSOR-CORE", "version": "1.2.0"}],
     })
 
-    store._load_modules()
-    store._load_products()
+    store.reload_modules()
     for pid, prod in list(store.products.items()):
         for mod_ref in prod.get("modules", []):
             mod_id = mod_ref.get("id")

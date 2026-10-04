@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -18,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from . import __version__
+from .watcher import start_watcher, stop_watcher
 from .store import Store
 from .fileio import InvalidId
 from .git_ops import InvalidRef, has_conflicts
@@ -37,11 +39,23 @@ CONFLICT_EXEMPT = ("/git/", "/repo/", "/auth/")
 LOCAL_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
 
 
-def create_app(repo_root: Path, auth_mode: str | None = None) -> FastAPI:
+def create_app(repo_root: Path, auth_mode: str | None = None, enable_watcher: bool | None = None) -> FastAPI:
+    """Build the application.
+
+    ``enable_watcher`` says whether to watch the repository for outside edits. ``None`` follows the
+    ``REQTOOL_WATCHER`` environment variable (on unless it is ``0``), so tests and embedders can turn
+    it off without the code having to guess what is running it.
+    """
     store = Store(repo_root)
     store.load()
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        yield
+        stop_watcher(getattr(app.state, "watcher", None))
+
     app = FastAPI(
+        lifespan=lifespan,
         title="reqtool",
         version=__version__,
         description=(
@@ -93,9 +107,10 @@ def create_app(repo_root: Path, auth_mode: str | None = None) -> FastAPI:
         allow_headers=["Authorization", "Content-Type", "X-API-Key", "If-Match"],
     )
 
-    # File watcher: follows store.root and is restarted by /repo/switch (not started under pytest).
-    from .watcher import start_watcher
-    app.state.watcher = start_watcher(store)
+    # File watcher: follows store.root, is restarted by /repo/switch and stopped on shutdown.
+    if enable_watcher is None:
+        enable_watcher = os.environ.get("REQTOOL_WATCHER", "1") != "0"
+    app.state.watcher = start_watcher(store) if enable_watcher else None
 
     # ------------------------------------------------------------------
     # Include APIRouters

@@ -347,7 +347,7 @@ class TestServeFlags:
     def test_serve_flags_accepted(self, tmp_path):
         import unittest.mock as mock
         runner = CliRunner()
-        with mock.patch("uvicorn.run"), mock.patch("reqtool.cli._launch_ui_auto") as mock_launch:
+        with mock.patch("uvicorn.run"), mock.patch("reqtool.commands.server._launch_ui_auto") as mock_launch:
             res_browser = runner.invoke(cli, ["serve", "--repo", str(tmp_path), "--browser"])
             assert res_browser.exit_code == 0
             mock_launch.assert_called_with("127.0.0.1", 8765, is_app=False)

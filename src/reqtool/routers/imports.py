@@ -151,7 +151,7 @@ async def import_csv_upload(
         return JSONResponse(status_code=200, content={"dry_run": True, "valid": len(plan), "imported": 0, "errors": [], "uids": []})
 
     created: list[str] = []
-    with store._lock:  # nothing else may write while the batch is applied or rolled back
+    with store.lock:  # nothing else may write while the batch is applied or rolled back
         try:
             id_to_uid: dict[str, str] = {}
             for i, fields, _ in plan:

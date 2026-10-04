@@ -1,16 +1,18 @@
-"""QA-03: routers go through Store's public methods. New uses of its private members fail here."""
+"""QA-03: nothing outside store.py reaches into Store internals. New uses of its private members fail here."""
 import re
 from pathlib import Path
 
-ROUTERS = Path(__file__).parent.parent / "src" / "reqtool" / "routers"
+ROUTERS = Path(__file__).parent.parent / "src" / "reqtool"  # the whole package, store.py aside
 
 # Private Store members routers already use; shrink this set (never grow it) as ARC work lands.
-ALLOWED = {"_get_artefact", "_lock"}
+ALLOWED: set[str] = set()
 
 
 def test_routers_do_not_reach_into_store_internals():
     found = {}
-    for path in ROUTERS.glob("*.py"):
+    for path in ROUTERS.rglob("*.py"):
+        if path.name == "store.py" and path.parent == ROUTERS:
+            continue
         for name in re.findall(r"\bstore\.(_[A-Za-z]\w*)", path.read_text(encoding="utf-8")):
             found.setdefault(name, set()).add(path.name)
     new = {n: sorted(f) for n, f in found.items() if n not in ALLOWED}

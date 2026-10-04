@@ -1,10 +1,14 @@
 """
 conftest.py -- Shared pytest fixtures for reqtool tests.
 """
+import os
 import pytest
 import time
 from pathlib import Path
 from fastapi.testclient import TestClient
+
+# The file watcher leaks inotify descriptors when many apps are built in one process.
+os.environ.setdefault("REQTOOL_WATCHER", "0")
 
 
 @pytest.fixture(autouse=True)

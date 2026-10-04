@@ -369,6 +369,7 @@ With `REQTOOL_GITHUB_WEBHOOK_SECRET` set, a signed push webhook to `POST /webhoo
 | `REQTOOL_ALLOWED_HOSTS` | Comma-separated extra `Host` names accepted in `local` mode (for example a reverse proxy name). Only loopback names are accepted by default, which blocks DNS rebinding. |
 | `REQTOOL_REPO_ROOTS` | Path-separator-separated directories that `/repo/init` and `/repo/switch` may use. Unset means any directory. |
 | `REQTOOL_DISABLE_REPO_SWITCH` | Set to `1` to disable `/repo/init` and `/repo/switch`. |
+| `REQTOOL_WATCHER` | Set to `0` to stop the server watching the repository for edits made outside it (the file watcher is on by default). |
 | `REQTOOL_REPO` | Default repository root. |
 | `REQTOOL_API` | Base URL the CLI uses to reach a running server (default `http://localhost:8765`). |
 

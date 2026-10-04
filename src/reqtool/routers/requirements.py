@@ -168,7 +168,7 @@ def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get
     errors = {}
     changes: list[tuple[str, object, dict]] = []
     new_status = body.fields.get("status") if isinstance(body.fields, dict) else None
-    with store._lock:  # make the check-then-update atomic per request
+    with store.lock:  # make the check-then-update atomic per request
         for uid in body.uids:
             existing = store.get_requirement(uid)
             if existing is None:

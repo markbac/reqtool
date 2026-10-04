@@ -15,10 +15,6 @@ from typing import Any, Optional
 from .fileio import (
     load_yaml,
     save_yaml,
-    compute_requirement_hash,
-    compute_principle_hash,
-    compute_tbd_hash,
-    bump_version,
     utcnow_iso,
     uuid7,
     validate_id,
@@ -29,15 +25,19 @@ from .models import (
     RepoEnums,
     HierarchyConfig,
     HierarchyWorkflowDef,
-    ChecklistItem,
 )
 
 log = logging.getLogger(__name__)
 
 from . import __version__ as TOOL_VERSION
 from .actor import resolve_author
+from .artefacts import (
+    DECISION, PRINCIPLE, REQUIREMENT, apply_fields, history_entry, mark_deleted, record_change, seal_new,
+)
+from .graph import TraceabilityGraph, relationship_target
 
 
+import copy
 import functools
 import threading
 
@@ -141,7 +141,11 @@ def _locked(fn):
     @functools.wraps(fn)
     def wrapper(self, *args, **kwargs):
         with self._lock:
-            return fn(self, *args, **kwargs)
+            self._revision += 1  # a call that may write invalidates derived caches before it reads any ...
+            try:
+                return fn(self, *args, **kwargs)
+            finally:
+                self._revision += 1  # ... and again after it has written
     return wrapper
 
 
@@ -168,6 +172,11 @@ class Store:
         # Where each artefact was loaded from, so a file whose name is not its uid is rewritten in place
         # instead of being duplicated under <uid>.yaml.
         self._file_for: dict[tuple[str, str], Path] = {}
+        # Bumped by every mutating call; derived views (the resolved requirement set) are cached per revision.
+        self._revision = 0
+        self._memo: dict[tuple[str, Any], tuple[tuple[int, int], Any]] = {}
+        self._graph_cache: Optional[tuple[tuple[int, int], TraceabilityGraph]] = None
+        self._resolved_cache: dict[tuple[Optional[str], Optional[str]], tuple[tuple[int, int], dict[str, dict]]] = {}
 
     # ------------------------------------------------------------------
     # Loading
@@ -200,6 +209,7 @@ class Store:
             self.requirements, self.principles, self.decisions = new_reqs, new_principles, new_decisions
             self._load_modules()
             self._load_products()
+            self._revision += 1
             log.info(
                 "Store loaded: %d requirements, %d principles, %d decisions/TBDs, "
                 "%d modules, %d products",
@@ -350,14 +360,19 @@ class Store:
             uids.update(reqs)
         return uids
 
+    # The get_* methods return copies: a caller can edit what it gets without touching the store
+    # or racing the file watcher. Changes go through the create_/update_/delete_ methods.
     def get_requirement(self, uid: str) -> Optional[dict]:
-        return self.requirements.get(uid)
+        item = self.requirements.get(uid)
+        return copy.deepcopy(item) if item is not None else None
 
     def get_principle(self, uid: str) -> Optional[dict]:
-        return self.principles.get(uid)
+        item = self.principles.get(uid)
+        return copy.deepcopy(item) if item is not None else None
 
     def get_decision(self, uid: str) -> Optional[dict]:
-        return self.decisions.get(uid)
+        item = self.decisions.get(uid)
+        return copy.deepcopy(item) if item is not None else None
 
     def get_tbd(self, uid: str) -> Optional[dict]:
         return self.get_decision(uid)
@@ -402,11 +417,42 @@ class Store:
     # Tree construction
     # ------------------------------------------------------------------
 
-    def build_tree(self, product_id: Optional[str] = None, variant: Optional[str] = None) -> list[dict]:
+    def memo(self, name: str, key: Any, compute):
+        """``compute()`` once per (name, key) until the next write. Derived views (duplicate pairs, rollups)
+        use it so they need not know how the store tracks change. The value is shared: do not mutate it."""
+        with self._lock:
+            stamp = (self._revision, len(self.requirements))
+            hit = self._memo.get((name, key))
+            if hit is not None and hit[0] == stamp:
+                return hit[1]
+            value = compute()
+            self._memo[(name, key)] = (stamp, value)
+            return value
+
+    @property
+    def graph(self) -> TraceabilityGraph:
+        """Traceability graph of the live requirements, rebuilt after any write (see ``_revision``)."""
+        with self._lock:
+            stamp = (self._revision, len(self.requirements))
+            if self._graph_cache is None or self._graph_cache[0] != stamp:
+                self._graph_cache = (stamp, TraceabilityGraph(self.requirements))
+            return self._graph_cache[1]
+
+    def resolved_requirements(self, product_id: Optional[str] = None, variant: Optional[str] = None) -> dict[str, dict]:
+        """The requirement set a product (and variant) sees: local items plus module items with overlays,
+        overrides and variables applied. Cached per (product, variant) until the next write; treat as read-only.
         """
-        Return a nested tree for the given product.
-        Each node: {uid, id, title, status, type, children: [...]}
-        """
+        key = (product_id, variant)
+        with self._lock:
+            hit = self._resolved_cache.get(key)
+            stamp = (self._revision, len(self.requirements))  # the count also catches direct dict edits
+            if hit is not None and hit[0] == stamp:
+                return hit[1]
+            resolved = self._resolve_requirements(product_id, variant)
+            self._resolved_cache[key] = (stamp, resolved)
+            return resolved
+
+    def _resolve_requirements(self, product_id: Optional[str], variant: Optional[str]) -> dict[str, dict]:
         all_reqs = dict(self.requirements)
 
         # Include module requirements for this product, applying overlays and overrides
@@ -456,6 +502,15 @@ class Store:
                 if attrs.get(attr_key, True) is not False:
                     filtered[uid] = req
             all_reqs = filtered
+
+        return all_reqs
+
+    def build_tree(self, product_id: Optional[str] = None, variant: Optional[str] = None) -> list[dict]:
+        """
+        Return a nested tree for the given product.
+        Each node: {uid, id, title, status, type, children: [...]}
+        """
+        all_reqs = self.resolved_requirements(product_id, variant)
 
         # Exclude deleted
         active = {uid: r for uid, r in all_reqs.items() if not r.get("deleted", False)}
@@ -652,10 +707,9 @@ class Store:
             "created": now,
             "last_modified": now,
             "deleted": False,
-            "history": [{"version": "1.0.0", "date": now, "modified_by": resolve_author(author),
-                         "summary": "Initial draft.", "commit_sha": None, "change_ref": None}],
+            "history": [],
         }
-        data["content_hash"] = compute_requirement_hash(data)
+        seal_new(REQUIREMENT, data, author)
         self.requirements[uid] = data
         save_yaml(self.req_path(uid), data)
         return data
@@ -684,30 +738,9 @@ class Store:
             self._check_relationships(fields.get("req_type", data.get("req_type", "functional")),
                                       fields.get("relationships", data.get("relationships")) or [],
                                       data.get("relationships") or [])
-        now = utcnow_iso()
-        old_hash = data.get("content_hash", "")
-
-        # Apply updates -- deep merge for known nested blocks so callers can
-        # send partial sub-objects (e.g. just approval.approved_by)
-        _DEEP_MERGE_KEYS = {"content", "approval", "review", "verification", "implementation"}
-        for key, value in fields.items():
-            if key in _DEEP_MERGE_KEYS and isinstance(value, dict) and isinstance(data.get(key), dict):
-                data[key] = {**data[key], **value}
-            else:
-                data[key] = value
-
-        new_hash = compute_requirement_hash(data)
-        if new_hash != old_hash:
-            data["version"] = bump_version(data.get("version", "1.0.0"), increment)
-            data["content_hash"] = new_hash
+        apply_fields(data, fields, deep_merge=True)  # callers may send partial nested blocks
+        if record_change(REQUIREMENT, data, increment, author, summary, change_ref):
             self._mark_downstream_suspect(uid)
-
-        data["last_modified"] = now
-        history = data.get("history", [])
-        history = list(history)  # append-only audit trail: never truncate
-        history.append({"version": data["version"], "date": now, "modified_by": resolve_author(author),
-                        "summary": summary, "commit_sha": None, "change_ref": change_ref})
-        data["history"] = history
 
         save_yaml(self.req_path(uid), data)
         return data
@@ -788,41 +821,27 @@ class Store:
         Each newly flagged item gets a history entry (no version bump: the content is unchanged).
         A visited set makes loops in the link graph safe.
         """
-        dependants: dict[str, list[str]] = {}
-        for req_uid, req in self.requirements.items():
-            if req.get("deleted"):
-                continue
-            for rel in req.get("relationships") or []:
-                target = (rel.get("target") or {}).get("uid") or rel.get("uid")
-                if target:
-                    dependants.setdefault(target, []).append(req_uid)
-
         now = utcnow_iso()
-        visited = {upstream_uid}
-        queue = [upstream_uid]
-        while queue:
-            current = queue.pop(0)
-            current_id = (self.requirements.get(current) or {}).get("id", current)
-            for req_uid in dict.fromkeys(dependants.get(current, [])):
-                if req_uid == upstream_uid:
-                    continue
-                req = self.requirements[req_uid]
+        flagged_from: dict[str, list[str]] = {}
+        for req_uid, linked_to in self.graph.suspect_closure(upstream_uid):
+            flagged_from.setdefault(req_uid, []).append(linked_to)
+        for req_uid, upstreams in flagged_from.items():
+            req = self.requirements[req_uid]
+            changed = False
+            for current in upstreams:
                 newly = False
                 for rel in req.get("relationships") or []:
-                    if ((rel.get("target") or {}).get("uid") or rel.get("uid")) == current and not rel.get("suspect"):
+                    if relationship_target(rel) == current and not rel.get("suspect"):
                         rel["suspect"] = True
                         newly = True
                 if newly:
-                    history = list(req.get("history") or [])
-                    history.append({
-                        "version": req.get("version", "1.0.0"), "date": now, "modified_by": resolve_author("reqtool"),
-                        "summary": f"Link to {current_id} became suspect (upstream change)",
-                        "commit_sha": None, "change_ref": None})
-                    req["history"] = history
-                    save_yaml(self.req_path(req_uid), req)
-                if req_uid not in visited:
-                    visited.add(req_uid)
-                    queue.append(req_uid)
+                    changed = True
+                    current_id = (self.requirements.get(current) or {}).get("id", current)
+                    req["history"] = list(req.get("history") or []) + [history_entry(
+                        req.get("version", "1.0.0"), "reqtool",
+                        f"Link to {current_id} became suspect (upstream change)", now=now)]
+            if changed:
+                save_yaml(self.req_path(req_uid), req)
 
     @_locked
     def clear_suspect_link(self, req_uid: str, rel_index: int) -> bool:
@@ -875,8 +894,7 @@ class Store:
                 except (HierarchyViolation, ParentCycle):
                     # The grandparent may not accept this type: fall back to the root.
                     self.update_requirement(child_uid, {"parentId": None}, summary=note)
-        data["deleted"] = True
-        data["last_modified"] = utcnow_iso()
+        mark_deleted(data)
         save_yaml(self.req_path(uid), data)
         return data
 
@@ -909,10 +927,9 @@ class Store:
             "created": now,
             "last_modified": now,
             "deleted": False,
-            "history": [{"version": "1.0.0", "date": now, "modified_by": resolve_author(author),
-                         "summary": "Initial draft.", "commit_sha": None, "change_ref": None}],
+            "history": [],
         }
-        data["content_hash"] = compute_principle_hash(data)
+        seal_new(PRINCIPLE, data, author)
         self.principles[uid] = data
         save_yaml(self.principle_path(uid), data)
         return data
@@ -926,20 +943,8 @@ class Store:
         data = self.principles.get(uid)
         if data is None:
             return None
-        now = utcnow_iso()
-        old_hash = data.get("content_hash", "")
-        for key, value in fields.items():
-            data[key] = value
-        new_hash = compute_principle_hash(data)
-        if new_hash != old_hash:
-            data["version"] = bump_version(data.get("version", "1.0.0"), increment)
-            data["content_hash"] = new_hash
-        data["last_modified"] = now
-        history = data.get("history", [])
-        history = list(history)  # append-only audit trail: never truncate
-        history.append({"version": data["version"], "date": now, "modified_by": resolve_author(author),
-                        "summary": summary, "commit_sha": None, "change_ref": change_ref})
-        data["history"] = history
+        apply_fields(data, fields)
+        record_change(PRINCIPLE, data, increment, author, summary, change_ref)
         save_yaml(self.principle_path(uid), data)
         return data
 
@@ -948,8 +953,7 @@ class Store:
         data = self.principles.get(uid)
         if data is None:
             return None
-        data["deleted"] = True
-        data["last_modified"] = utcnow_iso()
+        mark_deleted(data)
         save_yaml(self.principle_path(uid), data)
         return data
 
@@ -991,10 +995,9 @@ class Store:
             "created": now,
             "last_modified": now,
             "deleted": False,
-            "history": [{"version": "1.0.0", "date": now, "modified_by": resolve_author(author),
-                         "summary": "Initial draft.", "commit_sha": None, "change_ref": None}],
+            "history": [],
         }
-        data["content_hash"] = compute_tbd_hash(data)
+        seal_new(DECISION, data, author)
         self.decisions[uid] = data
 
         # Lineage: if this decision supersedes an older one, mark the old one as superseded
@@ -1009,18 +1012,10 @@ class Store:
         old_item = self.decisions.get(old_uid)
         if not old_item or old_item.get("status") == "superseded" and old_item.get("superseded_by") == new_uid:
             return
-        now = utcnow_iso()
         old_item["status"] = "superseded"
         old_item["superseded_by"] = new_uid
-        new_hash = compute_tbd_hash(old_item)
-        if new_hash != old_item.get("content_hash"):
-            old_item["version"] = bump_version(old_item.get("version", "1.0.0"), "patch")
-            old_item["content_hash"] = new_hash
-        old_item["last_modified"] = now
-        old_item["history"] = list(old_item.get("history", [])) + [{
-            "version": old_item["version"], "date": now, "modified_by": resolve_author(author),
-            "summary": f"Superseded by {self.decisions.get(new_uid, {}).get('id', new_uid)}.",
-            "commit_sha": None, "change_ref": None}]
+        new_id = self.decisions.get(new_uid, {}).get("id", new_uid)
+        record_change(DECISION, old_item, "patch", author, f"Superseded by {new_id}.")
         save_yaml(self.decision_path(old_uid), old_item)
 
     @_locked
@@ -1039,25 +1034,13 @@ class Store:
         data = self.decisions.get(uid)
         if data is None:
             return None
-        now = utcnow_iso()
-        old_hash = data.get("content_hash", "")
-        for key, value in fields.items():
-            data[key] = value
+        apply_fields(data, fields)
 
         # Lineage check
         if fields.get("supersedes"):
             self._mark_superseded(fields["supersedes"], uid, author)
 
-        new_hash = compute_tbd_hash(data)
-        if new_hash != old_hash:
-            data["version"] = bump_version(data.get("version", "1.0.0"), increment)
-            data["content_hash"] = new_hash
-        data["last_modified"] = now
-        history = data.get("history", [])
-        history = list(history)  # append-only audit trail: never truncate
-        history.append({"version": data["version"], "date": now, "modified_by": resolve_author(author),
-                        "summary": summary, "commit_sha": None, "change_ref": change_ref})
-        data["history"] = history
+        record_change(DECISION, data, increment, author, summary, change_ref)
         save_yaml(self.decision_path(uid), data)
         return data
 
@@ -1070,8 +1053,7 @@ class Store:
         data = self.decisions.get(uid)
         if data is None:
             return None
-        data["deleted"] = True
-        data["last_modified"] = utcnow_iso()
+        mark_deleted(data)
         save_yaml(self.decision_path(uid), data)
         return data
 
@@ -1190,6 +1172,11 @@ class Store:
         save_yaml(self.req_path(uid), snapshot)
 
     @_locked
+    def restore_principle(self, uid: str, snapshot: dict[str, Any]) -> None:
+        self.principles[uid] = snapshot
+        save_yaml(self.principle_path(uid), snapshot)
+
+    @_locked
     def restore_decision(self, uid: str, snapshot: dict[str, Any]) -> None:
         self.decisions[uid] = snapshot
         save_yaml(self.decision_path(uid), snapshot)
@@ -1247,8 +1234,40 @@ class Store:
     def attachment_dir(self, uid: str) -> Path:
         return attachment_store.attachment_dir(self.root, uid)
 
+    @property
+    def lock(self) -> threading.RLock:
+        """The store's re-entrant lock, for callers that must make a check-then-update atomic."""
+        return self._lock
+
+    def has_artefact(self, uid: str) -> bool:
+        """True if ``uid`` names a requirement, principle or decision/TBD."""
+        return uid in self.requirements or uid in self.principles or uid in self.decisions
+
+    def get_artefact(self, uid: str) -> Optional[tuple[dict, str]]:
+        """A copy of any artefact by uid, as ``(artefact, kind)``, or None."""
+        found = self._get_artefact(uid)
+        return (copy.deepcopy(found[0]), found[1]) if found else None
+
+    def update_artefact(self, uid: str, fields: dict, summary: str) -> Optional[dict]:
+        """Update a requirement, principle or decision/TBD by uid."""
+        return self._update_artefact(uid, fields, summary)
+
+    def reload_hierarchy(self) -> None:
+        with self._lock:
+            self._load_hierarchy()
+
+    def reload_enums(self) -> None:
+        with self._lock:
+            self._load_enums()
+
+    def reload_modules(self) -> None:
+        """Re-read modules and products from disk."""
+        with self._lock:
+            self._load_modules()
+            self._load_products()
+
     def _get_artefact(self, uid: str) -> Optional[tuple[dict, str]]:
-        """Return (artefact_dict, type) for any uid, or None."""
+        """Return (live artefact dict, type) for any uid, or None. Internal: callers outside the store use get_artefact."""
         if uid in self.requirements:
             return self.requirements[uid], "requirement"
         if uid in self.principles:
@@ -1392,49 +1411,23 @@ class Store:
         Downstream: items that depend on / are derived from / implement / satisfy `uid`.
         Upstream: items that `uid` depends on / is derived from.
         """
-        # Build reverse index: target_uid -> list of (source_uid, rel_type)
-        downstream_map: dict[str, list[dict]] = {}
-        upstream_map: dict[str, list[dict]] = {}
-        for src_uid, req in self.requirements.items():
-            if req.get("deleted"):
-                continue
-            for rel in req.get("relationships", []):
-                tgt = rel.get("target", {}).get("uid") or rel.get("target", "")
-                rel_type = rel.get("type", "")
-                if tgt:
-                    downstream_map.setdefault(tgt, []).append({
-                        "uid": src_uid,
-                        "id": req.get("id", ""),
-                        "title": req.get("title", ""),
-                        "status": req.get("status", ""),
-                        "req_type": req.get("req_type", ""),
-                        "rel_type": rel_type,
-                    })
-                    if rel_type in self.IMPACT_REL_TYPES:
-                        upstream_map.setdefault(src_uid, []).append({
-                            "uid": tgt,
-                            "rel_type": rel_type,
-                        })
-
-        # BFS downstream closure
-        visited: set[str] = set()
-        queue = [uid]
         downstream: list[dict] = []
-        while queue:
-            current = queue.pop(0)
-            for item in downstream_map.get(current, []):
-                dep_uid = item["uid"]
-                if dep_uid not in visited and dep_uid != uid:
-                    if item.get("rel_type", "") in self.IMPACT_REL_TYPES:
-                        visited.add(dep_uid)
-                        downstream.append(item)
-                        queue.append(dep_uid)
+        for dep_uid, rel_type in self.graph.downstream(uid, self.IMPACT_REL_TYPES):
+            dep = self.requirements[dep_uid]
+            downstream.append({
+                "uid": dep_uid,
+                "id": dep.get("id", ""),
+                "title": dep.get("title", ""),
+                "status": dep.get("status", ""),
+                "req_type": dep.get("req_type", ""),
+                "rel_type": rel_type,
+            })
 
         # Direct upstream (not transitive for brevity)
         req = self.requirements.get(uid, {})
         upstream: list[dict] = []
         for rel in req.get("relationships", []):
-            tgt = rel.get("target", {}).get("uid") or rel.get("target", "")
+            tgt = relationship_target(rel)
             if tgt and rel.get("type", "") in self.IMPACT_REL_TYPES:
                 tgt_req = self.requirements.get(tgt, {})
                 upstream.append({
@@ -1464,21 +1457,7 @@ class Store:
 
     def _live_descendants(self, uid: str) -> list[dict[str, Any]]:
         """All non-deleted descendants of ``uid`` (cycle-safe), excluding ``uid`` itself."""
-        kids: dict[str, list[str]] = {}
-        for r_uid, r in self.requirements.items():
-            if not r.get("deleted") and r.get("parentId"):
-                kids.setdefault(r["parentId"], []).append(r_uid)
-        seen = {uid}
-        out: list[dict[str, Any]] = []
-        stack = list(kids.get(uid, []))
-        while stack:
-            cur = stack.pop()
-            if cur in seen:
-                continue
-            seen.add(cur)
-            out.append(self.requirements[cur])
-            stack.extend(kids.get(cur, []))
-        return out
+        return [self.requirements[u] for u in self.graph.descendants(uid)]
 
     def _rollup_leaves(self, uid: str) -> list[dict[str, Any]]:
         """Descendants of ``uid`` that have no live children of their own (cancelled items excluded)."""

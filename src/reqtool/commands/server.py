@@ -80,8 +80,7 @@ def serve(repo: Optional[str], host: str, port: int, auth_mode: Optional[str], r
                 "`req user add <name> --role admin`.", fg="yellow"))
 
     if browser or app:
-        import reqtool.cli
-        reqtool.cli._launch_ui_auto(host, port, is_app=app)
+        _launch_ui_auto(host, port, is_app=app)
 
     try:
         _store = Store(root)
