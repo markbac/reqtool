@@ -151,6 +151,15 @@ function TreeNode({ node, depth = 0, onContextMenu, forceOpen = false }) {
         {node.suspect_count > 0 && (
           <span className="tree-node-suspect" title={`${node.suspect_count} suspect link(s): an upstream item changed`}>⚠ {node.suspect_count}</span>
         )}
+        {node.progress_pct != null && hasChildren && (
+          <span className="tree-node-progress" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10 }}
+            title={`${Math.round(node.progress_pct)}% of the work below is done`}>
+            <span role="progressbar" aria-label={`${node.id} progress`} aria-valuenow={Math.round(node.progress_pct)} aria-valuemin={0} aria-valuemax={100}
+              style={{ width: 34, height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden', display: 'inline-block' }}>
+              <span style={{ display: 'block', height: '100%', width: `${node.progress_pct}%`, background: 'var(--accent-green, #238636)' }} />
+            </span>{Math.round(node.progress_pct)}%
+          </span>
+        )}
         {isDirty && <span className="tree-node-dirty" title="Unsaved">●</span>}
         {!isModule && <StatusBadge status={node.status} />}
       </div>

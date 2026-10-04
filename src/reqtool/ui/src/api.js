@@ -83,6 +83,17 @@ export const api = {
     clone:         (uid, newId = '') => post(`/requirements/${uid}/clone${newId ? '?new_id=' + encodeURIComponent(newId) : ''}`),
     bulk:          (body)        => post('/requirements/bulk', body),
     clearSuspect:  (uid, idx)    => post(`/requirements/${uid}/relationships/${idx}/clear-suspect`),
+    trace:         (uid)         => get(`/requirements/${uid}/trace`),
+    summary:       (uid)         => get(`/requirements/${uid}/summary`),
+    lifecycle:     (uid)         => get(`/requirements/${uid}/lifecycle`),
+    quality:       (uid)         => get(`/requirements/${uid}/quality`),
+    impact:        (uid)         => get(`/requirements/${uid}/impact`),
+    impactPreview: (uid, body)   => post(`/requirements/${uid}/impact-preview`, body),
+    progress:      (uid)         => get(`/requirements/${uid}/progress`),
+    rollup:        (uid)         => get(`/requirements/${uid}/rollup`),
+    reviewRequests:(uid)         => get(`/requirements/${uid}/review-requests`),
+    requestReview: (uid, reviewers) => post(`/requirements/${uid}/review-requests`, { reviewers }),
+    approvals:     (uid)         => get(`/requirements/${uid}/approvals`),
   },
   principles: {
     list:   ()          => get('/principles'),
@@ -108,6 +119,7 @@ export const api = {
     update:  (uid, body)   => put(`/decisions/${uid}`, body),
     delete:  (uid)         => del(`/decisions/${uid}`),
     commit:  (uid, body)   => post(`/decisions/${uid}/commit`, body),
+    resolve: (uid, body)   => post(`/decisions/${uid}/resolve`, body),
   },
   products: {
     list:   ()      => get('/products'),
@@ -176,6 +188,15 @@ export const api = {
     get:     (id)                 => get(`/modules/${id}`),
     verify:  (id)                 => get(`/modules/${id}/verify`),
     include: (productId, moduleId) => post(`/modules/${moduleId}/import`, { product_id: productId }),
+    create:  (body)               => post('/modules', body),
+    version: (id, body)           => post(`/modules/${id}/version`, body),
+    clone:   (id, newId)          => post(`/modules/${id}/clone`, { id: newId }),
+    consumers: (id)               => get(`/modules/${id}/consumers`),
+    pin:     (id, ref)            => post(`/modules/${id}/pin`, { ref }),
+    updatePreview: (id, ref)      => get(`/modules/${id}/update-preview?ref=${encodeURIComponent(ref)}`),
+    fetchRemote: (id)             => post(`/modules/${id}/fetch-remote`),
+    importInto: (id, productId)   => post(`/modules/${id}/import?product_id=${encodeURIComponent(productId)}`),
+    verifyFor: (id, productId)    => get(`/modules/${id}/verify?product_id=${encodeURIComponent(productId)}`),
   },
   hierarchy: {
     get:     ()         => get('/hierarchy'),
@@ -200,7 +221,39 @@ export const api = {
     list:   ()     => get('/baselines'),
     create: (body) => post('/baselines', body),
     diff:   (name) => get(`/baselines/${encodeURIComponent(name)}/diff`),
+    fieldDiff: (a, b = 'HEAD') => get(`/baselines/field-diff?baseline_a=${encodeURIComponent(a)}&baseline_b=${encodeURIComponent(b)}`),
   },
+  overview:  (product) => get('/overview' + (product ? `?product=${encodeURIComponent(product)}` : '')),
+  roadmap:   ()        => get('/roadmap'),
+  gate:      (product) => get('/gate' + (product ? `?product=${encodeURIComponent(product)}` : '')),
+  doctor:    ()        => get('/doctor'),
+  trend:     ()        => get('/trend'),
+  query:     (q)       => get(`/query?q=${encodeURIComponent(q)}`),
+  qualityCheck: (body) => post('/quality/check', body),
+  suggestDuplicates: (body) => post('/duplicates/suggest', body),
+  reviews:   (reviewer) => get(`/reviews?reviewer=${encodeURIComponent(reviewer)}`),
+  notifications: {
+    list:  (user, unread = false) => get(`/notifications?user=${encodeURIComponent(user)}${unread ? '&unread=true' : ''}`),
+    read:  (id, user)  => post(`/notifications/${id}/read?user=${encodeURIComponent(user)}`),
+    prefs: (user)      => get(`/notifications/preferences/${encodeURIComponent(user)}`),
+    setPrefs: (user, body) => put(`/notifications/preferences/${encodeURIComponent(user)}`, body),
+  },
+  changesets: {
+    list:   ()           => get('/changesets'),
+    create: (name)       => post('/changesets', { name }),
+    diff:   (name)       => get(`/changesets/${encodeURIComponent(name)}/diff`),
+    merge:  (name, reviewedBy) => post(`/changesets/${encodeURIComponent(name)}/merge`, { reviewed_by: reviewedBy }),
+    switchTo: (branch)   => post('/changesets/switch', { branch }),
+  },
+  filterPresets: {
+    list:   ()     => get('/filter-presets'),
+    save:   (id, body) => put(`/filter-presets/${encodeURIComponent(id)}`, body),
+    delete: (id)   => del(`/filter-presets/${encodeURIComponent(id)}`),
+  },
+  snapshotUrl: (baseline = '') => `${getBaseUrl()}/snapshot.zip${baseline ? '?baseline=' + encodeURIComponent(baseline) : ''}`,
+  testResults: (xml, source = 'ui') => fetch(`${getBaseUrl()}/test-results?source=${encodeURIComponent(source)}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/xml', 'X-Reqtool-CSRF': '1' }, body: xml,
+  }).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(new Error(e?.detail?.message || 'Upload failed')))),
   metrics: {
     get: () => get('/metrics'),
   },
@@ -218,6 +271,7 @@ export const api = {
   },
   traceability: {
     gaps: () => get('/traceability/gaps'),
+    coverage: (source, target) => get(`/traceability/matrix?source_type=${encodeURIComponent(source)}&target_type=${encodeURIComponent(target)}`),
   },
   automation: {
     schema:      ()     => get('/automation/schema'),
@@ -257,6 +311,7 @@ export const api = {
     csv:          (body) => post('/export/csv', body),
     reqif:        () => get('/export/reqif'),
     pdf:          (body) => post('/export/pdf', body),
+    adrUrl: () => `${getBaseUrl()}/export/adr`,
     auditPackage: (params = {}) => {
       // Same-origin navigations carry the session cookie. A cross-origin server needs the token as a query parameter.
       const token = bearerToken();

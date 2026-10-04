@@ -25,6 +25,9 @@ import { RepoModal } from './components/RepoModal';
 import { LoginModal } from './components/LoginModal';
 import { DiagramPanel } from './components/DiagramPanel';
 import { IterationsPanel } from './components/IterationsPanel';
+import {
+  OverviewPanel, RoadmapPanel, DecisionsPanel, ModulesPanel, ChangeSetsPanel, InboxPanel, QueryPanel,
+} from './components/Insight';
 import { api } from './api';
 import './index.css';
 
@@ -153,6 +156,13 @@ function AppShell() {
         onAutomation={() => toggle('_showAutomation')}
         onTemplates={() => toggle('_showTemplates')}
         onDuplicateDetector={() => toggle('_showDuplicateDetector')}
+        onOverview={() => toggle('_showOverview')}
+        onRoadmap={() => toggle('_showRoadmap')}
+        onDecisions={() => toggle('_showDecisions')}
+        onModules={() => toggle('_showModules')}
+        onChangeSets={() => toggle('_showChangeSets')}
+        onInbox={() => toggle('_showInbox')}
+        onQuery={() => toggle('_showQuery')}
         onGlobalCommit={(status) => { setGitStatus(status); toggle('_showGlobalCommit'); }}
       />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -185,6 +195,13 @@ function AppShell() {
       {state._showDiagram      && <DiagramPanel      onClose={() => toggle('_showDiagram',      false)} />}
       {state._showAutomation   && <AutomationRulesPanel onClose={() => toggle('_showAutomation', false)} />}
       {state._showDuplicateDetector && <DuplicateDetectorPanel onClose={() => toggle('_showDuplicateDetector', false)} />}
+      {state._showOverview     && <OverviewPanel     onClose={() => toggle('_showOverview',     false)} />}
+      {state._showRoadmap      && <RoadmapPanel      onClose={() => toggle('_showRoadmap',      false)} />}
+      {state._showDecisions    && <DecisionsPanel    onClose={() => toggle('_showDecisions',    false)} />}
+      {state._showModules      && <ModulesPanel      onClose={() => toggle('_showModules',      false)} />}
+      {state._showChangeSets   && <ChangeSetsPanel   onClose={() => toggle('_showChangeSets',   false)} />}
+      {state._showInbox        && <InboxPanel        onClose={() => toggle('_showInbox',        false)} />}
+      {state._showQuery        && <QueryPanel        onClose={() => toggle('_showQuery',        false)} />}
       {state._showLogin        && <LoginModal        onClose={() => toggle('_showLogin',        false)} />}
       {state._showRepo         && <RepoModal         onClose={() => toggle('_showRepo',         false)} />}
       {state._showHelp         && <HelpPanel initialTab="about"

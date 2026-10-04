@@ -54,7 +54,8 @@ function OverflowMenu({ items }) {
 export default function Header({ onValidate, onExport, onCoverage, onBulk, onVocabularies,
                                onBaselines, onMetrics, onImport, onTraceability, onGlobalCommit,
                                onCustomFields, onWebhooks, onToggleSidebar, onHelp, onRepo, onLogin, onDiagram, onIterations,
-                               onAutomation, onDuplicateDetector, onTemplates }) {
+                               onAutomation, onDuplicateDetector, onTemplates,
+                               onOverview, onRoadmap, onDecisions, onModules, onChangeSets, onInbox, onQuery }) {
   const { state, dispatch, toast } = useApp();
   const { products, activeProduct, activeVariant } = state;
   const [gitStatus, setGitStatus] = useState(null);
@@ -189,6 +190,13 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
         <button className="btn btn-ghost header-action-btn" onClick={onMetrics}  title="Metrics dashboard">⊕ Metrics</button>
         {/* Overflow menu */}
         <OverflowMenu items={[
+          { label: '◔ Overview & release gate', action: onOverview },
+          { label: '🗺 Roadmap', action: onRoadmap },
+          { label: '⚖ Decisions & ADRs', action: onDecisions },
+          { label: '🧩 Modules', action: onModules },
+          { label: '⎇ Change sets', action: onChangeSets },
+          { label: '🔔 Inbox', action: onInbox },
+          { label: '🔎 Query & saved views', action: onQuery },
           { label: '⏱ Iterations & Gates',action: onIterations },
           { label: '🎨 Diagram Canvas',action: onDiagram },
           { label: '🤖 Automation Rules', action: onAutomation },

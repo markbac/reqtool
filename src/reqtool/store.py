@@ -461,7 +461,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
         def node(req: dict, path: frozenset = frozenset()) -> dict:
             uid = req["uid"]
             path = path | {uid}  # guard against parentId cycles in existing data
-            return {
+            out = {
                 "uid": uid,
                 "id": req.get("id", ""),
                 "title": req.get("title", ""),
@@ -477,6 +477,10 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
                     key=lambda r: r.get("id", r.get("uid", "")),
                 )],
             }
+            if req.get("req_type") in ("theme", "initiative", "epic") and uid in self.requirements:
+                # Strategic layers show their completion on the tree itself (MOD-10).
+                out["progress_pct"] = self.compute_progress_rollup(uid).get("progress_pct", 0.0)
+            return out
 
         roots = children_map.get(None, [])
 

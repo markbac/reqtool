@@ -9,6 +9,8 @@ from reqtool.graph import relationship_target
 
 log = logging.getLogger(__name__)
 
+STRATEGIC_TYPES = ("theme", "initiative")
+
 
 class AnalyticsMixin:
     def compute_impact(self, uid: str) -> dict[str, Any]:
@@ -94,26 +96,28 @@ class AnalyticsMixin:
         Return a column-per-state kanban board.
         Cards contain: uid, id, title, assignee, estimate, priority, req_type.
         """
-        # Determine which workflow to show
+        # The delivery board leaves out the strategic layers (they have a roadmap): an explicit type still works.
+        live = [(uid, r) for uid, r in self.requirements.items() if not r.get("deleted")
+                and (req_type is None and r.get("req_type") not in STRATEGIC_TYPES or r.get("req_type") == req_type)]
         if req_type:
             wf = self.get_workflow_for_type(req_type)
+            states = [st.id for st in wf.states] if wf else [st.id for st in self.config.workflow.states]
         else:
-            wf = None
-
-        if wf:
-            states = [s.id for s in wf.states]
-        else:
-            # Fall back to config workflow
-            states = [s.id for s in self.config.workflow.states]
+            # Columns are the union of the workflows of the types on the board, in first-seen order, so a
+            # mix of workflows shows every card in a column that exists for it (MOD-13).
+            states = []
+            for t in dict.fromkeys(r.get("req_type", "functional") for _, r in live):
+                wf = self.get_workflow_for_type(t)
+                for st in ([x.id for x in wf.states] if wf else [x.id for x in self.config.workflow.states]):
+                    if st not in states:
+                        states.append(st)
+            if not states:
+                states = [st.id for st in self.config.workflow.states]
 
         columns: dict[str, list[dict]] = {s: [] for s in states}
         columns["_uncolumned"] = []
 
-        for uid, req in self.requirements.items():
-            if req.get("deleted"):
-                continue
-            if req_type and req.get("req_type") != req_type:
-                continue
+        for uid, req in live:
             if iteration and req.get("iteration") != iteration:
                 continue
             if owner and req.get("owner") != owner:

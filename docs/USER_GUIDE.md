@@ -391,3 +391,15 @@ With `REQTOOL_GITHUB_WEBHOOK_SECRET` set, a signed push webhook to `POST /webhoo
 - **Baselines:** `GET /baselines/{name}/diff` returns the changes since the baseline, and `GET /baselines/compare` compares the two baselines you name. Unknown baselines return 404.
 - **Bulk update:** the response gains an `errors` map (uid to reason). Items whose status change is not a legal transition are listed in `failed`.
 - **Real-time events:** WebSocket clients now receive server events such as `status_changed`.
+
+## Gate, health checks and queries
+
+```bash
+req gate --product P1            # release-readiness gate, non-zero exit when it fails
+req doctor                       # repository health checks
+req query 'status = approved AND priority = high'
+req test-results junit.xml       # ingest JUnit results as verification evidence
+req snapshot --out site          # static read-only snapshot site
+```
+
+The same data is available in the UI under the Insight panels (overview, roadmap, decisions, modules, change sets, inbox and query) and through the API (`/gate`, `/doctor`, `/query`, `/requirements/{uid}/trace`, `/requirements/{uid}/summary`).

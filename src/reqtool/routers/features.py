@@ -47,6 +47,15 @@ def requirement_lifecycle(uid: ReqUid, store: Store = Depends(get_store)):
     return result
 
 
+@router.get("/requirements/{uid}/summary", tags=["overview"])
+def strategic_summary(uid: ReqUid, store: Store = Depends(get_store)):
+    """Child counts by type and status, completion, estimate, open TBDs and validation for a Theme, Initiative or Epic."""
+    result = insight.strategic_summary(store, uid)
+    if result is None:
+        raise not_found(uid)
+    return result
+
+
 @router.get("/overview", tags=["overview"])
 def product_overview(product: Optional[str] = None, store: Store = Depends(get_store)):
     if product and product not in store.products:

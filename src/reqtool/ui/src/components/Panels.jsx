@@ -98,6 +98,12 @@ export function ExportPanel({ onClose }) {
   const [csvFields, setCsvFields] = useState(DEFAULT_CSV_FIELDS.join('\n'));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  // Audit package options (ENH-07)
+  const [auditScope, setAuditScope] = useState('repository');
+  const [auditModule, setAuditModule] = useState('');
+  const [auditSelection, setAuditSelection] = useState('');
+  const [auditContent, setAuditContent] = useState(['signatures', 'requirements']);
+  const toggleContent = (c) => setAuditContent(l => l.includes(c) ? l.filter(x => x !== c) : [...l, c]);
 
   const handleExport = async () => {
     setBusy(true); setError(null);
@@ -119,7 +125,12 @@ export function ExportPanel({ onClose }) {
         blob = await api.exports.pdf(body);
         filename = 'specification.pdf';
       } else if (format === 'audit_package') {
-        const url = api.exports.auditPackage(body);
+        const params = { scope: auditScope, include: auditContent.join(',') };
+        if (auditScope === 'product') { if (!product) { setError('Choose a product to export'); setBusy(false); return; } params.product = product; }
+        if (auditScope === 'module') { if (!auditModule.trim()) { setError('Enter a module id'); setBusy(false); return; } params.module = auditModule.trim(); }
+        if (auditScope === 'selection') { if (!auditSelection.trim()) { setError('Enter at least one requirement id'); setBusy(false); return; } params.uids = auditSelection.split(',').map(s => s.trim()).filter(Boolean).join(','); }
+        if (!auditContent.length) { setError('Choose at least one thing to include'); setBusy(false); return; }
+        const url = api.exports.auditPackage(params);
         window.open(url, '_blank');
         setBusy(false);
         return;
@@ -193,7 +204,19 @@ export function ExportPanel({ onClose }) {
 
           {format === 'audit_package' && (
             <div className="field-group" style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-secondary)', padding: 8, borderRadius: 4 }}>
-              Generates a 21 CFR Part 11 / ISO 26262 audit zip package containing cryptographically signed version logs, baseline diffs, and verification matrices.
+              Generates a 21 CFR Part 11 / ISO 26262 audit zip package for the scope and contents you choose.
+              <div style={{ marginTop: 6 }}>
+                <label>Scope{' '}
+                  <select aria-label="Audit scope" value={auditScope} onChange={e => setAuditScope(e.target.value)}>
+                    {['repository', 'product', 'module', 'selection'].map(s => <option key={s} value={s}>{s}</option>)}
+                  </select></label>
+                {auditScope === 'module' && <input aria-label="Module id" placeholder="module id" value={auditModule} onChange={e => setAuditModule(e.target.value)} />}
+                {auditScope === 'selection' && <input aria-label="Requirement ids" placeholder="FR-001, FR-002" value={auditSelection} onChange={e => setAuditSelection(e.target.value)} />}
+              </div>
+              <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                {['signatures', 'requirements', 'traceability', 'history', 'validation', 'decisions'].map(c => (
+                  <label key={c}><input type="checkbox" checked={auditContent.includes(c)} onChange={() => toggleContent(c)} /> {c}</label>))}
+              </div>
             </div>
           )}
 

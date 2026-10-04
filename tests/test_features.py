@@ -422,3 +422,52 @@ def test_module_pin_and_update_preview(c, repo_root, monkeypatch, tmp_path):
     monkeypatch.setattr(registry, "_clone", fake_clone)
     p = c.get("/modules/ext/update-preview", params={"ref": "v2.0.0"}).json()
     assert (p["added"], p["removed"], p["changed"]) == (["c.yaml"], ["b.yaml"], ["a.yaml"])
+
+
+# --- kanban, tree progress, strategic summary, audit selection, reverse contract check ----
+
+def test_kanban_excludes_strategic_types_and_unions_columns(c):
+    make_req(c, title="A theme item here", req_type="theme")
+    make_req(c, title="A functional item", req_type="functional")
+    board = c.get("/kanban").json()
+    cards = [card for col in board["columns"].values() for card in col]
+    assert {x["req_type"] for x in cards} == {"functional"}
+    assert board["states"]
+    explicit = c.get("/kanban", params={"req_type": "theme"}).json()
+    assert [x["req_type"] for col in explicit["columns"].values() for x in col] == ["theme"]
+
+
+def test_kanban_unknown_status_goes_to_uncolumned_lane(c, repo_root):
+    app = c.app
+    r = make_req(c, title="Odd status item")
+    app.state.store.requirements[r["uid"]]["status"] = "bogus"
+    board = c.get("/kanban").json()
+    assert [x["uid"] for x in board["columns"]["_uncolumned"]] == [r["uid"]]
+
+
+def test_tree_has_progress_for_strategic_nodes(c):
+    make_req(c, title="Roadmap theme here", req_type="theme")
+    make_req(c, title="Plain functional item", req_type="functional")
+    def walk(nodes):
+        for n in nodes:
+            yield n
+            yield from walk(n["children"])
+    nodes = list(walk(c.app.state.store.build_tree(None, None)))
+    assert all("progress_pct" in n for n in nodes if n["req_type"] == "theme")
+    assert not any("progress_pct" in n for n in nodes if n["req_type"] == "functional")
+
+
+def test_strategic_summary_endpoint(c):
+    t = make_req(c, title="Strategic theme item", req_type="theme")
+    assert c.get(f"/requirements/{t['uid']}/summary").status_code == 200
+    assert c.get("/requirements/nope/summary").status_code == 404
+
+
+def test_ui_coverage_reverse_check_flags_unknown_call(monkeypatch):
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location("chk", Path(__file__).parent.parent / "scripts" / "check_ui_coverage.py")
+    chk = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(chk)
+    monkeypatch.setattr(chk, "ui_calls", lambda: {("GET", "/definitely/not/an/endpoint")})
+    assert any("does not declare" in p for p in chk.problems())

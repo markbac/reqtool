@@ -1,0 +1,26 @@
+.ins-tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+.ins-tab { padding: 4px 10px; border: 1px solid var(--border); border-radius: 12px; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 12px; }
+.ins-tab[aria-selected="true"] { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+.ins-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.ins-stat { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--bg-elevated); }
+.ins-stat-value { font-size: 20px; font-weight: 700; }
+.ins-stat-label { font-size: 11px; color: var(--text-muted); }
+.ins-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; min-width: 60px; }
+.ins-bar > span { display: block; height: 100%; background: var(--accent-green, #238636); }
+.ins-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.ins-row > .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ins-clickable { cursor: pointer; }
+.ins-clickable:hover { background: var(--bg-elevated); }
+.ins-pill { font-size: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 0 6px; color: var(--text-secondary); }
+.ins-pill.red { color: #ff7b72; border-color: #ff7b72; }
+.ins-pill.amber { color: #d29922; border-color: #d29922; }
+.ins-pill.green { color: #3fb950; border-color: #3fb950; }
+.ins-strip { display: flex; gap: 2px; margin: 4px 0 8px; }
+.ins-step { flex: 1; text-align: center; font-size: 10px; padding: 3px 0; background: var(--bg-elevated); color: var(--text-muted); border-radius: 3px; }
+.ins-step.done { background: var(--accent-green, #238636); color: #fff; }
+.ins-step.current { outline: 2px solid var(--accent-blue); color: var(--text-primary); }
+.ins-error { color: #ff7b72; font-size: 12px; }
+.ins-muted { color: var(--text-muted); font-size: 12px; }
+.ins-form { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.ins-form textarea, .ins-form input, .ins-form select { width: 100%; box-sizing: border-box; }
+.ins-indent { margin-left: 14px; }

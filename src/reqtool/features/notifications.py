@@ -30,7 +30,7 @@ def describe(event: str, payload: dict) -> str:
     if event == "review_requested":
         return f"{payload.get('by', 'Someone')} asked {payload.get('reviewer', '')} to review {label}"
     if event == "status_changed":
-        return f"{label} moved from {payload.get('old_status', '?')} to {payload.get('new_status', payload.get('status', '?'))}"
+        return f"{label} moved from {payload.get('from', '?')} to {payload.get('to', '?')}"
     if event in ("requirement_approved", "approved"):
         return f"{label} was approved by {payload.get('approved_by', '')}"
     return f"{event.replace('_', ' ')}: {label}"

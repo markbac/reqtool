@@ -35,7 +35,7 @@ def _scoped(store: Store, scope: str, product: Optional[str], module: Optional[s
         if module not in store.modules:
             raise AuditScopeError(f"Module '{module}' not found")
         return dict(store.module_requirements.get(module, {}))
-    wanted = set(uids or [])
+    wanted = {store.resolve_uid(u) or u for u in (uids or [])}  # a human id such as FR-042 is accepted too
     if not wanted:
         raise AuditScopeError("selection scope needs at least one uid")
     return {u: r for u, r in store.requirements.items() if u in wanted}

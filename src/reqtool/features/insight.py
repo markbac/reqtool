@@ -236,3 +236,34 @@ def release_readiness(store, product_id: Optional[str] = None) -> dict[str, Any]
             findings.append({"code": "dirty_baseline", "uid": "", "id": path,
                              "message": f"Uncommitted change would not be in a baseline: {path}"})
     return {"ready": not findings, "count": len(findings), "findings": findings}
+
+
+# --- MOD-10 strategic summary ---------------------------------------------------------
+
+def strategic_summary(store, uid: str) -> Optional[dict[str, Any]]:
+    """Roll-up for a Theme, Initiative or Epic: child counts, completion, estimate, open TBDs, validation."""
+    from reqtool.validation import validate_all
+    live = _live(store)
+    req = live.get(uid)
+    if req is None:
+        return None
+    members = [uid, *[d for d in store.graph.descendants(uid) if d in live]]
+    below = [live[m] for m in members[1:]]
+    by_type: dict[str, dict[str, int]] = {}
+    for r in below:
+        counts = by_type.setdefault(r.get("req_type", "functional"), {})
+        counts[r.get("status", "draft")] = counts.get(r.get("status", "draft"), 0) + 1
+    progress = store.compute_progress_rollup(uid)
+    open_tbds = sorted({t for m in members for t in store.open_tbds_for(live[m])})
+    scope = set(members)
+    result = validate_all(store)
+    errors = [e for e in result.get("errors", []) if e.get("uid") in scope]
+    warnings = [w for w in result.get("warnings", []) if w.get("uid") in scope]
+    return {
+        "uid": uid, "id": req.get("id"), "req_type": req.get("req_type"),
+        "children": len(store.graph.children.get(uid, [])), "descendants": len(below),
+        "by_type": by_type,
+        "progress_pct": progress.get("progress_pct", 0.0), "total_estimate": progress.get("total_estimate", 0.0),
+        "done_estimate": progress.get("done_estimate", 0.0), "open_tbds": open_tbds,
+        "validation": {"errors": len(errors), "warnings": len(warnings), "ok": not errors},
+    }

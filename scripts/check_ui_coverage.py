@@ -31,7 +31,7 @@ COVERAGE = ROOT / "ui-coverage.yaml"
 STATUSES = {"surfaced", "partial", "backend-only", "planned"}
 
 _HELPER_CALL = re.compile(r"""\b(get|post|put|del)\(\s*(?P<q>[`'"])(?P<path>/(?:\$\{[^}]*\}|[^`'"$])*)(?P=q)""")
-_FETCH_CALL = re.compile(r"""fetch\(\s*`\$\{getBaseUrl\(\)\}(?P<path>/[^`]*)`(?P<opts>[^)]*)""", re.S)
+_FETCH_CALL = re.compile(r"""fetch\(\s*`\$\{getBaseUrl\(\)\}(?P<path>/[^`]*)`(?P<opts>.{0,300})""", re.S)
 _METHOD = {"get": "GET", "post": "POST", "put": "PUT", "del": "DELETE"}
 
 
@@ -69,12 +69,16 @@ def ui_calls() -> set[tuple[str, str]]:
         text = src.read_text(encoding="utf-8")
         for m in _HELPER_CALL.finditer(text):
             calls.add((_METHOD[m.group(1)], _normalise(m.group("path"))))
+        fetched = set()
         for m in _FETCH_CALL.finditer(text):
+            fetched.add(m.start("path"))
             opts = m.group("opts")
             method = re.search(r"method:\s*['\"](\w+)['\"]", opts)
             calls.add(((method.group(1).upper() if method else "GET"), _normalise(m.group("path"))))
         # URLs handed to the browser (downloads, links) rather than fetched
         for m in re.finditer(r"`\$\{getBaseUrl\(\)\}(/[^`]*)`", text):
+            if m.start(1) in fetched:
+                continue
             calls.add(("GET", _normalise(m.group(1))))
     return calls
 
@@ -92,6 +96,11 @@ def problems() -> list[str]:
         found.append(f"unclassified operation: {key}")
     for key in sorted(set(cov) - set(ops)):
         found.append(f"ui-coverage.yaml names an operation that does not exist: {key}")
+    # The other direction (ENH-09): a UI call that matches no operation is a broken contract.
+    known = {(k.split(" ", 1)[0], v) for k, v in ops.items()}
+    for method, path in sorted(calls):
+        if (method, path) not in known:
+            found.append(f"UI calls {method} {path}, which the API does not declare")
     for key, entry in cov.items():
         if key not in ops:
             continue

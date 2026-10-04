@@ -12,6 +12,7 @@ export function BaselinesPanel({ onClose }) {
   const [newMsg, setNewMsg] = useState('');
   const [diff, setDiff] = useState(null);
   const [diffLoading, setDiffLoading] = useState(false);
+  const [fields, setFields] = useState(null);
 
   const load = () => {
     setLoading(true);
@@ -43,6 +44,7 @@ export function BaselinesPanel({ onClose }) {
     try {
       const d = await api.baselines.diff(name);
       setDiff(d);
+      setFields(await api.baselines.fieldDiff(name).catch(() => null));
     } catch (err) { toast(err.message, 'error'); }
     finally { setDiffLoading(false); }
   };
@@ -114,6 +116,19 @@ export function BaselinesPanel({ onClose }) {
                   <span className="text-muted" style={{ fontSize: 10, marginLeft: 8 }}>v{r.current_version}</span>
                 </div>
               ))}
+            </div>
+          )}
+          {fields?.modified?.length > 0 && (
+            <div className="diff-group diff-group--changed" role="region" aria-label="Field-level changes">
+              <div className="diff-group-header">Field-level changes</div>
+              {fields.modified.map(m => (
+                <div key={m.uid} className="diff-item">
+                  <span className="mono">{m.id}</span>
+                  {m.fields.map(f => (
+                    <div key={f.field} style={{ fontSize: 11, marginLeft: 12 }}>
+                      <b>{f.field}</b>: <span className="text-muted">{JSON.stringify(f.old)}</span> → {JSON.stringify(f.new)}
+                    </div>))}
+                </div>))}
             </div>
           )}
           {!diff.added?.length && !diff.removed?.length && !diff.changed?.length && (

@@ -22,7 +22,9 @@ const TYPE_META = {
   spike:      { icon: '🔬', colour: '#ffa657', label: 'Spike' },
 };
 
-const AGILE_TYPES = ['theme', 'initiative', 'epic', 'feature', 'story', 'task', 'bug', 'spike'];
+// Theme and Initiative are strategic: they live on the roadmap, not on the delivery board (MOD-13).
+const AGILE_TYPES = ['epic', 'feature', 'story', 'task', 'bug', 'spike'];
+const UNCOLUMNED = '_uncolumned';
 
 const GROUPINGS = [
   { id: 'assignee', label: 'By Person' },
@@ -75,7 +77,7 @@ function KanbanCard({ card, isSelected, onClick, onDragStart }) {
 // ---------------------------------------------------------------------------
 function KanbanColumn({ stateId, cards, groups, isSelected, onCardClick, onDrop, draggingUid }) {
   const [dragOver, setDragOver] = useState(false);
-  const label = stateId.replace(/_/g, ' ');
+  const label = stateId === UNCOLUMNED ? 'no matching column' : stateId.replace(/_/g, ' ');
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -188,7 +190,8 @@ export function KanbanPanel() {
   };
 
   const groups   = getGroups();
-  const states   = board?.states || [];
+  // Cards whose status has no column are shown in a visible lane instead of disappearing.
+  const states   = [...(board?.states || []), ...(board?.columns?.[UNCOLUMNED]?.length ? [UNCOLUMNED] : [])];
   const colCards = (stateId) => board?.columns?.[stateId] || [];
 
   const handleCardClick = (card) => {
@@ -204,7 +207,7 @@ export function KanbanPanel() {
     // Find which state the card is currently in
     const currentState = Object.entries(board?.columns || {})
       .find(([, cards]) => cards.some(c => c.uid === uid))?.[0];
-    if (currentState === targetState) return; // no-op
+    if (currentState === targetState || targetState === UNCOLUMNED) return; // no-op
 
     setMoving(uid);
     // Optimistic update
@@ -292,7 +295,7 @@ export function KanbanPanel() {
         </div>
       )}
 
-      {!loading && board && states.length === 0 && (
+      {!loading && board && (board.states || []).length === 0 && states.length === 0 && (
         <div className="kanban-empty">
           <div>No workflow states configured</div>
           <div style={{ fontSize: 12, marginTop: 8, color: 'var(--text-muted)' }}>

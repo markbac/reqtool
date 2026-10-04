@@ -7,8 +7,7 @@ DELETE /artefacts/{uid}/comments/{comment_uid}:
 DELETE /decisions/{uid}:
   status: surfaced
 DELETE /filter-presets/{preset_id}:
-  status: planned
-  ref: 'UI-09 #163'
+  status: surfaced
 DELETE /iterations/{iteration_id}:
   status: surfaced
 DELETE /principles/{uid}:
@@ -49,16 +48,16 @@ GET /badge/validated:
 GET /baselines:
   status: surfaced
 GET /baselines/compare:
-  status: planned
-  ref: 'ENH-04 #207'
+  status: backend-only
+  reason: Superseded for the UI by GET /baselines/field-diff, which adds field-level detail. Kept for scripts and CI.
 GET /baselines/field-diff:
-  status: unclassified
+  status: surfaced
 GET /baselines/{name}/diff:
   status: surfaced
 GET /changesets:
-  status: unclassified
+  status: surfaced
 GET /changesets/{name}/diff:
-  status: unclassified
+  status: surfaced
 GET /config:
   status: surfaced
 GET /custom-fields:
@@ -70,7 +69,7 @@ GET /decisions/{uid}:
 GET /diff:
   status: surfaced
 GET /doctor:
-  status: unclassified
+  status: surfaced
 GET /enums:
   status: surfaced
 GET /enums/core:
@@ -78,8 +77,7 @@ GET /enums/core:
 GET /enums/repo:
   status: surfaced
 GET /export/adr:
-  status: planned
-  ref: 'UI-06 #160'
+  status: surfaced
 GET /export/audit-package:
   status: surfaced
 GET /export/pdf:
@@ -88,10 +86,9 @@ GET /export/pdf:
 GET /export/reqif:
   status: surfaced
 GET /filter-presets:
-  status: planned
-  ref: 'UI-09 #163'
+  status: surfaced
 GET /gate:
-  status: unclassified
+  status: surfaced
 GET /git/log/{uid}:
   status: surfaced
 GET /git/status:
@@ -122,17 +119,17 @@ GET /modules:
 GET /modules/{module_id}:
   status: surfaced
 GET /modules/{module_id}/consumers:
-  status: unclassified
+  status: surfaced
 GET /modules/{module_id}/update-preview:
-  status: unclassified
+  status: surfaced
 GET /modules/{module_id}/verify:
   status: surfaced
 GET /notifications:
-  status: unclassified
+  status: surfaced
 GET /notifications/preferences/{user}:
-  status: unclassified
+  status: surfaced
 GET /overview:
-  status: unclassified
+  status: surfaced
 GET /principles:
   status: surfaced
 GET /principles/{uid}:
@@ -146,7 +143,7 @@ GET /products/{product_id}/matrix:
 GET /products/{product_id}/tree:
   status: surfaced
 GET /query:
-  status: unclassified
+  status: surfaced
 GET /repo:
   status: surfaced
 GET /requirements:
@@ -156,7 +153,7 @@ GET /requirements/tree:
 GET /requirements/{uid}:
   status: surfaced
 GET /requirements/{uid}/approvals:
-  status: unclassified
+  status: surfaced
 GET /requirements/{uid}/attachments:
   status: backend-only
   reason: the UI uses the /artefacts/{uid}/... attachment routes
@@ -172,32 +169,31 @@ GET /requirements/{uid}/commits:
 GET /requirements/{uid}/history:
   status: surfaced
 GET /requirements/{uid}/impact:
-  status: planned
-  ref: 'UI-07 #161'
+  status: surfaced
 GET /requirements/{uid}/lifecycle:
-  status: unclassified
+  status: surfaced
 GET /requirements/{uid}/progress:
-  status: planned
-  ref: 'UI-07 #161'
+  status: surfaced
 GET /requirements/{uid}/quality:
-  status: unclassified
+  status: surfaced
 GET /requirements/{uid}/relationships:
   status: surfaced
 GET /requirements/{uid}/review-requests:
-  status: unclassified
+  status: surfaced
 GET /requirements/{uid}/rollup:
-  status: planned
-  ref: 'UI-07 #161'
+  status: surfaced
+GET /requirements/{uid}/summary:
+  status: surfaced
 GET /requirements/{uid}/trace:
-  status: unclassified
+  status: surfaced
 GET /reviews:
-  status: unclassified
+  status: surfaced
 GET /roadmap:
-  status: unclassified
+  status: surfaced
 GET /search:
   status: surfaced
 GET /snapshot.zip:
-  status: unclassified
+  status: surfaced
 GET /tbds:
   status: surfaced
 GET /tbds/{uid}:
@@ -207,10 +203,9 @@ GET /templates:
 GET /traceability/gaps:
   status: surfaced
 GET /traceability/matrix:
-  status: planned
-  ref: 'ENH-01 #204'
+  status: surfaced
 GET /trend:
-  status: unclassified
+  status: surfaced
 GET /validate:
   status: surfaced
 GET /validate/{uid}:
@@ -243,20 +238,19 @@ POST /auth/users:
 POST /baselines:
   status: surfaced
 POST /changesets:
-  status: unclassified
+  status: surfaced
 POST /changesets/switch:
-  status: unclassified
+  status: surfaced
 POST /changesets/{name}/merge:
-  status: unclassified
+  status: surfaced
 POST /decisions:
   status: surfaced
 POST /decisions/{uid}/commit:
   status: surfaced
 POST /decisions/{uid}/resolve:
-  status: planned
-  ref: 'UI-06 #160'
+  status: surfaced
 POST /duplicates/suggest:
-  status: unclassified
+  status: surfaced
 POST /export/csv:
   status: surfaced
 POST /export/jsx:
@@ -275,20 +269,19 @@ POST /import/csv/upload:
 POST /iterations:
   status: surfaced
 POST /modules:
-  status: unclassified
+  status: surfaced
 POST /modules/{module_id}/clone:
-  status: unclassified
+  status: surfaced
 POST /modules/{module_id}/fetch-remote:
-  status: planned
-  ref: 'ENH-08 #211'
+  status: surfaced
 POST /modules/{module_id}/import:
   status: surfaced
 POST /modules/{module_id}/pin:
-  status: unclassified
+  status: surfaced
 POST /modules/{module_id}/version:
-  status: unclassified
+  status: surfaced
 POST /notifications/{item_id}/read:
-  status: unclassified
+  status: surfaced
 POST /principles:
   status: surfaced
 POST /principles/{uid}/commit:
@@ -296,7 +289,7 @@ POST /principles/{uid}/commit:
 POST /products:
   status: surfaced
 POST /quality/check:
-  status: unclassified
+  status: surfaced
 POST /render/markdown:
   status: surfaced
 POST /render/plantuml:
@@ -327,11 +320,11 @@ POST /requirements/{uid}/comments/{comment_uid}/resolve:
 POST /requirements/{uid}/commit:
   status: surfaced
 POST /requirements/{uid}/impact-preview:
-  status: unclassified
+  status: surfaced
 POST /requirements/{uid}/relationships/{rel_index}/clear-suspect:
   status: surfaced
 POST /requirements/{uid}/review-requests:
-  status: unclassified
+  status: surfaced
 POST /requirements/{uid}/transition:
   status: surfaced
 POST /tbds:
@@ -341,7 +334,7 @@ POST /tbds/{uid}/commit:
 POST /tbds/{uid}/resolve:
   status: surfaced
 POST /test-results:
-  status: unclassified
+  status: surfaced
 POST /webhooks:
   status: surfaced
 POST /webhooks/github:
@@ -361,10 +354,9 @@ PUT /decisions/{uid}:
 PUT /enums/repo:
   status: surfaced
 PUT /filter-presets/{preset_id}:
-  status: planned
-  ref: 'UI-09 #163'
+  status: surfaced
 PUT /notifications/preferences/{user}:
-  status: unclassified
+  status: surfaced
 PUT /principles/{uid}:
   status: surfaced
 PUT /requirements/{uid}:

@@ -31,6 +31,7 @@ import { useApp } from '../AppContext';
 import { api } from '../api';
 import CommitModal from './CommitModal';
 import ResolveDialog from './ResolveDialog';
+import ItemInsight, { StatusStrip } from './ItemInsight';
 import { AttachmentsSection, DiscussionSection as CommentsSection } from './Advanced';
 import './Editor.css';
 import { safeHtml } from '../sanitize';
@@ -945,6 +946,13 @@ function RequirementEditor({ uid }) {
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Show what the edit would affect before it is written (FEAT-03).
+      const changed = Object.fromEntries(Object.keys(draft).filter(k => JSON.stringify(draft[k]) !== JSON.stringify(req?.[k])).map(k => [k, draft[k]]));
+      const preview = await api.requirements.impactPreview(uid, changed).catch(() => null);
+      if (preview?.would_become_suspect?.length) {
+        const names = preview.would_become_suspect.map(s => s.id).join(', ');
+        if (!confirm(`Saving this change will mark links from ${names} as suspect for review.${preview.affects_baselines?.length ? `\n\nIt touches baselines: ${preview.affects_baselines.join(', ')}.` : ''}\n\nSave anyway?`)) return;
+      }
       const updated = await api.requirements.update(uid, draft);
       setReq(updated); setDraft(updated);
       dispatch({ type: 'MARK_CLEAN', uid });
@@ -987,6 +995,7 @@ function RequirementEditor({ uid }) {
     { id: 'classification', label: 'Classification & Ownership'      },
     { id: 'relations',      label: 'Relationships & Links'           },
     { id: 'governance',     label: 'Approval, Review & History'      },
+    { id: 'insight',        label: 'Trace, Progress & Quality'       },
   ];
 
   return (
@@ -1058,9 +1067,12 @@ function RequirementEditor({ uid }) {
 
       {/* Validation summary -- always visible */}
       {validationIssues && <div className="editor-validation-bar"><ValidationSummary issues={validationIssues} /></div>}
+      <StatusStrip uid={uid} isDirty={isDirty} version={draft.version} />
 
       {/* Tab panels */}
       <div className="editor-body">
+
+        {activeTab === 'insight' && <ItemInsight uid={uid} draft={draft} version={draft.version} />}
 
         {/* ── Content ── */}
         {activeTab === 'content' && (
