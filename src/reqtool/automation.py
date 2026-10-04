@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 from typing import Any, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from reqtool.fileio import load_yaml, save_yaml, utcnow_iso
+from reqtool.fileio import load_yaml, save_yaml
 from reqtool.store import Store
 
 log = logging.getLogger(__name__)

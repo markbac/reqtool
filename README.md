@@ -233,7 +233,7 @@ Check items off via `PUT /requirements/{uid}` with the updated `dor_checklist` /
 
 ## Kanban board
 
-`GET /kanban` returns a column-per-state board using the workflow states for the filtered type. Cards include: `uid`, `id`, `title`, `assignee`, `estimate`, `priority`, `req_type`.
+`GET /kanban` returns a column-per-state board. Columns are the union of the workflow states of the types on the board (or the filtered type's states), items with an unknown status go in `_uncolumned`, and themes and initiatives are left out unless `req_type` names them. Cards include: `uid`, `id`, `title`, `assignee`, `estimate`, `priority`, `req_type`.
 
 Query parameters: `req_type`, `iteration`, `owner`, `assignee`.
 
@@ -333,6 +333,11 @@ req stats                        Print metrics summary
 req show <id-or-uid>             Print an artefact to stdout
 req history <id-or-uid>          Print git log for an artefact
 req openapi [-o openapi.yaml]    Export OpenAPI specification
+req gate [--product <id>]        Release-readiness gate; exit 1 on findings
+req doctor                       Repository health checks; exit 1 on errors
+req query '<expression>'         Query requirements, for example 'status = approved'
+req test-results <junit.xml>     Set verification status from JUnit XML
+req snapshot [--out <dir>]       Static read-only site for stakeholders
 ```
 
 ---
@@ -362,6 +367,26 @@ POST   /requirements/{uid}/commit        Stage + git commit a single requirement
 POST   /requirements/{uid}/ac            Add acceptance criterion
 PUT    /requirements/{uid}/ac/{ac_uid}   Update acceptance criterion
 DELETE /requirements/{uid}/ac/{ac_uid}   Delete acceptance criterion
+```
+
+### Traceability, delivery and collaboration
+
+```
+GET  /requirements/{uid}/trace           Upstream, downstream and trace gaps
+GET  /requirements/{uid}/lifecycle       Lifecycle stage and blockers
+GET  /requirements/{uid}/summary         Strategic roll-up (themes, initiatives, epics)
+GET  /requirements/{uid}/quality         Quality findings (Q001-Q006)
+POST /requirements/{uid}/impact-preview  Impact of a proposed change
+POST /requirements/{uid}/review-requests Request a review (GET lists them)
+GET  /overview, /roadmap, /trend         Product overview, roadmap, baseline trend
+GET  /gate, /doctor, /query              Release gate, health checks, query language
+POST /quality/check, /duplicates/suggest Check a draft before saving
+POST /test-results                       Ingest JUnit XML
+GET  /baselines/field-diff               Field-level baseline diff
+GET  /reviews, /notifications            Review and notification inboxes
+GET  /changesets (POST, switch, diff, merge)   Change sets as branches
+GET  /snapshot.zip                       Static stakeholder snapshot
+POST /modules, /modules/{id}/version, /clone, /pin; GET /modules/{id}/consumers, /update-preview
 ```
 
 ### Hierarchy

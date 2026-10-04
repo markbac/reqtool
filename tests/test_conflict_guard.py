@@ -2,10 +2,7 @@
 import subprocess
 import time
 
-import pytest
-from fastapi.testclient import TestClient
 
-from reqtool.api import create_app
 from reqtool.git_ops import has_conflicts
 from tests.conftest import make_req
 from tests.test_baseline_diff import _commit_all, _setup

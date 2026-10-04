@@ -5,7 +5,6 @@ Tests for ATAM Decision Record evaluation and demo repository creation script.
 """
 
 from pathlib import Path
-import pytest
 from reqtool.store import Store
 from reqtool.exports import export_adr_markdown
 from scripts.create_demo_repo import build_demo_repository

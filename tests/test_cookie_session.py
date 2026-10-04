@@ -1,5 +1,4 @@
 """SEC-19: browser sessions use HttpOnly cookies, a CSRF header and refresh tokens."""
-import time
 
 import pytest
 from fastapi.testclient import TestClient

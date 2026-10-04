@@ -1,5 +1,4 @@
 """SEC-14: only local callers may pick server filesystem paths."""
-import pytest
 from fastapi.testclient import TestClient
 
 from reqtool.api import create_app

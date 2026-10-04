@@ -2,7 +2,6 @@
 import io
 import subprocess
 
-import pytest
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from pypdf import PdfReader

@@ -26,6 +26,7 @@ Combining formal systems engineering rigor (INCOSE quality linter, ISO 26262 / D
 - **Safety Criticality Tagging:** ASIL (A/B/C/D) and DAL (A/B/C/D/E) safety classification tagging.
 - **Verification Method Allocation:** Allocate verification methods (*Test*, *Demonstration*, *Analysis*, *Inspection*, *Simulation*, *Similarity*).
 - **Kanban Board Workstation:** Visual drag-and-drop workflow status transitions with customizable approval guards.
+- **Traceability, Release Gate & Insight:** per-item trace, lifecycle and quality checks, a release-readiness gate (`req gate`, GitHub Action), roadmap and overview, review requests and an inbox, change sets, JUnit result ingestion, health checks (`req doctor`), a query language and static stakeholder snapshots.
 - **Traceability & Dependency Matrix:** Bi-directional parent-child hierarchy, verification links, and impact analysis graph (`GET /traceability/matrix`).
 
 ### 🤖 2.3 INCOSE Linter & AI Intelligence

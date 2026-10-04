@@ -1,7 +1,7 @@
 """MOD-02: cross_layer_rules are enforced per hierarchy.enforce."""
 from tests.conftest import make_req
 from reqtool.validation import validate_all
-from reqtool.stores.hierarchy_store import check_relationship, parse_hierarchy
+from reqtool.stores.hierarchy_store import check_relationship
 
 
 def _rel(t, uid):

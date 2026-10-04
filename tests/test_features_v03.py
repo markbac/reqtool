@@ -25,7 +25,6 @@ Tests for all features introduced in v0.3.0:
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 

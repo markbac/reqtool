@@ -1,7 +1,6 @@
-import pytest
 import asyncio
 import threading
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 from reqtool.routers.deps import ConnectionManager, broadcast_sync, ws_manager
 
 

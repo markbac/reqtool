@@ -9,12 +9,10 @@ from __future__ import annotations
 
 import pytest
 from pathlib import Path
-from fastapi.testclient import TestClient
 
 from reqtool.store import Store
-from reqtool.api import create_app
 from reqtool.validation import validate_all
-from reqtool.fileio import save_yaml, uuid7, utcnow_iso
+from reqtool.fileio import uuid7, utcnow_iso
 
 
 def find_node(nodes: list[dict], uid: str) -> dict | None:

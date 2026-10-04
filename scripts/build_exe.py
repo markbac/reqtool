@@ -12,9 +12,7 @@ Creates:
   - dist/reqtool-documentation-and-user-guide.zip
 """
 
-import os
 import sys
-import shutil
 import zipfile
 import subprocess
 from pathlib import Path

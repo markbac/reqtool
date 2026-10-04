@@ -7,11 +7,8 @@ custom fields, webhooks, workflow, templates, baselines, metrics, diff,
 import/export, search, validate, health, and version.
 """
 import sys
-import time
 from pathlib import Path
 
-import pytest
-from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 

@@ -3,7 +3,6 @@ import os
 
 import pytest
 
-from reqtool import fileio
 from reqtool.fileio import load_yaml, save_yaml
 
 

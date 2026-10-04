@@ -11,7 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 from reqtool.fileio import load_yaml, save_yaml
-from reqtool.models import Iteration
 
 
 class IterationStore:

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 from reqtool.iterations import IterationStore
-from reqtool.github_sync import parse_requirement_refs, process_github_push_event
+from reqtool.github_sync import parse_requirement_refs
 
 
 GH_SECRET = "s3cret"

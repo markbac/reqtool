@@ -5,7 +5,6 @@ import sys
 
 import pytest
 
-from reqtool import auth
 from reqtool.auth import UserStore, _get_secret_key, ensure_secrets_ignored
 
 posix_only = pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions")

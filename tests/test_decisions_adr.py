@@ -5,7 +5,6 @@ Tests for Decision Records (ADR), status lifecycle, supersedes lineage, and ADR 
 """
 
 from pathlib import Path
-import pytest
 from reqtool.store import Store
 from reqtool.exports import export_adr_markdown
 

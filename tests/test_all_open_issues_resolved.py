@@ -11,7 +11,7 @@ Comprehensive unit test suite for:
 
 from pathlib import Path
 from reqtool.automation import AutomationEngine
-from reqtool.intelligence import detect_duplicate_requirements, generate_test_cases_from_spec, generate_audit_package
+from reqtool.intelligence import generate_test_cases_from_spec
 
 
 def test_automation_engine_rules(tmp_path: Path):

@@ -7,7 +7,6 @@ new, show, history, diff, stats, openapi, version.
 import sys
 from pathlib import Path
 
-import pytest
 from click.testing import CliRunner
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))

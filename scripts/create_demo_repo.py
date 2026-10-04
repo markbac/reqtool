@@ -23,7 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from reqtool.store import Store
-from reqtool.fileio import save_yaml, utcnow_iso
+from reqtool.fileio import save_yaml
 from reqtool.commands.scaffold import _write_base_repo, _write_enums, _write_product
 from reqtool.commands.scaffold_demo import populate_demo_data
 

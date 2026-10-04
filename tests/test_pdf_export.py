@@ -4,7 +4,6 @@ tests/test_pdf_export.py
 Unit and integration tests for reqtool PDF exporter engine and API endpoints.
 """
 
-from pathlib import Path
 from reqtool.exports import export_pdf
 
 

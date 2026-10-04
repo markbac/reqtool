@@ -96,6 +96,17 @@ reqtool diff HEAD~1               # Changes in last commit
 reqtool diff v1.0.0               # Changes since tag v1.0.0
 ```
 
+### `reqtool gate`, `doctor`, `query`, `test-results`, `snapshot` -- Delivery Checks
+These commands work on the repository files and need no server:
+```bash
+reqtool gate [--product P1]            # release-readiness gate: open TBDs, unverified safety items, suspect links, trace gaps. Exits 1 on findings
+reqtool doctor                         # configuration, secrets hygiene, dependency, hierarchy and stray-file checks. Exits 1 on errors
+reqtool query 'status = approved AND priority = high'   # query language over requirements
+reqtool test-results junit.xml [--source ci] [--run-url URL]   # set verification status from JUnit XML (test names carry a requirement id such as FR-042)
+reqtool snapshot [--baseline NAME] [--out snapshot]    # static read-only site for stakeholders
+```
+`gate` is also available as a GitHub Action (`.github/actions/req-gate`) so a pull request can fail on an unready release. JUnit files containing a `DOCTYPE` or `ENTITY` declaration are rejected.
+
 ### `reqtool new-agile` — Create Agile Items
 Interactively creates new agile planning items:
 ```bash
@@ -149,7 +160,7 @@ Saving a change to a requirement marks every relationship that points at it as *
 
 ### 3.5 Release Roadmap & Kanban Board
 - Access via **Kanban / Roadmap**.
-- View requirements organized by workflow states (`Draft`, `In Review`, `Approved`, `Done`) or target release milestones.
+- View requirements organized by workflow states or target release milestones (see 3.8 for how columns are chosen).
 - Drag-and-drop cards between columns to transition workflow states.
 
 #### Paging and the Coverage panel
@@ -179,6 +190,17 @@ export:
 #### Progress and estimate rollups
 - **Progress** (`GET /requirements/{uid}/progress`) is measured over the leaf items beneath a parent. The parent itself and any `cancelled` items are left out. An item counts as done when it is in a terminal state of its own type's workflow (for example `done`), so `active` does not count. Progress is weighted by estimate when the leaves have estimates, otherwise by item count.
 - **Estimate rollup** (`GET /requirements/{uid}/rollup`) is the sum of the estimates of all leaf descendants, at any depth, excluding cancelled items. A parent's own estimate is never added, so nothing is double counted.
+
+### 3.8 Insight Panels, Reviews and Change Sets
+- **Editor, Insight tab:** trace (upstream, downstream and gaps), lifecycle stage and blockers, quality findings and impact. A status strip under the validation bar summarises the same. Saving a change shows an **impact preview** to confirm first.
+- **Overview and Roadmap** (header menu): per-product readiness and a Now/Next/Later view. Themes, initiatives and epics show a progress bar in the tree, and `GET /requirements/{uid}/summary` gives a strategic roll-up.
+- **Kanban:** columns are the union of the workflow states of the types shown, and items whose status matches no column go to an **Uncolumned** lane. Themes and initiatives are left off the default board (they have the Roadmap); choose that type explicitly to see them.
+- **Decisions, Modules and Query panels:** decisions, ADRs and TBDs (with resolve), module create, version, clone, pin, consumers, verification and update preview, and a query box.
+- **Reviews and approvals:** request a review from the editor (`POST /requirements/{uid}/review-requests`). Approving with a stale `content_hash` returns `409 stale_content`. The **Inbox** lists review requests and `@mentions`; per-user notification preferences are `/notifications/preferences/{user}`.
+- **Change sets:** a change set is a `changeset/*` branch. Create, switch, diff and merge from the **Change Sets** panel (`/changesets`).
+- **Baselines:** the Baselines panel shows field-level differences (`GET /baselines/field-diff`) and `GET /trend` charts readiness between baselines.
+- **Audit package:** **Export > Audit Package** can be limited by product, module or selected items (`scope`, `product`, `module`, `uids`, `include`).
+- **Webhook formats:** a webhook can send `json`, `slack` or `teams` payloads.
 
 ---
 
@@ -391,15 +413,3 @@ With `REQTOOL_GITHUB_WEBHOOK_SECRET` set, a signed push webhook to `POST /webhoo
 - **Baselines:** `GET /baselines/{name}/diff` returns the changes since the baseline, and `GET /baselines/compare` compares the two baselines you name. Unknown baselines return 404.
 - **Bulk update:** the response gains an `errors` map (uid to reason). Items whose status change is not a legal transition are listed in `failed`.
 - **Real-time events:** WebSocket clients now receive server events such as `status_changed`.
-
-## Gate, health checks and queries
-
-```bash
-req gate --product P1            # release-readiness gate, non-zero exit when it fails
-req doctor                       # repository health checks
-req query 'status = approved AND priority = high'
-req test-results junit.xml       # ingest JUnit results as verification evidence
-req snapshot --out site          # static read-only snapshot site
-```
-
-The same data is available in the UI under the Insight panels (overview, roadmap, decisions, modules, change sets, inbox and query) and through the API (`/gate`, `/doctor`, `/query`, `/requirements/{uid}/trace`, `/requirements/{uid}/summary`).

@@ -1,10 +1,7 @@
 """DAT-15: a baseline never silently omits uncommitted artefact edits."""
 import subprocess
 
-import pytest
-from fastapi.testclient import TestClient
 
-from reqtool.api import create_app
 from tests.conftest import make_req
 from tests.test_baseline_diff import _commit_all, _setup
 

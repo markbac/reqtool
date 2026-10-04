@@ -1069,18 +1069,18 @@ paths:
       description: Acknowledge and clear suspect flag on a relationship link.
       operationId: clear_suspect_link_requirements__uid__relationships__rel_index__clear_suspect_post
       parameters:
-      - name: uid
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Uid
       - name: rel_index
         in: path
         required: true
         schema:
           type: integer
           title: Rel Index
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
       responses:
         '200':
           description: Successful Response
@@ -1285,18 +1285,18 @@ paths:
       summary: Update Ac
       operationId: update_ac_requirements__uid__ac__ac_uid__put
       parameters:
-      - name: uid
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Uid
       - name: ac_uid
         in: path
         required: true
         schema:
           type: string
           title: Ac Uid
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
       requestBody:
         required: true
         content:
@@ -1321,18 +1321,18 @@ paths:
       summary: Delete Ac
       operationId: delete_ac_requirements__uid__ac__ac_uid__delete
       parameters:
-      - name: uid
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Uid
       - name: ac_uid
         in: path
         required: true
         schema:
           type: string
           title: Ac Uid
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
       responses:
         '200':
           description: Successful Response
@@ -2036,6 +2036,188 @@ paths:
           content:
             application/json:
               schema: {}
+    post:
+      tags:
+      - modules
+      summary: Create Module
+      operationId: create_module_modules_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /modules/{module_id}/version:
+    post:
+      tags:
+      - modules
+      summary: Bump Module Version
+      operationId: bump_module_version_modules__module_id__version_post
+      parameters:
+      - name: module_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /modules/{module_id}/clone:
+    post:
+      tags:
+      - modules
+      summary: Clone Module
+      operationId: clone_module_modules__module_id__clone_post
+      parameters:
+      - name: module_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /modules/{module_id}/consumers:
+    get:
+      tags:
+      - modules
+      summary: Module Consumers
+      operationId: module_consumers_modules__module_id__consumers_get
+      parameters:
+      - name: module_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /modules/{module_id}/pin:
+    post:
+      tags:
+      - modules
+      summary: Pin Module
+      description: Pin a remote module to a tag, branch or commit; the next fetch records the exact commit.
+      operationId: pin_module_modules__module_id__pin_post
+      parameters:
+      - name: module_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /modules/{module_id}/update-preview:
+    get:
+      tags:
+      - modules
+      summary: Module Update Preview
+      description: Files a new ref would add, remove or change, with the products that consume the module.
+      operationId: module_update_preview_modules__module_id__update_preview_get
+      parameters:
+      - name: module_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Module Id
+      - name: ref
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Ref
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /modules/{module_id}:
     get:
       tags:
@@ -2500,18 +2682,18 @@ paths:
       summary: Update Comment
       operationId: update_comment_requirements__uid__comments__comment_uid__put
       parameters:
-      - name: uid
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Uid
       - name: comment_uid
         in: path
         required: true
         schema:
           type: string
           title: Comment Uid
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
       requestBody:
         required: true
         content:
@@ -2538,18 +2720,18 @@ paths:
       summary: Delete Comment
       operationId: delete_comment_requirements__uid__comments__comment_uid__delete
       parameters:
-      - name: uid
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Uid
       - name: comment_uid
         in: path
         required: true
         schema:
           type: string
           title: Comment Uid
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
       responses:
         '200':
           description: Successful Response
@@ -2569,18 +2751,18 @@ paths:
       summary: Resolve Comment
       operationId: resolve_comment_requirements__uid__comments__comment_uid__resolve_post
       parameters:
-      - name: uid
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Uid
       - name: comment_uid
         in: path
         required: true
         schema:
           type: string
           title: Comment Uid
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
       requestBody:
         content:
           application/json:
@@ -2721,8 +2903,8 @@ paths:
     get:
       tags:
       - attachments
-      summary: List Attachments
-      operationId: list_attachments_requirements__uid__attachments_get
+      summary: List Requirement Attachments
+      operationId: list_requirement_attachments_requirements__uid__attachments_get
       parameters:
       - name: uid
         in: path
@@ -2745,8 +2927,8 @@ paths:
     post:
       tags:
       - attachments
-      summary: Upload Attachment
-      operationId: upload_attachment_requirements__uid__attachments_post
+      summary: Upload Requirement Attachment
+      operationId: upload_requirement_attachment_requirements__uid__attachments_post
       parameters:
       - name: uid
         in: path
@@ -2777,21 +2959,21 @@ paths:
     get:
       tags:
       - attachments
-      summary: Download Attachment
-      operationId: download_attachment_requirements__uid__attachments__filename__get
+      summary: Download Requirement Attachment
+      operationId: download_requirement_attachment_requirements__uid__attachments__filename__get
       parameters:
-      - name: uid
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Uid
       - name: filename
         in: path
         required: true
         schema:
           type: string
           title: Filename
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
       responses:
         '200':
           description: Successful Response
@@ -2807,21 +2989,21 @@ paths:
     delete:
       tags:
       - attachments
-      summary: Delete Attachment
-      operationId: delete_attachment_requirements__uid__attachments__filename__delete
+      summary: Delete Requirement Attachment
+      operationId: delete_requirement_attachment_requirements__uid__attachments__filename__delete
       parameters:
-      - name: uid
-        in: path
-        required: true
-        schema:
-          type: string
-          title: Uid
       - name: filename
         in: path
         required: true
         schema:
           type: string
           title: Filename
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
       responses:
         '200':
           description: Successful Response
@@ -2936,6 +3118,757 @@ paths:
         schema:
           type: string
           title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/trace:
+    get:
+      tags:
+      - traceability
+      summary: Requirement Trace
+      operationId: requirement_trace_requirements__uid__trace_get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/lifecycle:
+    get:
+      tags:
+      - traceability
+      summary: Requirement Lifecycle
+      operationId: requirement_lifecycle_requirements__uid__lifecycle_get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/summary:
+    get:
+      tags:
+      - overview
+      summary: Strategic Summary
+      description: Child counts by type and status, completion, estimate, open TBDs and validation for a Theme, 
+        Initiative or Epic.
+      operationId: strategic_summary_requirements__uid__summary_get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /overview:
+    get:
+      tags:
+      - overview
+      summary: Product Overview
+      operationId: product_overview_overview_get
+      parameters:
+      - name: product
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Product
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /roadmap:
+    get:
+      tags:
+      - overview
+      summary: Get Roadmap
+      operationId: get_roadmap_roadmap_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /requirements/{uid}/impact-preview:
+    post:
+      tags:
+      - traceability
+      summary: Impact Preview
+      description: What an edit would affect, before it is saved.
+      operationId: impact_preview_requirements__uid__impact_preview_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /gate:
+    get:
+      tags:
+      - validation
+      summary: Release Gate
+      description: 'Release readiness: ``ready`` is false when any policy finding exists.'
+      operationId: release_gate_gate_get
+      parameters:
+      - name: product
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Product
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /quality/check:
+    post:
+      tags:
+      - quality
+      summary: Quality Check
+      description: Advisory findings for text as it is typed. Never blocks a save.
+      operationId: quality_check_quality_check_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/quality:
+    get:
+      tags:
+      - quality
+      summary: Requirement Quality
+      operationId: requirement_quality_requirements__uid__quality_get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /query:
+    get:
+      tags:
+      - query
+      summary: Run Query
+      description: Search with the query language, for example ``status:approved type:safety no:verification``.
+      operationId: run_query_query_get
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Q
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /duplicates/suggest:
+    post:
+      tags:
+      - quality
+      summary: Duplicate Suggestions
+      description: Existing requirements similar to the text being authored.
+      operationId: duplicate_suggestions_duplicates_suggest_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /test-results:
+    post:
+      tags:
+      - verification
+      summary: Ingest Test Results
+      description: Upload JUnit XML. Tests naming a requirement id set its verification status.
+      operationId: ingest_test_results_test_results_post
+      parameters:
+      - name: source
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ci
+          title: Source
+      - name: run_url
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Run Url
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /doctor:
+    get:
+      tags:
+      - validation
+      summary: Run Doctor
+      operationId: run_doctor_doctor_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /trend:
+    get:
+      tags:
+      - baselines
+      summary: Baseline Trend
+      operationId: baseline_trend_trend_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /baselines/field-diff:
+    get:
+      tags:
+      - baselines
+      summary: Baseline Field Diff
+      description: Field-level difference per requirement between two baselines (or a baseline and HEAD).
+      operationId: baseline_field_diff_baselines_field_diff_get
+      parameters:
+      - name: baseline_a
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Baseline A
+      - name: baseline_b
+        in: query
+        required: false
+        schema:
+          type: string
+          default: HEAD
+          title: Baseline B
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /snapshot.zip:
+    get:
+      tags:
+      - exports
+      summary: Stakeholder Snapshot
+      description: The read-only stakeholder site for a baseline (or the current files) as a zip.
+      operationId: stakeholder_snapshot_snapshot_zip_get
+      parameters:
+      - name: baseline
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Baseline
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/review-requests:
+    post:
+      tags:
+      - reviews
+      summary: Request Review
+      operationId: request_review_requirements__uid__review_requests_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - reviews
+      summary: List Review Requests
+      operationId: list_review_requests_requirements__uid__review_requests_get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /reviews:
+    get:
+      tags:
+      - reviews
+      summary: Review Inbox
+      description: Pending requests for one reviewer (stale ones are flagged).
+      operationId: review_inbox_reviews_get
+      parameters:
+      - name: reviewer
+        in: query
+        required: true
+        schema:
+          type: string
+          title: Reviewer
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/approvals:
+    get:
+      tags:
+      - reviews
+      summary: Requirement Approvals
+      operationId: requirement_approvals_requirements__uid__approvals_get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /notifications:
+    get:
+      tags:
+      - notifications
+      summary: List Notifications
+      operationId: list_notifications_notifications_get
+      parameters:
+      - name: user
+        in: query
+        required: true
+        schema:
+          type: string
+          title: User
+      - name: unread
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Unread
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /notifications/{item_id}/read:
+    post:
+      tags:
+      - notifications
+      summary: Read Notification
+      operationId: read_notification_notifications__item_id__read_post
+      parameters:
+      - name: item_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Item Id
+      - name: user
+        in: query
+        required: true
+        schema:
+          type: string
+          title: User
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /notifications/preferences/{user}:
+    get:
+      tags:
+      - notifications
+      summary: Get Notification Prefs
+      operationId: get_notification_prefs_notifications_preferences__user__get
+      parameters:
+      - name: user
+        in: path
+        required: true
+        schema:
+          type: string
+          title: User
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - notifications
+      summary: Put Notification Prefs
+      operationId: put_notification_prefs_notifications_preferences__user__put
+      parameters:
+      - name: user
+        in: path
+        required: true
+        schema:
+          type: string
+          title: User
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /changesets:
+    get:
+      tags:
+      - changesets
+      summary: List Changesets
+      operationId: list_changesets_changesets_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - changesets
+      summary: Create Changeset
+      operationId: create_changeset_changesets_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /changesets/{name}/diff:
+    get:
+      tags:
+      - changesets
+      summary: Changeset Diff
+      operationId: changeset_diff_changesets__name__diff_get
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /changesets/{name}/merge:
+    post:
+      tags:
+      - changesets
+      summary: Merge Changeset
+      operationId: merge_changeset_changesets__name__merge_post
+      parameters:
+      - name: name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /changesets/switch:
+    post:
+      tags:
+      - changesets
+      summary: Switch Changeset
+      operationId: switch_changeset_changesets_switch_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
       responses:
         '200':
           description: Successful Response
@@ -3148,14 +4081,57 @@ paths:
       tags:
       - export
       summary: Export Audit Package
-      description: Export 21 CFR Part 11 / ISO 26262 Regulatory Compliance Audit Package (Zip).
+      description: "Regulatory audit package (zip). ``scope`` is repository, product, module or selection (comma separated\n\
+        ``uids``); ``include`` picks parts: signatures, requirements, traceability, history, validation, decisions."
       operationId: export_audit_package_export_audit_package_get
+      parameters:
+      - name: scope
+        in: query
+        required: false
+        schema:
+          type: string
+          default: repository
+          title: Scope
+      - name: product
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Product
+      - name: module
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Module
+      - name: uids
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Uids
+      - name: include
+        in: query
+        required: false
+        schema:
+          type: string
+          default: ''
+          title: Include
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /git/status:
     get:
       tags:
@@ -3790,6 +4766,11 @@ components:
         approved_by:
           type: string
           title: Approved By
+        content_hash:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Content Hash
       type: object
       required:
       - approved_by
@@ -4162,6 +5143,66 @@ components:
             type: object
           - type: 'null'
           title: Implementation
+        target_release:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Release
+        target_milestone:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Milestone
+        release_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Release Status
+        planned_start_date:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Planned Start Date
+        planned_completion_date:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Planned Completion Date
+        safety_standard:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Safety Standard
+        asil_level:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Asil Level
+        dal_level:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Dal Level
+        mitigates_hazard:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mitigates Hazard
+        source_document:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Document
+        legal_compliance_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Legal Compliance Status
+        compliance_rationale:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Compliance Rationale
       type: object
       required:
       - title
@@ -4618,6 +5659,66 @@ components:
             type: object
           - type: 'null'
           title: Implementation
+        target_release:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Release
+        target_milestone:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Target Milestone
+        release_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Release Status
+        planned_start_date:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Planned Start Date
+        planned_completion_date:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Planned Completion Date
+        safety_standard:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Safety Standard
+        asil_level:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Asil Level
+        dal_level:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Dal Level
+        mitigates_hazard:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Mitigates Hazard
+        source_document:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Source Document
+        legal_compliance_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Legal Compliance Status
+        compliance_rationale:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Compliance Rationale
       type: object
       title: UpdateRequirementRequest
       description: Body for PUT /requirements/{uid}. All fields are optional.

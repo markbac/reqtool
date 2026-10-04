@@ -2,7 +2,6 @@
 import time
 
 import jwt
-import pytest
 from fastapi.testclient import TestClient
 
 import reqtool.auth as auth

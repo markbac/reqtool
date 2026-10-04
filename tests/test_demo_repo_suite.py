@@ -5,7 +5,6 @@ Integration tests utilizing the full IoT Sensor Demo Repository dataset.
 Tests REST API, search, traceability matrix, ATAM decision exports, and store hierarchy.
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 

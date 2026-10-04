@@ -80,6 +80,9 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
 # Subsets for faster local runs:
 #   pytest tests/test_store.py tests/test_validation.py tests/test_cli.py   (~20s)
 #   pytest tests/test_features_v03.py                                        (~30s)

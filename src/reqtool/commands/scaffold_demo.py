@@ -9,10 +9,6 @@ from __future__ import annotations
 from pathlib import Path
 import click
 
-from ..fileio import (
-    load_yaml, save_yaml, uuid7, utcnow_iso, compute_requirement_hash
-)
-from .. import __version__ as TOOL_VERSION
 
 
 def populate_demo_data(root: Path, store) -> None:
@@ -1260,7 +1256,6 @@ def populate_demo_data(root: Path, store) -> None:
     # -----------------------------------------------------------------------
     # Reusable Subsystem Modules & Product Line Manifests
     # -----------------------------------------------------------------------
-    import shutil as _shutil
     
     # 1. MOD-COMMS-SECURITY
     mod_sec_dir = root / "modules" / "comms-security"
