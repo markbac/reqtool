@@ -385,6 +385,7 @@ With `REQTOOL_GITHUB_WEBHOOK_SECRET` set, a signed push webhook to `POST /webhoo
 
 - **Commits:** committing a requirement or TBD commits only that file. Other staged changes stay staged. The commit SHA is no longer written into the YAML; the history view reads it from git. Committing with nothing staged returns 409.
 - **History:** a requirement's change history is append-only. It is no longer cut to 20 entries.
+- **CLI and server:** the `req` commands work on the repository files directly and need no server. A running server picks up those edits through its file watcher, so the CLI and the web UI can be used side by side.
 - **Saving:** YAML files are written atomically (temporary file, then rename).
 - **Configuration:** `PUT /config`, `PUT /workflow` and `PUT /enums/repo` validate before saving and return 422 with the field errors, so a bad request can no longer stop the repository loading.
 - **Baselines:** `GET /baselines/{name}/diff` returns the changes since the baseline, and `GET /baselines/compare` compares the two baselines you name. Unknown baselines return 404.
