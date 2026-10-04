@@ -328,7 +328,8 @@ class TestDeletedParentRef:
             "parentId": parent["uid"],
             "content": {"description": "", "rationale": "", "extended_description": ""},
         })
-        s.delete_requirement(parent["uid"])
+        # Deleting through the store re-parents children, so simulate a hand-edited or merged file.
+        s.requirements[parent["uid"]]["deleted"] = True
         errors = _errors(s)
         assert any(e.get("code") == "deleted_parent_ref" for e in errors)
 

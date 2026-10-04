@@ -9,8 +9,8 @@ from __future__ import annotations
 import logging
 import json as _json
 import threading
-from typing import Optional
-from fastapi import Request, WebSocket, HTTPException
+from typing import Annotated, Optional
+from fastapi import Depends, Request, WebSocket, HTTPException
 
 from reqtool import __version__
 from reqtool.store import Store
@@ -22,6 +22,14 @@ log = logging.getLogger(__name__)
 
 def get_store(request: Request) -> Store:
     return request.app.state.store
+
+
+def canonical_uid(uid: str, request: Request) -> str:
+    """A requirement route's ``{uid}`` accepts either the UID or the human ID (for example ``FR-042``)."""
+    return request.app.state.store.resolve_uid(uid) or uid
+
+
+ReqUid = Annotated[str, Depends(canonical_uid)]
 
 
 def not_found(uid: str) -> HTTPException:

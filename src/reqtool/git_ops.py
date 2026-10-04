@@ -39,6 +39,8 @@ def _run_git(args: list[str], cwd: Path) -> tuple[int, str, str]:
         cwd=str(cwd),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     return result.returncode, result.stdout.strip(), result.stderr.strip()
 
@@ -98,6 +100,12 @@ def stage_file(repo_root: Path, file_path: Path) -> None:
         raise RuntimeError(f"git add failed: {err}")
 
 
+def unstage_file(repo_root: Path, file_path: Path) -> None:
+    """Remove a single file from the index (best effort), keeping its working-tree content."""
+    rel = file_path.relative_to(repo_root)
+    _run_git(["reset", "-q", "--", str(rel)], repo_root)
+
+
 class NothingToCommit(RuntimeError):
     """Raised by commit() when there is nothing staged."""
 
@@ -117,6 +125,8 @@ def commit(
     env_extras = {
         "GIT_AUTHOR_NAME": author_name,
         "GIT_AUTHOR_EMAIL": author_email,
+        "GIT_COMMITTER_NAME": author_name,
+        "GIT_COMMITTER_EMAIL": author_email,
     }
     import os
     env = {**os.environ, **env_extras}
@@ -126,6 +136,8 @@ def commit(
         cwd=str(repo_root),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         env=env,
     )
     if result.returncode != 0:

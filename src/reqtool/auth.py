@@ -55,21 +55,47 @@ def _restrict(path: Path) -> None:
         pass
 
 
+MIN_SECRET_BYTES = 32
+
+
+def _read_valid_secret(sec_path: Path) -> Optional[bytes]:
+    try:
+        key = sec_path.read_bytes()
+    except OSError:
+        return None
+    return key if len(key) >= MIN_SECRET_BYTES else None
+
+
 def _get_secret_key(repo_root: Path) -> bytes:
     sec_path = repo_root / ".reqtool" / SECRET_FILE
     if sec_path.exists():
         _restrict(sec_path)
-        return sec_path.read_bytes()
+        key = _read_valid_secret(sec_path)
+        if key is not None:
+            return key
+        # Empty or truncated (a crash between create and write): replace it rather than
+        # signing with a weak key or failing every login.
+        log.warning("Secret key file %s is invalid; generating a new one (existing tokens stop working).", sec_path)
+        sec_path.unlink(missing_ok=True)
     sec_path.parent.mkdir(parents=True, exist_ok=True)
     ensure_secrets_ignored(repo_root)
     key = os.urandom(32)
-    try:
-        # O_EXCL + 0600: never world-readable, and two creators cannot clobber each other.
-        fd = os.open(sec_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    except FileExistsError:
-        return sec_path.read_bytes()
+    # Write a complete 0600 temp file, then link it into place: the key file either does not
+    # exist or is complete, and two creators cannot clobber each other.
+    tmp = sec_path.with_name(f".{SECRET_FILE}.{os.getpid()}.{os.urandom(4).hex()}")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, "wb") as fh:
         fh.write(key)
+    try:
+        os.link(tmp, sec_path)
+    except FileExistsError:
+        existing = _read_valid_secret(sec_path)
+        if existing is not None:
+            return existing
+        os.replace(tmp, sec_path)
+        return key
+    finally:
+        tmp.unlink(missing_ok=True)
     return key
 
 
@@ -84,6 +110,16 @@ REFRESH_COOKIE = "reqtool_refresh"
 CSRF_HEADER = "x-reqtool-csrf"     # browser clients send it on every request; cross-site pages cannot
 TOKEN_ISSUER = "reqtool"
 TOKEN_AUDIENCE = "reqtool-api"
+
+
+_DUMMY: Optional[tuple[str, str]] = None
+
+
+def _dummy_hash() -> tuple[str, str]:
+    global _DUMMY
+    if _DUMMY is None:
+        _DUMMY = hash_password("reqtool-timing-equaliser")
+    return _DUMMY
 
 
 def hash_password(password: str, salt: Optional[bytes] = None, iterations: Optional[int] = None) -> tuple[str, str]:
@@ -147,9 +183,23 @@ class LoginThrottle:
                 wait = max(wait, recent[0] + self.window - time.monotonic())
         return int(wait) + 1 if wait > 0 else 0
 
+    MAX_KEYS = 10_000
+
     def record_failure(self, *keys: str) -> None:
         for key in keys:
             self._fails.setdefault(key, []).append(time.monotonic())
+        if len(self._fails) > self.MAX_KEYS:
+            self._prune()
+
+    def _prune(self) -> None:
+        """Bound memory: drop expired keys, then the oldest ones if still over the cap."""
+        for key in list(self._fails):
+            self._recent(key)
+        excess = len(self._fails) - self.MAX_KEYS
+        if excess > 0:
+            oldest = sorted(self._fails, key=lambda k: self._fails[k][-1])[:excess]
+            for key in oldest:
+                self._fails.pop(key, None)
 
     def reset(self, *keys: str) -> None:
         for key in keys:
@@ -236,6 +286,9 @@ class UserStore:
         users = self.load_users()
         user = users.get(username)
         if not user:
+            # Spend the same time as a real check so response time does not reveal valid usernames.
+            h, salt = _dummy_hash()
+            verify_password(password, h, salt, PBKDF2_ITERATIONS)
             return None
         if not verify_password(password, user.get("password_hash", ""), user.get("salt", ""),
                                user.get("iterations")):

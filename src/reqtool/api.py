@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 import os
-import sys
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -22,7 +21,7 @@ from . import __version__
 from .store import Store
 from .fileio import InvalidId
 from .git_ops import InvalidRef, has_conflicts
-from .store import ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId
+from .store import UnknownParent, ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId
 from .routers import (
     system, requirements, principles, decisions, modules,
     comments, attachments, analysis, exports, git_ops,
@@ -94,47 +93,9 @@ def create_app(repo_root: Path, auth_mode: str | None = None) -> FastAPI:
         allow_headers=["Authorization", "Content-Type", "X-API-Key", "If-Match"],
     )
 
-    # ------------------------------------------------------------------
-    # File watcher -- disabled under pytest to prevent inotify fd leaks
-    # ------------------------------------------------------------------
-    _under_test = "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ
-
-    if not _under_test:
-        try:
-            import threading
-            from watchdog.observers import Observer
-            from watchdog.events import FileSystemEventHandler
-
-            class ReloadHandler(FileSystemEventHandler):
-                def __init__(self):
-                    super().__init__()
-                    self._last_events = {}
-                    self._lock = threading.Lock()
-
-                def on_any_event(self, event):
-                    if event.is_directory:
-                        return
-                    if event.src_path.endswith(".yaml"):
-                        import time
-                        now = time.time()
-                        with self._lock:
-                            last_time = self._last_events.get(event.src_path, 0)
-                            if now - last_time < 0.1:  # 100ms debounce
-                                return
-                            self._last_events[event.src_path] = now
-                        changed = Path(event.src_path)
-                        log.debug("File changed (debounced): %s", changed)
-                        store.reload_file(changed)
-
-            observer = Observer()
-            for subdir in ("requirements", "principles", "decisions", "tbds", "modules", "products", ".reqtool"):
-                watch_path = repo_root / subdir
-                watch_path.mkdir(parents=True, exist_ok=True)
-                observer.schedule(ReloadHandler(), str(watch_path), recursive=True)
-            observer.start()
-            log.info("File watcher started (incremental reload)")
-        except Exception as exc:
-            log.warning("File watcher not started: %s", exc)
+    # File watcher: follows store.root and is restarted by /repo/switch (not started under pytest).
+    from .watcher import start_watcher
+    app.state.watcher = start_watcher(store)
 
     # ------------------------------------------------------------------
     # Include APIRouters
@@ -147,6 +108,10 @@ def create_app(repo_root: Path, auth_mode: str | None = None) -> FastAPI:
     @app.exception_handler(ParentCycle)
     async def _parent_cycle_handler(request, exc):
         return JSONResponse(status_code=409, content={"detail": {"error": "parent_cycle", "message": str(exc)}})
+
+    @app.exception_handler(UnknownParent)
+    async def _unknown_parent_handler(request, exc):
+        return JSONResponse(status_code=422, content={"detail": {"error": "validation", "message": str(exc)}})
 
     @app.exception_handler(HierarchyViolation)
     async def _hierarchy_violation_handler(request, exc):

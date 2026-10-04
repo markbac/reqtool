@@ -14,7 +14,7 @@ import os
 import re
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -128,6 +128,9 @@ def _to_plain(obj: Any) -> Any:
         return {k: _to_plain(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [_to_plain(v) for v in obj]
+    if isinstance(obj, date) and not isinstance(obj, datetime):
+        # An unquoted YAML date (2026-10-01): keep it a string like every other date field.
+        return obj.isoformat()
     return obj
 
 
@@ -168,7 +171,8 @@ def _canonical(obj: Any) -> Any:
         return {k: _canonical(v) for k, v in sorted(obj.items())}
     if isinstance(obj, list):
         return [_canonical(v) for v in obj]
-    if isinstance(obj, datetime):
+    if isinstance(obj, (datetime, date)):
+        # An unquoted YAML date (2026-10-01) loads as a date: hash it as the ISO string it would be if quoted.
         return obj.isoformat()
     return obj
 

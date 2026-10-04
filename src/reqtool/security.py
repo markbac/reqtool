@@ -26,6 +26,7 @@ from typing import Any, Optional
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from .actor import current_actor, current_role
 from .auth import CSRF_HEADER, SESSION_COOKIE
 
 log = logging.getLogger(__name__)
@@ -64,10 +65,47 @@ def is_loopback_host(host: str) -> bool:
     return host in ("127.0.0.1", "::1", "localhost") or host.startswith("127.")
 
 
+def _hostname(value: str) -> str:
+    """Host part of a ``Host`` header or an Origin URL, without scheme or port."""
+    value = value.split("://", 1)[-1].split("/", 1)[0]
+    if value.startswith("["):  # IPv6 literal
+        return value[1:].split("]", 1)[0].lower()
+    return value.rsplit(":", 1)[0].lower() if value.count(":") == 1 else value.lower()
+
+
+def _allowed_local_names() -> set[str]:
+    extra = {h.strip().lower() for h in os.environ.get("REQTOOL_ALLOWED_HOSTS", "").split(",") if h.strip()}
+    return {"localhost", "testserver", "testclient"} | extra
+
+
+def local_request_problem(headers, method: str) -> Optional[str]:
+    """Why a local-mode request must be refused although it came from loopback, else None.
+
+    Loopback alone does not stop a web page in the user's browser: DNS rebinding makes
+    ``evil.example`` resolve to 127.0.0.1, and a cross-site form can POST here. So the
+    ``Host`` must name this machine and a browser ``Origin`` must too.
+    """
+    names = _allowed_local_names()
+
+    def local(name: str) -> bool:
+        return bool(name) and (is_loopback_host(name) or name in names)
+
+    host = headers.get("host")
+    if host and not local(_hostname(host)):
+        return f"Host '{host}' is not this machine (possible DNS rebinding)"
+    origin = headers.get("origin")
+    if origin and method not in ("GET", "HEAD", "OPTIONS") and not local(_hostname(origin)):
+        return f"Cross-site request from origin '{origin}' refused"
+    return None
+
+
 def is_public_path(method: str, path: str) -> bool:
     if path in PUBLIC_PATHS or path.startswith(PUBLIC_PREFIXES):
         return True
-    if method in ("GET", "HEAD") and (path in ("/", "/index.html") or path.endswith(STATIC_SUFFIXES)):
+    # Only top-level UI files (favicon, logo) are public. A deeper path such as
+    # /requirements/{uid}/attachments/x.png is an API route and needs a token.
+    if method in ("GET", "HEAD") and (path in ("/", "/index.html")
+                                      or (path.count("/") == 1 and path.endswith(STATIC_SUFFIXES))):
         return True
     return False
 
@@ -130,6 +168,9 @@ def install(app, mode: str) -> None:
 
         if mode == "local":
             if path == "/health" or host in LOCAL_HOSTS or is_loopback_host(host):
+                problem = None if path == "/health" else local_request_problem(request.headers, method)
+                if problem:
+                    return _deny(403, "forbidden", problem)
                 return await call_next(request)
             return _deny(403, "forbidden",
                          "This server is in local mode and only accepts connections from this machine. "
@@ -156,7 +197,14 @@ def install(app, mode: str) -> None:
             for m, prefix in ADMIN_ONLY:
                 if (m is None or m == method) and (path == prefix.rstrip("/") or path.startswith(prefix)):
                     return _deny(403, "forbidden", "Administrator role required")
-        return await call_next(request)
+        # Record who is acting so history, comments and attachments carry the real user.
+        actor_token = current_actor.set(user["username"])
+        role_token = current_role.set(user["role"])
+        try:
+            return await call_next(request)
+        finally:
+            current_actor.reset(actor_token)
+            current_role.reset(role_token)
 
 
 def _has_users(app) -> bool:
@@ -168,7 +216,10 @@ def websocket_allowed(websocket, mode: str, root: Path) -> bool:
     """Gate for /ws (HTTP middleware does not see WebSocket connections)."""
     host = websocket.client.host if websocket.client else ""
     if mode == "local":
-        return host in LOCAL_HOSTS or is_loopback_host(host)
+        if not (host in LOCAL_HOSTS or is_loopback_host(host)):
+            return False
+        # A WebSocket handshake always carries Origin for browsers, so check it like a write.
+        return local_request_problem(websocket.headers, "WEBSOCKET") is None
     token, source = extract_credentials(websocket.headers, websocket.query_params, "GET", websocket.cookies)
     token = token or websocket.query_params.get("token")
     if source == "cookie":

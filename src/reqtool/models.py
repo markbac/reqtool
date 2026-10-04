@@ -797,6 +797,18 @@ class CreateRequirementRequest(BaseModel):
     approval: Optional[dict[str, Any]] = None
     review: Optional[dict[str, Any]] = None
     implementation: Optional[dict[str, Any]] = None
+    target_release: Optional[str] = None
+    target_milestone: Optional[str] = None
+    release_status: Optional[str] = None
+    planned_start_date: Optional[str] = None
+    planned_completion_date: Optional[str] = None
+    safety_standard: Optional[str] = None
+    asil_level: Optional[str] = None
+    dal_level: Optional[str] = None
+    mitigates_hazard: Optional[str] = None
+    source_document: Optional[str] = None
+    legal_compliance_status: Optional[str] = None
+    compliance_rationale: Optional[str] = None
 
 
 class UpdateRequirementRequest(BaseModel):
@@ -838,6 +850,18 @@ class UpdateRequirementRequest(BaseModel):
     approval: Optional[dict[str, Any]] = None
     review: Optional[dict[str, Any]] = None
     implementation: Optional[dict[str, Any]] = None
+    target_release: Optional[str] = None
+    target_milestone: Optional[str] = None
+    release_status: Optional[str] = None
+    planned_start_date: Optional[str] = None
+    planned_completion_date: Optional[str] = None
+    safety_standard: Optional[str] = None
+    asil_level: Optional[str] = None
+    dal_level: Optional[str] = None
+    mitigates_hazard: Optional[str] = None
+    source_document: Optional[str] = None
+    legal_compliance_status: Optional[str] = None
+    compliance_rationale: Optional[str] = None
 
 
 class CreatePrincipleRequest(BaseModel):

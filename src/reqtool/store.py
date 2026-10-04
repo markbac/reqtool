@@ -35,6 +35,7 @@ from .models import (
 log = logging.getLogger(__name__)
 
 from . import __version__ as TOOL_VERSION
+from .actor import resolve_author
 
 
 import functools
@@ -43,6 +44,10 @@ import threading
 
 class ParentCycle(ValueError):
     """Re-parenting would make an item its own ancestor."""
+
+
+class UnknownParent(ValueError):
+    """``parentId`` does not name a live requirement."""
 
 
 class DuplicateId(ValueError):
@@ -160,6 +165,9 @@ class Store:
         self.modules: dict[str, dict[str, Any]] = {}
         self.products: dict[str, dict[str, Any]] = {}
         self.module_requirements: dict[str, dict[str, dict[str, Any]]] = {}
+        # Where each artefact was loaded from, so a file whose name is not its uid is rewritten in place
+        # instead of being duplicated under <uid>.yaml.
+        self._file_for: dict[tuple[str, str], Path] = {}
 
     # ------------------------------------------------------------------
     # Loading
@@ -168,9 +176,11 @@ class Store:
     def load(self) -> None:
         """Load (or reload) all artefacts from the repository root."""
         with self._lock:
-            self.requirements = {}
-            self.principles = {}
-            self.decisions: dict[str, dict[str, Any]] = {}
+            # Build the new state aside and swap it in, so a concurrent reader never sees a half-loaded store.
+            self._file_for = {}
+            new_reqs: dict[str, dict[str, Any]] = {}
+            new_principles: dict[str, dict[str, Any]] = {}
+            new_decisions: dict[str, dict[str, Any]] = {}
             self.modules = {}
             self.products = {}
             self.module_requirements = {}
@@ -178,15 +188,16 @@ class Store:
             self._load_config()
             self._load_enums()
             self._load_hierarchy()
-            self._load_dir(self.root / "requirements", self.requirements)
-            for req in self.requirements.values():
+            self._load_dir(self.root / "requirements", new_reqs, "requirements")
+            for req in new_reqs.values():
                 # Older files used `iteration_id`; `iteration` is the one field the editor and filters use.
                 legacy = req.pop("iteration_id", None)
                 if legacy and not req.get("iteration"):
                     req["iteration"] = legacy
-            self._load_dir(self.root / "principles", self.principles)
-            self._load_dir(self.root / "decisions", self.decisions)
-            self._load_dir(self.root / "tbds", self.decisions)
+            self._load_dir(self.root / "principles", new_principles, "principles")
+            self._load_dir(self.root / "decisions", new_decisions, "decisions")
+            self._load_dir(self.root / "tbds", new_decisions, "decisions")
+            self.requirements, self.principles, self.decisions = new_reqs, new_principles, new_decisions
             self._load_modules()
             self._load_products()
             log.info(
@@ -254,7 +265,7 @@ class Store:
             default_relationship_types=rel_types,
         )
 
-    def _load_dir(self, directory: Path, target: dict) -> None:
+    def _load_dir(self, directory: Path, target: dict, kind: str) -> None:
         if not directory.exists():
             return
         for path in sorted(directory.glob("*.yaml")):
@@ -264,7 +275,11 @@ class Store:
                 data = load_yaml(path)
                 uid = data.get("uid")
                 if uid:
+                    if uid in target:
+                        log.warning("Duplicate uid %s in %s and %s: using the later file",
+                                    uid, self._file_for.get((kind, uid)), path)
                     target[uid] = data
+                    self._file_for[(kind, uid)] = path
             except Exception as exc:
                 log.warning("Failed to load %s: %s", path, exc)
 
@@ -368,13 +383,16 @@ class Store:
     # ------------------------------------------------------------------
 
     def req_path(self, uid: str) -> Path:
-        return self.root / "requirements" / f"{uid}.yaml"
+        return self._file_for.get(("requirements", uid)) or self.root / "requirements" / f"{uid}.yaml"
 
     def principle_path(self, uid: str) -> Path:
-        return self.root / "principles" / f"{uid}.yaml"
+        return self._file_for.get(("principles", uid)) or self.root / "principles" / f"{uid}.yaml"
 
     def decision_path(self, uid: str) -> Path:
         """File for a decision or TBD. Files not yet migrated stay in the legacy ``tbds/`` folder."""
+        recorded = self._file_for.get(("decisions", uid))
+        if recorded is not None:
+            return recorded
         legacy = self.root / "tbds" / f"{uid}.yaml"
         if legacy.exists():
             return legacy
@@ -556,6 +574,7 @@ class Store:
         uid = uuid7()
         now = utcnow_iso()
         req_type = fields.get("req_type", "functional")
+        self._check_parent_exists(fields.get("parentId"))
         self._check_hierarchy(req_type, fields.get("parentId"))
         self._check_relationships(req_type, fields.get("relationships") or [], [])
         if fields.get("id"):
@@ -612,6 +631,18 @@ class Store:
             "risk": fields.get("risk", "none"),
             "safety_related": fields.get("safety_related", False),
             "safety_classification": fields.get("safety_classification"),
+            "safety_standard": fields.get("safety_standard"),
+            "asil_level": fields.get("asil_level"),
+            "dal_level": fields.get("dal_level"),
+            "mitigates_hazard": fields.get("mitigates_hazard"),
+            "source_document": fields.get("source_document"),
+            "legal_compliance_status": fields.get("legal_compliance_status"),
+            "compliance_rationale": fields.get("compliance_rationale"),
+            "target_release": fields.get("target_release"),
+            "target_milestone": fields.get("target_milestone"),
+            "release_status": fields.get("release_status", "unassigned"),
+            "planned_start_date": fields.get("planned_start_date"),
+            "planned_completion_date": fields.get("planned_completion_date"),
             "verification_method": fields.get("verification_method", "test"),
             "verification": fields.get("verification", {"status": "not_started", "verified_date": None, "note": ""}),
             "approval": fields.get("approval", {"status": "draft", "approved_by": None, "approved_date": None}),
@@ -621,7 +652,7 @@ class Store:
             "created": now,
             "last_modified": now,
             "deleted": False,
-            "history": [{"version": "1.0.0", "date": now, "modified_by": author,
+            "history": [{"version": "1.0.0", "date": now, "modified_by": resolve_author(author),
                          "summary": "Initial draft.", "commit_sha": None, "change_ref": None}],
         }
         data["content_hash"] = compute_requirement_hash(data)
@@ -641,6 +672,8 @@ class Store:
 
         fields = self._sanitise_requirement(fields)
         if fields.get("parentId"):
+            if fields["parentId"] != data.get("parentId"):
+                self._check_parent_exists(fields["parentId"])
             self._check_parent(uid, fields["parentId"])
         if "id" in fields and fields["id"] != data.get("id"):
             self._check_id(fields["id"], uid)
@@ -672,7 +705,7 @@ class Store:
         data["last_modified"] = now
         history = data.get("history", [])
         history = list(history)  # append-only audit trail: never truncate
-        history.append({"version": data["version"], "date": now, "modified_by": author,
+        history.append({"version": data["version"], "date": now, "modified_by": resolve_author(author),
                         "summary": summary, "commit_sha": None, "change_ref": change_ref})
         data["history"] = history
 
@@ -729,6 +762,14 @@ class Store:
         hits = [u for u, r in self.requirements.items() if r.get("id") == key and not r.get("deleted")]
         return hits[0] if len(hits) == 1 else None
 
+    def _check_parent_exists(self, parent_uid: Optional[str]) -> None:
+        """Raise UnknownParent unless ``parent_uid`` is empty or a live requirement."""
+        if not parent_uid:
+            return
+        parent = self.requirements.get(parent_uid)
+        if parent is None or parent.get("deleted"):
+            raise UnknownParent(f"parentId '{parent_uid}' is not an existing requirement")
+
     def _check_parent(self, uid: str, new_parent: str) -> None:
         """Raise ParentCycle if parenting ``uid`` under ``new_parent`` closes a loop."""
         seen: set[str] = set()
@@ -774,7 +815,7 @@ class Store:
                 if newly:
                     history = list(req.get("history") or [])
                     history.append({
-                        "version": req.get("version", "1.0.0"), "date": now, "modified_by": "reqtool",
+                        "version": req.get("version", "1.0.0"), "date": now, "modified_by": resolve_author("reqtool"),
                         "summary": f"Link to {current_id} became suspect (upstream change)",
                         "commit_sha": None, "change_ref": None})
                     req["history"] = history
@@ -825,6 +866,15 @@ class Store:
         data = self.requirements.get(uid)
         if data is None:
             return None
+        # Children of a deleted item would vanish from the tree: move them up a level.
+        for child_uid, child in list(self.requirements.items()):
+            if child.get("parentId") == uid and not child.get("deleted"):
+                note = f"Re-parented after {data.get('id', uid)} was deleted"
+                try:
+                    self.update_requirement(child_uid, {"parentId": data.get("parentId")}, summary=note)
+                except (HierarchyViolation, ParentCycle):
+                    # The grandparent may not accept this type: fall back to the root.
+                    self.update_requirement(child_uid, {"parentId": None}, summary=note)
         data["deleted"] = True
         data["last_modified"] = utcnow_iso()
         save_yaml(self.req_path(uid), data)
@@ -859,7 +909,7 @@ class Store:
             "created": now,
             "last_modified": now,
             "deleted": False,
-            "history": [{"version": "1.0.0", "date": now, "modified_by": author,
+            "history": [{"version": "1.0.0", "date": now, "modified_by": resolve_author(author),
                          "summary": "Initial draft.", "commit_sha": None, "change_ref": None}],
         }
         data["content_hash"] = compute_principle_hash(data)
@@ -887,7 +937,7 @@ class Store:
         data["last_modified"] = now
         history = data.get("history", [])
         history = list(history)  # append-only audit trail: never truncate
-        history.append({"version": data["version"], "date": now, "modified_by": author,
+        history.append({"version": data["version"], "date": now, "modified_by": resolve_author(author),
                         "summary": summary, "commit_sha": None, "change_ref": change_ref})
         data["history"] = history
         save_yaml(self.principle_path(uid), data)
@@ -941,7 +991,7 @@ class Store:
             "created": now,
             "last_modified": now,
             "deleted": False,
-            "history": [{"version": "1.0.0", "date": now, "modified_by": author,
+            "history": [{"version": "1.0.0", "date": now, "modified_by": resolve_author(author),
                          "summary": "Initial draft.", "commit_sha": None, "change_ref": None}],
         }
         data["content_hash"] = compute_tbd_hash(data)
@@ -949,15 +999,29 @@ class Store:
 
         # Lineage: if this decision supersedes an older one, mark the old one as superseded
         if data.get("supersedes"):
-            old_uid = data["supersedes"]
-            old_item = self.get_decision(old_uid)
-            if old_item:
-                old_item["status"] = "superseded"
-                old_item["superseded_by"] = uid
-                save_yaml(self.decision_path(old_uid), old_item)
+            self._mark_superseded(data["supersedes"], uid, author)
 
         save_yaml(self.decision_path(uid), data)
         return data
+
+    def _mark_superseded(self, old_uid: str, new_uid: str, author: str = "reqtool") -> None:
+        """Mark ``old_uid`` as superseded by ``new_uid`` as a normal, audited change (rehash, version, history)."""
+        old_item = self.decisions.get(old_uid)
+        if not old_item or old_item.get("status") == "superseded" and old_item.get("superseded_by") == new_uid:
+            return
+        now = utcnow_iso()
+        old_item["status"] = "superseded"
+        old_item["superseded_by"] = new_uid
+        new_hash = compute_tbd_hash(old_item)
+        if new_hash != old_item.get("content_hash"):
+            old_item["version"] = bump_version(old_item.get("version", "1.0.0"), "patch")
+            old_item["content_hash"] = new_hash
+        old_item["last_modified"] = now
+        old_item["history"] = list(old_item.get("history", [])) + [{
+            "version": old_item["version"], "date": now, "modified_by": resolve_author(author),
+            "summary": f"Superseded by {self.decisions.get(new_uid, {}).get('id', new_uid)}.",
+            "commit_sha": None, "change_ref": None}]
+        save_yaml(self.decision_path(old_uid), old_item)
 
     @_locked
     def create_tbd(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
@@ -982,12 +1046,7 @@ class Store:
 
         # Lineage check
         if fields.get("supersedes"):
-            old_uid = fields["supersedes"]
-            old_item = self.get_decision(old_uid)
-            if old_item:
-                old_item["status"] = "superseded"
-                old_item["superseded_by"] = uid
-                save_yaml(self.decision_path(old_uid), old_item)
+            self._mark_superseded(fields["supersedes"], uid, author)
 
         new_hash = compute_tbd_hash(data)
         if new_hash != old_hash:
@@ -996,7 +1055,7 @@ class Store:
         data["last_modified"] = now
         history = data.get("history", [])
         history = list(history)  # append-only audit trail: never truncate
-        history.append({"version": data["version"], "date": now, "modified_by": author,
+        history.append({"version": data["version"], "date": now, "modified_by": resolve_author(author),
                         "summary": summary, "commit_sha": None, "change_ref": change_ref})
         data["history"] = history
         save_yaml(self.decision_path(uid), data)
@@ -1030,17 +1089,20 @@ class Store:
         Falls back to full reload for config/enums changes.
         """
         with self._lock:
-            path_str = str(changed_path)
+            # Determine collection from path. A path outside this repository (events from a repository
+            # that was switched away from) is not ours to handle.
+            try:
+                rel = changed_path.relative_to(self.root) if changed_path.is_absolute() else changed_path
+            except ValueError:
+                log.debug("Ignoring change outside the repository: %s", changed_path)
+                return
+            parts = rel.parts
 
             # Config or enums changes require full reload
-            if ".reqtool" in path_str:
+            if parts and parts[0] == ".reqtool":
                 log.info("Config file changed, full reload: %s", changed_path)
                 self.load()
                 return
-
-            # Determine collection from path
-            rel = changed_path.relative_to(self.root) if changed_path.is_absolute() else changed_path
-            parts = rel.parts
 
             if not parts:
                 self.load()
@@ -1055,6 +1117,7 @@ class Store:
                                  if self.req_path(uid) == changed_path]
                     for uid in to_remove:
                         del self.requirements[uid]
+                        self._file_for.pop(("requirements", uid), None)
                     log.debug("Incremental reload: removed %d requirement(s)", len(to_remove))
                     return
                 data = load_yaml(changed_path)
@@ -1063,13 +1126,14 @@ class Store:
                 uid = data.get("uid")
                 if not uid:
                     return
-                # Skip if in-memory copy is already at same or newer version
-                # (prevents watchdog from overwriting our own just-written update)
+                # Skip only when the file matches memory (our own just-written update). Comparing content,
+                # not timestamps, means hand edits and a git checkout of an older version are picked up.
                 existing = self.requirements.get(uid)
-                if existing and existing.get("last_modified", "") >= data.get("last_modified", ""):
+                if existing == data:
                     log.debug("Incremental reload: in-memory is current for %s, skip", uid)
                     return
                 self.requirements[uid] = data
+                self._file_for[("requirements", uid)] = changed_path
                 log.debug("Incremental reload: requirement %s", uid)
                 return
 
@@ -1079,29 +1143,31 @@ class Store:
                                  if self.principle_path(uid) == changed_path]
                     for uid in to_remove:
                         del self.principles[uid]
+                        self._file_for.pop(("principles", uid), None)
                     return
                 data = load_yaml(changed_path)
                 if not isinstance(data, dict):
                     return
                 uid = data.get("uid")
                 if uid:
-                    existing = self.principles.get(uid)
-                    if existing and existing.get("last_modified", "") >= data.get("last_modified", ""):
+                    if self.principles.get(uid) == data:
                         return
                     self.principles[uid] = data
+                    self._file_for[("principles", uid)] = changed_path
                 return
 
             if top in ("decisions", "tbds"):
                 if not changed_path.exists():
                     for uid in [u for u in self.decisions if self.decision_path(u) == changed_path]:
                         del self.decisions[uid]
+                        self._file_for.pop(("decisions", uid), None)
                     return
                 data = load_yaml(changed_path)
                 if isinstance(data, dict) and (uid := data.get("uid")):
-                    existing = self.decisions.get(uid)
-                    if existing and existing.get("last_modified", "") >= data.get("last_modified", ""):
+                    if self.decisions.get(uid) == data:
                         return
                     self.decisions[uid] = data
+                    self._file_for[("decisions", uid)] = changed_path
                 return
 
             if top in ("modules", "products"):
@@ -1116,6 +1182,25 @@ class Store:
             log.warning("Incremental reload failed for %s: %s -- falling back to full reload", changed_path, exc)
 
         self.load()
+
+    @_locked
+    def restore_requirement(self, uid: str, snapshot: dict[str, Any]) -> None:
+        """Put back an earlier copy of a requirement (used when a commit fails after the item was updated)."""
+        self.requirements[uid] = snapshot
+        save_yaml(self.req_path(uid), snapshot)
+
+    @_locked
+    def restore_decision(self, uid: str, snapshot: dict[str, Any]) -> None:
+        self.decisions[uid] = snapshot
+        save_yaml(self.decision_path(uid), snapshot)
+
+    def live_tbds(self) -> list[dict[str, Any]]:
+        """Non-deleted items of type ``tbd`` (open questions), excluding decision records."""
+        return [d for d in self.decisions.values() if not d.get("deleted") and d.get("type") == "tbd"]
+
+    def live_decision_records(self) -> list[dict[str, Any]]:
+        """Non-deleted decision records (ADRs), excluding TBDs."""
+        return [d for d in self.decisions.values() if not d.get("deleted") and d.get("type") != "tbd"]
 
     def open_tbds_for(self, req: dict[str, Any]) -> list[str]:
         """Ids of unresolved TBDs the requirement links to."""
@@ -1186,7 +1271,7 @@ class Store:
         self, uid: str, filename: str, data: bytes, author: str = "reqtool",
         description: str = "",
     ) -> dict[str, Any]:
-        return attachment_store.add_attachment(self, uid, filename, data, author, description)
+        return attachment_store.add_attachment(self, uid, filename, data, resolve_author(author), description)
 
     def delete_attachment(self, uid: str, filename: str) -> bool:
         return attachment_store.delete_attachment(self, uid, filename)
@@ -1208,7 +1293,7 @@ class Store:
         self, uid: str, text: str, author: str,
         reply_to: Optional[str] = None,
     ) -> dict[str, Any]:
-        return comment_store.add_comment(self.root, uid, text, author, reply_to)
+        return comment_store.add_comment(self.root, uid, text, resolve_author(author), reply_to)
 
     def update_comment(self, uid: str, comment_uid: str, text: str) -> Optional[dict[str, Any]]:
         return comment_store.update_comment(self.root, uid, comment_uid, text)
@@ -1685,6 +1770,16 @@ class Store:
                     "id": p.get("id", ""),
                     "title": p.get("title", ""),
                     "type": "principle",
+                })
+        for uid, d in self.decisions.items():
+            if d.get("deleted"):
+                continue
+            if q in d.get("id", "").lower() or q in d.get("title", "").lower():
+                results.append({
+                    "uid": uid,
+                    "id": d.get("id", ""),
+                    "title": d.get("title", ""),
+                    "type": "tbd" if d.get("type") == "tbd" else "decision",
                 })
         return results[:limit]
 

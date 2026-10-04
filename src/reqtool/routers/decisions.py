@@ -7,15 +7,16 @@ router limited to ``type: tbd`` (kept for existing clients).
 
 from __future__ import annotations
 
+import copy
 import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from reqtool.store import Store
-from reqtool.git_ops import has_conflicts, stage_file, commit as git_commit
+from reqtool.git_ops import has_conflicts, stage_file, unstage_file, commit as git_commit
 from reqtool.models import CommitRequest, CreateDecisionRequest, UpdateDecisionRequest, ResolveRequest
 from .auth import get_current_user
-from reqtool.fileio import utcnow_iso, save_yaml
+from reqtool.fileio import utcnow_iso
 from .deps import get_store, not_found, conflict
 
 log = logging.getLogger(__name__)
@@ -78,19 +79,23 @@ def _build(prefix: str, kind: Optional[str], tag: str) -> None:
         fetch(store, uid)
         if has_conflicts(store.root):
             raise conflict("Working tree has unresolved merge conflicts")
+        message = (body.message or "").strip()
+        if not message:
+            raise HTTPException(status_code=422, detail={"error": "validation", "message": "A commit message is required"})
+        snapshot = copy.deepcopy(store.get_decision(uid))
+        path = store.decision_path(uid)
         try:
-            path = store.decision_path(uid)
             store.update_decision(uid, {}, increment=body.increment or "patch",
-                                  summary=body.message or "Committed via UI", change_ref=body.change_ref)
+                                  summary=message, change_ref=body.change_ref)
             stage_file(store.root, path)
-            sha = git_commit(store.root, body.message, store.config.git.commit_name,
+            # Nothing is written back after the commit (the SHA lives in git history), so the tree stays clean.
+            sha = git_commit(store.root, message, store.config.git.commit_name,
                              store.config.git.commit_email, paths=[path])
             d = store.get_decision(uid)
-            if d and d.get("history"):
-                d["history"][-1]["commit_sha"] = sha[:7]
-                save_yaml(path, d)
             return {"commit_sha": sha, "version": d.get("version", "") if d else ""}
         except RuntimeError as exc:
+            store.restore_decision(uid, snapshot)
+            unstage_file(store.root, path)
             raise HTTPException(status_code=500, detail={"error": "git_error", "message": str(exc)})
 
     @router.post(prefix + "/{uid}/resolve", tags=[tag], name=f"resolve_{tag}")

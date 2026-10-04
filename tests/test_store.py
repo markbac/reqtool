@@ -606,16 +606,23 @@ class TestIncrementalReload:
         # Requirement should still be present after full reload
         assert r["uid"] in store.requirements
 
-    def test_skip_when_in_memory_is_current(self, store):
+    def test_unchanged_file_leaves_memory_untouched(self, store):
         r = _make_req(store)
         uid = r["uid"]
-        # Tag the in-memory dict with a sentinel
-        store.requirements[uid]["_sentinel"] = True
-        # Reload with same last_modified -- should skip
+        before = store.requirements[uid]
+        # The file on disk is what we just wrote: nothing to reload, the same object stays in place.
         store.reload_file(store.req_path(uid))
-        # Sentinel should still be there if reload was skipped
-        # (disk version won't have the sentinel)
-        assert store.requirements[uid].get("_sentinel") is True
+        assert store.requirements[uid] is before
+
+    def test_edit_that_keeps_last_modified_is_picked_up(self, store):
+        from reqtool.fileio import load_yaml, save_yaml
+        r = _make_req(store)
+        uid = r["uid"]
+        data = load_yaml(store.req_path(uid))
+        data["title"] = "edited by hand"  # last_modified deliberately unchanged
+        save_yaml(store.req_path(uid), data)
+        store.reload_file(store.req_path(uid))
+        assert store.requirements[uid]["title"] == "edited by hand"
 
     def test_transient_fnf_does_not_raise(self, store, tmp_path):
         # Reload a path that doesn't exist -- should not raise

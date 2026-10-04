@@ -11,20 +11,28 @@ import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
-from reqtool.store import Store, ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId
-from reqtool.git_ops import has_conflicts, stage_file, commit as git_commit, git_log
+from reqtool.store import Store, ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId, UnknownParent
+from reqtool.git_ops import has_conflicts, stage_file, unstage_file, commit as git_commit, git_log
 from reqtool.models import (
     CommitRequest, ApproveRequest, BulkUpdateRequest,
     CreateRequirementRequest, UpdateRequirementRequest,
     AddACRequest, UpdateACRequest,
 )
 from reqtool.fileio import utcnow_iso, uuid7, save_yaml
-from .deps import get_store, not_found, conflict, publish_event
+from .deps import get_store, not_found, conflict, publish_event, ReqUid
 from .auth import get_current_user
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["requirements"])
+
+
+def _commit_message(body: CommitRequest) -> str:
+    """The commit message, or a 422 before anything is changed (git would reject an empty one)."""
+    message = (body.message or "").strip()
+    if not message:
+        raise HTTPException(status_code=422, detail={"error": "validation", "message": "A commit message is required"})
+    return message
 
 
 @router.get("/requirements")
@@ -90,7 +98,7 @@ def requirements_tree(
 
 
 @router.get("/requirements/{uid}")
-def get_requirement(uid: str, store: Store = Depends(get_store)):
+def get_requirement(uid: ReqUid, store: Store = Depends(get_store)):
     """Fetch by UID or by human ID (for example ``FR-042``)."""
     req = store.get_requirement(store.resolve_uid(uid) or uid)
     if req is None:
@@ -99,7 +107,7 @@ def get_requirement(uid: str, store: Store = Depends(get_store)):
 
 
 @router.get("/requirements/{uid}/progress")
-def get_requirement_progress(uid: str, store: Store = Depends(get_store)):
+def get_requirement_progress(uid: ReqUid, store: Store = Depends(get_store)):
     """Return hierarchical progress percentage and estimate completion metrics."""
     req = store.get_requirement(uid)
     if req is None:
@@ -117,6 +125,30 @@ def _publish_change(store: Store, uid: str, old_status, result: dict) -> None:
         publish_event(store, "requirement_updated", {"uid": uid, "id": result.get("id")})
 
 
+# Fields a client may set to null to clear them. Everything else ignores null (it has no empty value).
+CLEARABLE_FIELDS = {
+    "parentId", "domain", "discipline", "feature", "owner", "assignee", "component", "iteration",
+    "estimate", "estimate_unit", "safety_classification", "safety_standard", "asil_level", "dal_level",
+    "mitigates_hazard", "source_document", "legal_compliance_status", "compliance_rationale",
+    "target_release", "target_milestone", "planned_start_date", "planned_completion_date",
+}
+
+
+def _update_fields(body: UpdateRequirementRequest) -> dict:
+    """The fields a PUT changes: those the client sent, where an explicit null clears a clearable field."""
+    sent = body.model_dump(exclude_unset=True)
+    return {k: v for k, v in sent.items() if v is not None or k in CLEARABLE_FIELDS}
+
+
+# What a bulk edit may touch. Identity, history, hashes and soft-delete are never bulk-editable.
+BULK_EDITABLE_FIELDS = {
+    "id", "status", "priority", "owner", "assignee", "component", "domain", "discipline", "feature",
+    "iteration", "tags", "allocated_to", "risk", "safety_related", "safety_classification",
+    "target_release", "target_milestone", "release_status", "estimate", "estimate_unit",
+    "verification_method", "parentId", "attributes", "custom_fields",
+}
+
+
 @router.post("/requirements/bulk")
 def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get_store)):
     """Update a set of fields across multiple requirements at once.
@@ -126,6 +158,11 @@ def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get
     """
     if has_conflicts(store.root):
         raise conflict("Working tree has unresolved merge conflicts")
+    forbidden = sorted(set(body.fields) - BULK_EDITABLE_FIELDS)
+    if forbidden:
+        raise HTTPException(status_code=422, detail={
+            "error": "validation",
+            "message": f"Fields not allowed in a bulk update: {', '.join(forbidden)}"})
     updated = []
     failed = []
     errors = {}
@@ -151,7 +188,7 @@ def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get
                     increment=body.increment,
                     summary=body.summary,
                 )
-            except (ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId) as exc:
+            except (ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId, UnknownParent) as exc:
                 failed.append(uid)
                 errors[uid] = str(exc)
                 continue
@@ -166,7 +203,7 @@ def bulk_update_requirements(body: BulkUpdateRequest, store: Store = Depends(get
 
 
 @router.post("/requirements/{uid}/clone", status_code=201)
-def clone_requirement(uid: str, new_id: str = "", store: Store = Depends(get_store)):
+def clone_requirement(uid: ReqUid, new_id: str = "", store: Store = Depends(get_store)):
     """Duplicate a requirement, clearing history and resetting version."""
     if has_conflicts(store.root):
         raise conflict("Working tree has unresolved merge conflicts")
@@ -190,12 +227,28 @@ def clone_requirement(uid: str, new_id: str = "", store: Store = Depends(get_sto
     fields["approval"] = {"status": "draft", "approved_by": None, "approved_date": None}
     fields["verification"] = {"status": "not_started", "verified_date": None, "note": ""}
     created = store.create_requirement(fields)
+    _copy_attachment_files(store, src, created)
     publish_event(store, "requirement_created", {"uid": created["uid"], "id": created.get("id"), "req_type": created.get("req_type")})
     return created
 
 
+def _copy_attachment_files(store: Store, src: dict, clone: dict) -> None:
+    """The clone lists the source's attachments, so give it the files too (else every download is a 404)."""
+    import shutil
+    src_dir = store.attachment_dir(src["uid"])
+    if not src_dir.is_dir():
+        return
+    dest_dir = store.attachment_dir(clone["uid"])
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    for att in clone.get("attachments") or []:
+        name = att.get("filename")
+        source_file = src_dir / name if name else None
+        if source_file is not None and source_file.is_file() and source_file.resolve().is_relative_to(src_dir.resolve()):
+            shutil.copy2(source_file, dest_dir / name)
+
+
 @router.post("/requirements/{uid}/relationships/{rel_index}/clear-suspect")
-def clear_suspect_link(uid: str, rel_index: int, store: Store = Depends(get_store)):
+def clear_suspect_link(uid: ReqUid, rel_index: int, store: Store = Depends(get_store)):
     """Acknowledge and clear suspect flag on a relationship link."""
     res = store.clear_suspect_link(uid, rel_index)
     if not res:
@@ -235,12 +288,13 @@ def update_requirement(
             "your_version": if_version,
         })
     old_status = existing.get("status")
-    new_status = body.model_dump(exclude_none=True).get("status")
+    changes = _update_fields(body)
+    new_status = changes.get("status")
     if new_status and new_status != old_status:
         error = store.validate_transition(existing, new_status)
         if error:
             raise HTTPException(status_code=409, detail={"error": "workflow_guard", "message": error})
-    result = store.update_requirement(uid, body.model_dump(exclude_none=True), summary="Updated via API")
+    result = store.update_requirement(uid, changes, summary="Updated via API")
     if result is None:
         raise not_found(uid)
     _publish_change(store, uid, old_status, result)
@@ -248,7 +302,7 @@ def update_requirement(
 
 
 @router.delete("/requirements/{uid}")
-def delete_requirement(uid: str, store: Store = Depends(get_store)):
+def delete_requirement(uid: ReqUid, store: Store = Depends(get_store)):
     result = store.delete_requirement(uid)
     if result is None:
         raise not_found(uid)
@@ -257,18 +311,20 @@ def delete_requirement(uid: str, store: Store = Depends(get_store)):
 
 
 @router.post("/requirements/{uid}/commit")
-def commit_requirement(uid: str, body: CommitRequest, store: Store = Depends(get_store)):
+def commit_requirement(uid: ReqUid, body: CommitRequest, store: Store = Depends(get_store)):
     req = store.get_requirement(uid)
     if req is None:
         raise not_found(uid)
     if has_conflicts(store.root):
         raise conflict("Working tree has unresolved merge conflicts")
+    message = _commit_message(body)
+    snapshot = copy.deepcopy(req)
+    file_path = store.req_path(uid)
     try:
-        file_path = store.req_path(uid)
         store.update_requirement(
             uid, {},
             increment=body.increment or "patch",
-            summary=body.message or "Committed via UI",
+            summary=message,
             change_ref=body.change_ref,
         )
         stage_file(store.root, file_path)
@@ -276,13 +332,16 @@ def commit_requirement(uid: str, body: CommitRequest, store: Store = Depends(get
         # YAML afterwards, so the working tree is clean and the file hash/audit
         # record cannot drift from what was committed; the SHA is in git history.
         sha = git_commit(
-            store.root, body.message,
+            store.root, message,
             store.config.git.commit_name, store.config.git.commit_email,
             paths=[file_path],
         )
         req = store.get_requirement(uid)
         return {"commit_sha": sha, "version": req.get("version", "") if req else ""}
     except RuntimeError as exc:
+        # The version bump and history entry were made for a commit that did not happen: undo them.
+        store.restore_requirement(uid, snapshot)
+        unstage_file(store.root, file_path)
         raise HTTPException(status_code=500, detail={"error": "git_error", "message": str(exc)})
 
 
@@ -351,7 +410,7 @@ def _attach_commit_shas(history: list[dict], git_entries: list[dict]) -> list[di
 
 
 @router.get("/requirements/{uid}/commits")
-def requirement_commits(uid: str, store: Store = Depends(get_store)):
+def requirement_commits(uid: ReqUid, store: Store = Depends(get_store)):
     """Development commits linked to this requirement from GitHub push webhooks (not part of its content)."""
     if store.get_requirement(uid) is None:
         raise not_found(uid)
@@ -360,7 +419,7 @@ def requirement_commits(uid: str, store: Store = Depends(get_store)):
 
 
 @router.get("/requirements/{uid}/history")
-def requirement_history(uid: str, store: Store = Depends(get_store)):
+def requirement_history(uid: ReqUid, store: Store = Depends(get_store)):
     req = store.get_requirement(uid)
     if req is None:
         raise not_found(uid)
@@ -373,7 +432,7 @@ def requirement_history(uid: str, store: Store = Depends(get_store)):
 
 
 @router.get("/requirements/{uid}/relationships")
-def requirement_relationships(uid: str, store: Store = Depends(get_store)):
+def requirement_relationships(uid: ReqUid, store: Store = Depends(get_store)):
     req = store.get_requirement(uid)
     if req is None:
         raise not_found(uid)
@@ -389,7 +448,7 @@ def requirement_relationships(uid: str, store: Store = Depends(get_store)):
 
 
 @router.post("/requirements/{uid}/ac", status_code=201)
-def add_ac(uid: str, body: AddACRequest, store: Store = Depends(get_store)):
+def add_ac(uid: ReqUid, body: AddACRequest, store: Store = Depends(get_store)):
     req = store.get_requirement(uid)
     if req is None:
         raise not_found(uid)
@@ -408,7 +467,7 @@ def add_ac(uid: str, body: AddACRequest, store: Store = Depends(get_store)):
 
 
 @router.put("/requirements/{uid}/ac/{ac_uid}")
-def update_ac(uid: str, ac_uid: str, body: UpdateACRequest, store: Store = Depends(get_store)):
+def update_ac(uid: ReqUid, ac_uid: str, body: UpdateACRequest, store: Store = Depends(get_store)):
     req = store.get_requirement(uid)
     if req is None:
         raise not_found(uid)
@@ -423,7 +482,7 @@ def update_ac(uid: str, ac_uid: str, body: UpdateACRequest, store: Store = Depen
 
 
 @router.delete("/requirements/{uid}/ac/{ac_uid}")
-def delete_ac(uid: str, ac_uid: str, store: Store = Depends(get_store)):
+def delete_ac(uid: ReqUid, ac_uid: str, store: Store = Depends(get_store)):
     req = store.get_requirement(uid)
     if req is None:
         raise not_found(uid)
@@ -434,7 +493,7 @@ def delete_ac(uid: str, ac_uid: str, store: Store = Depends(get_store)):
 
 
 @router.get("/requirements/{uid}/impact")
-def requirement_impact(uid: str, store: Store = Depends(get_store)):
+def requirement_impact(uid: ReqUid, store: Store = Depends(get_store)):
     """Return the transitive downstream impact closure for a requirement."""
     req = store.get_requirement(uid)
     if req is None:
@@ -443,7 +502,7 @@ def requirement_impact(uid: str, store: Store = Depends(get_store)):
 
 
 @router.post("/requirements/{uid}/transition")
-def transition_requirement(uid: str, body: dict, store: Store = Depends(get_store)):
+def transition_requirement(uid: ReqUid, body: dict, store: Store = Depends(get_store)):
     """Transition a requirement to a new status with workflow guard enforcement."""
     req = store.get_requirement(uid)
     if req is None:
@@ -463,7 +522,7 @@ def transition_requirement(uid: str, body: dict, store: Store = Depends(get_stor
 
 
 @router.get("/requirements/{uid}/rollup")
-def estimate_rollup(uid: str, store: Store = Depends(get_store)):
+def estimate_rollup(uid: ReqUid, store: Store = Depends(get_store)):
     """Return the rolled-up estimate sum for all direct children."""
     req = store.get_requirement(uid)
     if req is None:

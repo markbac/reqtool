@@ -212,7 +212,7 @@ def export_markdown(
         files["principles.md"] = "\n".join(lines)
 
     # TBDs
-    tbds = [t for t in store.decisions.values() if not t.get("deleted")]
+    tbds = store.live_tbds()
     if tbds:
         lines = []
         for t in sorted(tbds, key=lambda x: x.get("id", "")):
@@ -279,8 +279,19 @@ def _get_nested(data: dict, dotpath: str) -> Any:
     return None
 
 
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
 def _format_csv_value(data: dict, field: str) -> str:
-    """Format a field value for CSV output per spec §11.3."""
+    """Format a field value for CSV output per spec §11.3, neutralising spreadsheet formulas."""
+    text = _format_csv_raw(data, field)
+    if text.startswith(_CSV_FORMULA_PREFIXES):
+        # A cell starting with = + - @ is run as a formula by Excel and LibreOffice (OWASP: CSV injection).
+        return "'" + text
+    return text
+
+
+def _format_csv_raw(data: dict, field: str) -> str:
     val = _get_nested(data, field)
 
     # Acceptance criteria: numbered plain-text list in single cell
@@ -294,7 +305,7 @@ def _format_csv_value(data: dict, field: str) -> str:
     # Relationships: semicolon-separated type:ID list
     if field == "relationships" and isinstance(val, list):
         return "; ".join(
-            f"{r.get('type', '')}:{r.get('target', {}).get('uid', '')[:8]}"
+            f"{r.get('type', '')}:{(r.get('target') or {}).get('uid', '')}"
             for r in val
         )
 
@@ -495,7 +506,7 @@ def export_jsx(
     )
     tbds_data = (
         [{"uid": t["uid"], "id": t.get("id"), "title": t.get("title"), "status": t.get("status")}
-         for t in store.decisions.values() if not t.get("deleted")]
+         for t in store.live_tbds()]
         if cfg.include_tbds else []
     )
 
@@ -608,44 +619,77 @@ def export_gap_analysis(store: "Store") -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def export_reqif_xml(store: "Store") -> str:
-    """Export all requirements and principles as an OMG ReqIF 1.2 XML document."""
+    """Export requirements and their relationships as an OMG ReqIF 1.2 XML document.
+
+    Declares the datatype, the requirement and relation types, one SPEC-OBJECT per live
+    requirement (name, text, type) and one SPEC-RELATION per relationship between live items.
+    """
     from datetime import datetime, timezone
     import xml.etree.ElementTree as ET
+    from reqtool import __version__
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    ns = "http://www.omg.org/spec/ReqIF/20110401/reqif.xsd"
+    ET.register_namespace("", ns)
+    root = ET.Element(f"{{{ns}}}REQ-IF")
 
-    root = ET.Element("REQ-IF", {
-        "xmlns": "http://www.omg.org/spec/ReqIF/20110401/reqif.xsd",
-        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
-    })
+    def el(parent, tag, attrib=None, text=None):
+        e = ET.SubElement(parent, f"{{{ns}}}{tag}", attrib or {})
+        if text is not None:
+            e.text = text
+        return e
 
-    header = ET.SubElement(root, "THE-HEADER")
-    reqif_header = ET.SubElement(header, "REQ-IF-HEADER", {"IDENTIFIER": f"reqif-{store.config.repo_id or 'reqtool'}"})
-    ET.SubElement(reqif_header, "CREATION-TIME").text = now
-    ET.SubElement(reqif_header, "REQ-IF-TOOL-ID").text = "reqtool-0.3.20"
-    ET.SubElement(reqif_header, "TITLE").text = "reqtool Requirements Export"
+    header = el(root, "THE-HEADER")
+    hdr = el(header, "REQ-IF-HEADER", {"IDENTIFIER": f"reqif-{store.config.repo_id or 'reqtool'}"})
+    el(hdr, "CREATION-TIME", text=now)
+    el(hdr, "REQ-IF-TOOL-ID", text=f"reqtool-{__version__}")
+    el(hdr, "REQ-IF-VERSION", text="1.2")
+    el(hdr, "SOURCE-TOOL-ID", text="reqtool")
+    el(hdr, "TITLE", text="reqtool Requirements Export")
 
-    core = ET.SubElement(root, "CORE-CONTENT")
-    reqif_content = ET.SubElement(core, "REQ-IF-CONTENT")
-    spec_objects = ET.SubElement(reqif_content, "SPEC-OBJECTS")
+    core = el(root, "CORE-CONTENT")
+    content = el(core, "REQ-IF-CONTENT")
 
-    for uid, req in store.requirements.items():
-        if req.get("deleted"):
-            continue
-        obj = ET.SubElement(spec_objects, "SPEC-OBJECT", {
-            "IDENTIFIER": f"req-{uid}",
-            "LAST-CHANGE": req.get("last_modified") or now,
-        })
-        values = ET.SubElement(obj, "VALUES")
+    datatypes = el(content, "DATATYPES")
+    el(datatypes, "DATATYPE-DEFINITION-STRING", {
+        "IDENTIFIER": "DT-STRING", "LAST-CHANGE": now, "LONG-NAME": "String", "MAX-LENGTH": "100000"})
 
-        title_val = ET.SubElement(values, "ATTRIBUTE-VALUE-STRING", {"THE-VALUE": req.get("title", "")})
-        ET.SubElement(title_val, "DEFINITION").text = "ReqIF.Name"
+    spec_types = el(content, "SPEC-TYPES")
+    obj_type = el(spec_types, "SPEC-OBJECT-TYPE", {
+        "IDENTIFIER": "SOT-REQUIREMENT", "LAST-CHANGE": now, "LONG-NAME": "Requirement"})
+    attr_defs = el(obj_type, "SPEC-ATTRIBUTES")
+    for ident, long_name in (("ReqIF.Name", "Name"), ("ReqIF.Text", "Text"), ("Requirement.Type", "Type")):
+        d = el(attr_defs, "ATTRIBUTE-DEFINITION-STRING", {
+            "IDENTIFIER": ident, "LAST-CHANGE": now, "LONG-NAME": long_name})
+        el(el(d, "TYPE"), "DATATYPE-DEFINITION-STRING-REF", text="DT-STRING")
+    el(spec_types, "SPEC-RELATION-TYPE", {
+        "IDENTIFIER": "SRT-RELATION", "LAST-CHANGE": now, "LONG-NAME": "Relationship"})
 
-        desc_val = ET.SubElement(values, "ATTRIBUTE-VALUE-STRING", {"THE-VALUE": req.get("content", {}).get("description", "")})
-        ET.SubElement(desc_val, "DEFINITION").text = "ReqIF.Text"
+    live = {uid: r for uid, r in store.requirements.items() if not r.get("deleted")}
+    spec_objects = el(content, "SPEC-OBJECTS")
+    for uid, req in live.items():
+        obj = el(spec_objects, "SPEC-OBJECT", {"IDENTIFIER": f"req-{uid}", "LAST-CHANGE": req.get("last_modified") or now})
+        el(el(obj, "TYPE"), "SPEC-OBJECT-TYPE-REF", text="SOT-REQUIREMENT")
+        values = el(obj, "VALUES")
+        for ident, value in (
+            ("ReqIF.Name", req.get("title") or ""),
+            ("ReqIF.Text", (req.get("content") or {}).get("description") or ""),
+            ("Requirement.Type", req.get("req_type") or ""),
+        ):
+            v = el(values, "ATTRIBUTE-VALUE-STRING", {"THE-VALUE": value})
+            el(el(v, "DEFINITION"), "ATTRIBUTE-DEFINITION-STRING-REF", text=ident)
 
-        type_val = ET.SubElement(values, "ATTRIBUTE-VALUE-STRING", {"THE-VALUE": req.get("req_type", "")})
-        ET.SubElement(type_val, "DEFINITION").text = "Requirement.Type"
+    relations = el(content, "SPEC-RELATIONS")
+    for uid, req in live.items():
+        for n, rel in enumerate(req.get("relationships") or []):
+            target = (rel.get("target") or {}).get("uid")
+            if target not in live:
+                continue
+            r = el(relations, "SPEC-RELATION", {
+                "IDENTIFIER": f"rel-{uid}-{n}", "LAST-CHANGE": now, "LONG-NAME": str(rel.get("type") or "")})
+            el(el(r, "TYPE"), "SPEC-RELATION-TYPE-REF", text="SRT-RELATION")
+            el(el(r, "SOURCE"), "SPEC-OBJECT-REF", text=f"req-{uid}")
+            el(el(r, "TARGET"), "SPEC-OBJECT-REF", text=f"req-{target}")
 
     return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
 
@@ -665,29 +709,47 @@ def parse_reqif_xml(xml_content: str) -> dict:
                 pass
         root = ET.fromstring(xml_content, parser=parser)
 
+    def local(tag: str) -> str:
+        return tag.rsplit("}", 1)[-1]
+
+    def children(parent, name: str):
+        return [e for e in parent.iter() if local(e.tag) == name]
+
     spec_objects = []
-    for obj in root.findall(".//SPEC-OBJECT"):
+    for obj in children(root, "SPEC-OBJECT"):
         ident = obj.attrib.get("IDENTIFIER", "")
         title = ""
         desc = ""
-        for val in obj.findall(".//ATTRIBUTE-VALUE-STRING"):
-            def_text = val.findtext("DEFINITION", "")
+        for val in children(obj, "ATTRIBUTE-VALUE-STRING"):
+            ref = next((e.text for e in val.iter() if local(e.tag) == "ATTRIBUTE-DEFINITION-STRING-REF"), None)
+            def_text = ref or next((e.text for e in val.iter() if local(e.tag) == "DEFINITION" and e.text), "")
             if def_text == "ReqIF.Name":
                 title = val.attrib.get("THE-VALUE", "")
             elif def_text == "ReqIF.Text":
                 desc = val.attrib.get("THE-VALUE", "")
         if ident:
             spec_objects.append({"id": ident, "title": title, "description": desc})
-    return {"spec_objects": spec_objects}
+    relations = []
+    for rel in children(root, "SPEC-RELATION"):
+        def endpoint(side: str) -> str:
+            for holder in children(rel, side):
+                for ref in holder.iter():
+                    if local(ref.tag) == "SPEC-OBJECT-REF":
+                        return ref.text or ""
+            return ""
+        src, dst = endpoint("SOURCE"), endpoint("TARGET")
+        relations.append({"id": rel.attrib.get("IDENTIFIER", ""), "type": rel.attrib.get("LONG-NAME", ""),
+                          "source": src, "target": dst})
+    return {"spec_objects": spec_objects, "spec_relations": relations}
 
 
 def export_adr_markdown(store: Store) -> str:
     """Render all Decision Records as standard Nygard-style ADR Markdown format."""
     lines = ["# Architecture Decision Records (ADRs)\n"]
-    lines.append(f"Generated by reqtool • Total Decisions: {len(store.decisions)}\n\n")
+    lines.append(f"Generated by reqtool • Total Decisions: {len(store.live_decision_records())}\n\n")
 
     sorted_decisions = sorted(
-        [d for d in store.decisions.values() if not d.get("deleted")],
+        store.live_decision_records(),
         key=lambda x: x.get("id", ""),
     )
 

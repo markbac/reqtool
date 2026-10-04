@@ -11,7 +11,8 @@ from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from reqtool.store import Store
-from reqtool.fileio import save_yaml, uuid7, utcnow_iso, validate_id
+from reqtool import __version__
+from reqtool.fileio import save_yaml, uuid7, utcnow_iso, validate_id, compute_product_hash
 from .deps import get_store, not_found
 
 log = logging.getLogger(__name__)
@@ -41,7 +42,10 @@ def import_module(module_id: str, product_id: str = "", store: Store = Depends(g
         results = []
         for pid, product in store.products.items():
             if any(m.get("id") == module_id for m in product.get("modules", [])):
-                lock = store.import_module(pid, module_id)
+                try:
+                    lock = store.import_module(pid, module_id)
+                except ValueError as e:
+                    raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e)})
                 results.append({"product": pid, "locked": len(lock.get("locked", []))})
         if not results:
             raise HTTPException(status_code=404, detail={
@@ -100,7 +104,7 @@ def create_product(body: dict[str, Any], store: Store = Depends(get_store)):
     prod_dir.mkdir(parents=True, exist_ok=True)
     now = utcnow_iso()
     product = {
-        "schema_version": "1.0.0", "type": "product", "tool_version": "0.1.0",
+        "schema_version": "1.0.0", "type": "product", "tool_version": __version__,
         "uid": uuid7(), "id": product_id,
         "title": body.get("title", product_id),
         "version": "1.0.0",
@@ -108,6 +112,7 @@ def create_product(body: dict[str, Any], store: Store = Depends(get_store)):
         "modules": [], "root_requirements": [], "display_order": [],
         "content_hash": "", "created": now, "last_modified": now, "history": [],
     }
+    product["content_hash"] = compute_product_hash(product)
     save_yaml(prod_dir / "_product.yaml", product)
     store.products[product_id] = product
     return product
@@ -129,7 +134,17 @@ def product_tree(product_id: str, variant: Optional[str] = None, store: Store = 
 @router.get("/products/{product_id}/matrix", tags=["products"])
 def product_matrix(product_id: str, store: Store = Depends(get_store)):
     """Allocation matrix: requirements x teams."""
-    reqs = [r for r in store.requirements.values() if not r.get("deleted")]
+    if product_id not in store.products:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Product '{product_id}' not found"})
+    in_product: set[str] = set()
+
+    def collect(nodes: list) -> None:
+        for n in nodes:
+            in_product.add(n["uid"])
+            collect(n.get("children", []))
+    collect(store.build_tree(product_id))
+    known = {**{u: r for mod in store.module_requirements.values() for u, r in mod.items()}, **store.requirements}
+    reqs = [r for u, r in known.items() if u in in_product and not r.get("deleted")]
     teams: set[str] = set()
     for req in reqs:
         for team in req.get("allocated_to", []):

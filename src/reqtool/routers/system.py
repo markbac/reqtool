@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from reqtool import __version__
 from reqtool.store import Store
 from reqtool.validation import validate_all
+from reqtool.watcher import restart_watcher
 from reqtool.fileio import load_yaml, save_yaml
 from reqtool.models import RepoEnums, WorkflowConfig
 from .deps import get_store
@@ -152,8 +153,8 @@ def get_repo_info(store: Store = Depends(get_store)):
         "repo_description": store.config.repo_description,
         "requirements_count": len(store.requirements),
         "principles_count": len(store.principles),
-        "tbds_count": len(store.decisions),
-        "decisions_count": len(store.decisions),
+        "tbds_count": len(store.live_tbds()),
+        "decisions_count": len(store.live_decision_records()),
     }
 
 
@@ -191,6 +192,7 @@ def switch_repo(body: dict[str, Any], request: Request, store: Store = Depends(g
         raise HTTPException(status_code=404, detail=f"No valid reqtool repository found at '{target_path}'")
     store.root = target_path
     store.load()
+    restart_watcher(request.app, store)
     return get_repo_info(store)
 
 
@@ -249,6 +251,7 @@ def init_repo(body: dict[str, Any], request: Request, store: Store = Depends(get
         store.root = target_path
         store.load()
 
+    restart_watcher(request.app, store)
     return get_repo_info(store)
 
 
@@ -462,7 +465,7 @@ def validation_badge(store: Store = Depends(get_store)):
 def get_metrics(store: Store = Depends(get_store)):
     reqs = [r for r in store.requirements.values() if not r.get("deleted")]
     principles = [p for p in store.principles.values() if not p.get("deleted")]
-    tbds = [t for t in store.decisions.values() if not t.get("deleted")]
+    tbds = store.live_tbds()
 
     status_counts = Counter(r.get("status", "draft") for r in reqs)
     domain_counts = Counter(r.get("domain") or "unclassified" for r in reqs)
@@ -470,8 +473,8 @@ def get_metrics(store: Store = Depends(get_store)):
 
     no_owner = sum(1 for r in reqs if not r.get("owner"))
     no_ac = sum(1 for r in reqs if not r.get("acceptance_criteria"))
-    no_rationale = sum(1 for r in reqs if not r.get("content", {}).get("rationale"))
-    no_verification = sum(1 for r in reqs if r.get("verification", {}).get("status", "not_started") == "not_started")
+    no_rationale = sum(1 for r in reqs if not (r.get("content") or {}).get("rationale"))
+    no_verification = sum(1 for r in reqs if (r.get("verification") or {}).get("status", "not_started") == "not_started")
     safety_related = sum(1 for r in reqs if r.get("safety_related"))
     open_tbds = sum(1 for t in tbds if t.get("status") in ("open", "in_progress"))
     suspect_links = sum(1 for r in reqs for rel in r.get("relationships") or [] if rel.get("suspect"))

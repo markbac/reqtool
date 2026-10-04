@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from reqtool.store import Store
 from reqtool.stores.attachment_store import _sanitize_filename
-from .deps import get_store, not_found, publish_event
+from .deps import get_store, not_found, publish_event, ReqUid
 
 log = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ def delete_artefact_attachment(uid: str, filename: str, store: Store = Depends(g
 
 
 @router.get("/requirements/{uid}/attachments")
-def list_attachments(uid: str, store: Store = Depends(get_store)):
+def list_attachments(uid: ReqUid, store: Store = Depends(get_store)):
     req = store.get_requirement(uid)
     if req is None:
         raise not_found(uid)
@@ -120,7 +120,7 @@ def list_attachments(uid: str, store: Store = Depends(get_store)):
 
 
 @router.post("/requirements/{uid}/attachments", status_code=201)
-async def upload_attachment(uid: str, request: Request, author: str = "reqtool", store: Store = Depends(get_store)):
+async def upload_attachment(uid: ReqUid, request: Request, author: str = "reqtool", store: Store = Depends(get_store)):
     if store.get_requirement(uid) is None:
         raise not_found(uid)
     data = await _read_limited(request)
@@ -130,7 +130,7 @@ async def upload_attachment(uid: str, request: Request, author: str = "reqtool",
 
 
 @router.get("/requirements/{uid}/attachments/{filename}")
-def download_attachment(uid: str, filename: str, store: Store = Depends(get_store)):
+def download_attachment(uid: ReqUid, filename: str, store: Store = Depends(get_store)):
     try:
         clean_name = _sanitize_filename(filename)
     except ValueError:
@@ -149,7 +149,7 @@ def download_attachment(uid: str, filename: str, store: Store = Depends(get_stor
 
 
 @router.delete("/requirements/{uid}/attachments/{filename}")
-def delete_attachment(uid: str, filename: str, store: Store = Depends(get_store)):
+def delete_attachment(uid: ReqUid, filename: str, store: Store = Depends(get_store)):
     ok = store.delete_attachment(uid, filename)
     if not ok:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Attachment '{filename}' not found"})
