@@ -17,6 +17,7 @@ from reqtool.git_ops import has_conflicts, stage_file, unstage_file, commit as g
 from reqtool.store import Store
 from reqtool.events import publisher, wire_name, subscription_matches
 from reqtool.automation import automation_subscriber
+from reqtool.features.notifications import chat_body, deliver as _deliver_notifications
 
 log = logging.getLogger(__name__)
 
@@ -179,13 +180,15 @@ def _webhook_subscriber(store: Store, event: str, payload: dict) -> None:
     if not hooks:
         return
     wire = wire_name(event)
-    body = _json.dumps({
+    default_body = _json.dumps({
         "event": wire,
         "repo_id": store.config.repo_id,
         "payload": payload,
     }).encode()
 
-    def _send(url: str, secret: Optional[str], allow_private: bool = False) -> None:
+    def _send(url: str, secret: Optional[str], allow_private: bool = False, fmt: str = "json") -> None:
+        chat = chat_body(fmt, event, payload)
+        body = _json.dumps(chat).encode() if chat is not None else default_body
         try:
             import httpx, hashlib, hmac
             reason = check_webhook_target(url, allow_private)
@@ -206,7 +209,7 @@ def _webhook_subscriber(store: Store, event: str, payload: dict) -> None:
             log.warning("Webhook delivery failed to %s: %s", url, exc)
 
     for hook in hooks:
-        _webhook_executor.submit(_send, hook.url, hook.secret, hook.allow_private)
+        _webhook_executor.submit(_send, hook.url, hook.secret, hook.allow_private, hook.format)
 
 
 def _ws_subscriber(store: Store, event: str, payload: dict) -> None:
@@ -214,6 +217,7 @@ def _ws_subscriber(store: Store, event: str, payload: dict) -> None:
 
 
 publisher.subscribe(_webhook_subscriber)
+publisher.subscribe(_deliver_notifications)
 publisher.subscribe(_ws_subscriber)
 publisher.subscribe(automation_subscriber)
 

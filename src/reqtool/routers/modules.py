@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from reqtool.store import Store
 from reqtool import __version__
 from reqtool.fileio import save_yaml, uuid7, utcnow_iso, validate_id, compute_product_hash
+from reqtool.features import registry
 from .deps import get_store
 
 log = logging.getLogger(__name__)
@@ -23,6 +24,53 @@ router = APIRouter()
 @router.get("/modules", tags=["modules"])
 def list_modules(store: Store = Depends(get_store)):
     return list(store.modules.values())
+
+
+def _module_call(fn, *args, **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    except registry.ModuleError as exc:
+        raise HTTPException(status_code=409, detail={"error": "conflict", "message": str(exc)})
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail={"error": "validation", "message": str(exc)})
+
+
+@router.post("/modules", status_code=201, tags=["modules"])
+def create_module(body: dict[str, Any], store: Store = Depends(get_store)):
+    return _module_call(registry.create_module, store, str(body.get("id", "")).strip(),
+                        str(body.get("title", "")), str(body.get("description", "")))
+
+
+@router.post("/modules/{module_id}/version", tags=["modules"])
+def bump_module_version(module_id: str, body: dict[str, Any], store: Store = Depends(get_store)):
+    increment = body.get("increment", "patch")
+    if increment not in ("major", "minor", "patch"):
+        raise HTTPException(status_code=422, detail={"error": "validation", "message": "increment must be major, minor or patch"})
+    return _module_call(registry.bump_module, store, module_id, increment, str(body.get("note", "")))
+
+
+@router.post("/modules/{module_id}/clone", status_code=201, tags=["modules"])
+def clone_module(module_id: str, body: dict[str, Any], store: Store = Depends(get_store)):
+    return _module_call(registry.clone_module, store, module_id, str(body.get("id", "")).strip())
+
+
+@router.get("/modules/{module_id}/consumers", tags=["modules"])
+def module_consumers(module_id: str, store: Store = Depends(get_store)):
+    if module_id not in store.modules:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Module '{module_id}' not found"})
+    return registry.consumers(store, module_id)
+
+
+@router.post("/modules/{module_id}/pin", tags=["modules"])
+def pin_module(module_id: str, body: dict[str, Any], store: Store = Depends(get_store)):
+    """Pin a remote module to a tag, branch or commit; the next fetch records the exact commit."""
+    return _module_call(registry.pin, store, module_id, str(body.get("ref", "")).strip())
+
+
+@router.get("/modules/{module_id}/update-preview", tags=["modules"])
+def module_update_preview(module_id: str, ref: str, store: Store = Depends(get_store)):
+    """Files a new ref would add, remove or change, with the products that consume the module."""
+    return _module_call(registry.update_preview, store, module_id, ref)
 
 
 @router.get("/modules/{module_id}", tags=["modules"])

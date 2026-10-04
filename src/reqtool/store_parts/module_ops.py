@@ -145,5 +145,14 @@ class ModuleOpsMixin:
         else:
             _git_remote(["clone", "--branch", git_ref, "--", git_remote, str(target_dir)], self.root)
 
+        # Record exactly what was fetched, so a moving branch cannot change a module unnoticed (FEAT-08).
+        from reqtool.git_ops import _run_git
+        code, commit, _ = _run_git(["rev-parse", "HEAD"], target_dir)
+        commit = commit.strip() if code == 0 else ""
+        if commit and data.get("pinned_commit") != commit:
+            data["pinned_commit"] = commit
+            save_yaml(manifest_path, data)
+
         self._load_modules()
-        return {"status": "fetched", "module_id": module_id, "git_remote": git_remote, "git_ref": git_ref}
+        return {"status": "fetched", "module_id": module_id, "git_remote": git_remote, "git_ref": git_ref,
+                "commit": commit}

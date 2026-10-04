@@ -100,6 +100,14 @@ def load_yaml(path: Path) -> dict[str, Any]:
     return _to_plain(data)
 
 
+def yaml_loads_safe(text: str) -> Any:
+    """Parse YAML text to plain Python types, or None when it is not valid YAML."""
+    try:
+        return _to_plain(YAML(typ="safe").load(text))
+    except Exception:
+        return None
+
+
 def save_yaml(path: Path, data: Any) -> None:
     """Write a dict to YAML atomically. Creates parent directories if needed.
 

@@ -19,6 +19,7 @@ from reqtool.models import (
     AddACRequest, UpdateACRequest,
 )
 from reqtool.fileio import uuid7
+from reqtool.features.reviews import record_approval
 from .deps import get_store, not_found, conflict, publish_event, ReqUid, commit_artefact
 from .auth import get_current_user
 
@@ -338,6 +339,11 @@ def approve_requirement(
         approver, verified = user["username"], True
     else:
         approver, verified = body.approved_by, False  # local single-user mode
+    if body.content_hash and body.content_hash != req.get("content_hash"):
+        raise HTTPException(status_code=409, detail={
+            "error": "stale_content",
+            "message": "The requirement changed after you reviewed it: review the new version before approving",
+            "content_hash": req.get("content_hash")})
     if req.get("status") != "approved":
         error = store.validate_transition(req, "approved")
         if error:
@@ -353,6 +359,7 @@ def approve_requirement(
     result = store.approve_requirement(uid, approver, identity_verified=verified)
     if result is None:
         raise not_found(uid)
+    record_approval(store, uid, approver)
     publish_event(store, "requirement_approved", {
         "uid": uid, "id": req.get("id"), "approved_by": approver,
         "signature": result["approval"]["signature"],

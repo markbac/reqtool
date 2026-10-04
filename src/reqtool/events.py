@@ -21,6 +21,8 @@ CATALOGUE: dict[str, str] = {
     "status_changed": "A requirement's status changed (by edit, bulk edit or transition).",
     "comment_added": "A comment was added to a requirement.",
     "attachment_added": "An attachment was added to a requirement.",
+    "mention": "A user was @mentioned in a comment.",
+    "review_requested": "A review of a requirement was requested from a user.",
 }
 
 # Names sent on the wire (webhook body, WebSocket frame) and accepted in webhook

@@ -212,6 +212,8 @@ class CommitRequest(BaseModel):
 
 class ApproveRequest(BaseModel):
     approved_by: str
+    # When given, the approval is bound to this content hash and refused if the content has since changed (FEAT-04).
+    content_hash: Optional[str] = None
 
 
 class ResolveRequest(BaseModel):

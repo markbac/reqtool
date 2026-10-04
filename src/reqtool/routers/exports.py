@@ -7,7 +7,7 @@ FastAPI router for export and traceability matrix endpoints.
 from __future__ import annotations
 
 import logging
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from reqtool.store import Store
 from reqtool.models import ExportRequest, ExportMarkdownRequest, ExportCSVRequest
@@ -97,11 +97,20 @@ def get_gap_analysis(store: Store = Depends(get_store)):
     return export_gap_analysis(store)
 
 
-from reqtool.intelligence import generate_audit_package
+from reqtool.intelligence import AuditScopeError, generate_audit_package
+
 
 @router.get("/export/audit-package")
-def export_audit_package(store: Store = Depends(get_store)):
-    """Export 21 CFR Part 11 / ISO 26262 Regulatory Compliance Audit Package (Zip)."""
-    zip_bytes = generate_audit_package(store)
+def export_audit_package(scope: str = "repository", product: str = "", module: str = "", uids: str = "",
+                         include: str = "", store: Store = Depends(get_store)):
+    """Regulatory audit package (zip). ``scope`` is repository, product, module or selection (comma separated
+    ``uids``); ``include`` picks parts: signatures, requirements, traceability, history, validation, decisions."""
+    try:
+        zip_bytes = generate_audit_package(
+            store, scope=scope, product=product or None, module=module or None,
+            uids=[u for u in uids.split(",") if u] or None,
+            include=[c for c in include.split(",") if c] if include else None)
+    except AuditScopeError as exc:
+        raise HTTPException(status_code=422, detail={"error": "validation", "message": str(exc)})
     return Response(content=zip_bytes, media_type="application/zip",
                     headers={"Content-Disposition": 'attachment; filename="regulatory_compliance_audit_package.zip"'})

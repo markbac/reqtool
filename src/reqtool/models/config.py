@@ -87,6 +87,8 @@ class WebhookConfig(BaseModel):
     enabled: bool = True
     # Allow targets on loopback/private/link-local networks (off by default: SSRF guard)
     allow_private: bool = False
+    # json (default), or slack / teams for a one-line text message (FEAT-10)
+    format: Literal["json", "slack", "teams"] = "json"
 
 
 class CustomFieldDef(BaseModel):

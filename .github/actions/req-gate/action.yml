@@ -1,0 +1,27 @@
+name: Requirements release gate
+description: Fail the job when open TBDs on approved items, unverified safety items, suspect links, trace gaps or uncommitted changes would make a release unsafe.
+inputs:
+  repo:
+    description: Path to the requirements repository root
+    default: "."
+  product:
+    description: Limit the gate to one product
+    default: ""
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - shell: bash
+      run: pip install reqtool
+    - shell: bash
+      env:
+        REQ_REPO: ${{ inputs.repo }}
+        REQ_PRODUCT: ${{ inputs.product }}
+      run: |
+        if [ -n "$REQ_PRODUCT" ]; then
+          req gate --repo "$REQ_REPO" --product "$REQ_PRODUCT"
+        else
+          req gate --repo "$REQ_REPO"
+        fi

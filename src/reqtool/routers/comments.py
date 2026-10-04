@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from reqtool.actor import can_modify_owned
 from reqtool.store import Store
+from reqtool.features.notifications import mentions
 from .deps import get_store, not_found, publish_event, ReqUid
 
 log = logging.getLogger(__name__)
@@ -39,6 +40,15 @@ def _require_owner(store: Store, uid: str, comment_uid: str) -> None:
         raise HTTPException(status_code=403, detail={"error": "forbidden", "message": "Only the author or an administrator can change this comment"})
 
 
+
+def _publish_mentions(store: Store, uid: str, comment: dict) -> None:
+    """One ``mention`` event per @name in the comment (FEAT-10)."""
+    label = (store.get_artefact(uid) or ({}, ""))[0].get("id") or uid
+    for user in mentions(comment.get("text", "")):
+        publish_event(store, "mention", {"uid": uid, "id": label, "user": user, "by": comment.get("author", ""),
+                                         "comment_uid": comment["uid"]})
+
+
 @router.get("/artefacts/{uid}/comments")
 def list_artefact_comments(uid: str, store: Store = Depends(get_store)):
     return store.get_comments(uid)
@@ -53,6 +63,7 @@ def add_artefact_comment(uid: str, body: dict[str, Any], store: Store = Depends(
     reply_to = body.get("reply_to")
     comment = store.add_comment(uid, text, author, reply_to=reply_to)
     publish_event(store, "comment_added", {"uid": uid, "comment_uid": comment["uid"], "author": comment["author"]})
+    _publish_mentions(store, uid, comment)
     return comment
 
 
@@ -102,6 +113,7 @@ def add_comment(uid: ReqUid, body: dict[str, Any], store: Store = Depends(get_st
     reply_to = body.get("reply_to")
     comment = store.add_comment(uid, text, author, reply_to=reply_to)
     publish_event(store, "comment_added", {"uid": uid, "comment_uid": comment["uid"], "author": comment["author"]})
+    _publish_mentions(store, uid, comment)
     return comment
 
 

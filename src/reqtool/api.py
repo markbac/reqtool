@@ -26,7 +26,7 @@ from .git_ops import InvalidRef, has_conflicts
 from .store import UnknownParent, ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId
 from .routers import (
     system, requirements, principles, decisions, modules,
-    comments, attachments, analysis, exports, git_ops,
+    comments, attachments, analysis, features, exports, git_ops,
     imports, ws, auth, iterations, github, automation,
 )
 
@@ -148,6 +148,7 @@ def create_app(repo_root: Path, auth_mode: str | None = None, enable_watcher: bo
     app.include_router(comments.router)
     app.include_router(attachments.router)
     app.include_router(analysis.router)
+    app.include_router(features.router)
     app.include_router(exports.router)
     app.include_router(git_ops.router)
     app.include_router(imports.router)

@@ -69,6 +69,25 @@ def _find_duplicates(store: Store, threshold: float) -> list[dict[str, Any]]:
     return duplicates
 
 
+def suggest_duplicates(store: Store, title: str, description: str = "", exclude_uid: str | None = None,
+                       threshold: float = 0.4, limit: int = 5) -> list[dict[str, Any]]:
+    """Existing requirements that resemble text being typed now, best first (ENH-05)."""
+    mine = _tokenize(f"{title or ''} {description or ''}")
+    if not mine:
+        return []
+    out = []
+    for r in store.requirements.values():
+        if r.get("deleted") or r["uid"] == exclude_uid:
+            continue
+        theirs = _tokenize(f"{r.get('title') or ''} {(r.get('content') or {}).get('description') or ''}")
+        union = mine | theirs
+        score = len(mine & theirs) / len(union) if union else 0.0
+        if score >= threshold:
+            out.append({"uid": r["uid"], "id": r.get("id"), "title": r.get("title", ""), "status": r.get("status"),
+                        "similarity_score": round(score, 2), "overlapping_terms": sorted(mine & theirs)[:8]})
+    return sorted(out, key=lambda d: -d["similarity_score"])[:limit]
+
+
 class DuplicateDetector:
     """The boundary callers depend on, so the algorithm can change without touching them (ARC-14)."""
 
