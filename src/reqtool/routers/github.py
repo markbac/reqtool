@@ -7,7 +7,6 @@ REST API router for GitHub webhook ingestion and development repo linking.
 import hashlib
 import hmac
 import os
-from typing import Any
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from reqtool.store import Store
 from reqtool.github_sync import process_github_push_event

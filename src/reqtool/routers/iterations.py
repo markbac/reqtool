@@ -5,7 +5,7 @@ REST API router for Iteration, Sprint, Phase, and Milestone Management.
 """
 
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from reqtool.store import Store
 from reqtool.iterations import IterationStore
 from reqtool.routers.deps import get_store

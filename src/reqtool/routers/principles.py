@@ -7,14 +7,12 @@ FastAPI router for principle endpoints.
 from __future__ import annotations
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 from reqtool.store import Store
-import copy
 
-from reqtool.git_ops import has_conflicts, stage_file, unstage_file, commit as git_commit
 from reqtool.models import CommitRequest, CreatePrincipleRequest, UpdatePrincipleRequest
-from .deps import get_store, not_found, conflict
+from .deps import get_store, not_found, commit_artefact
 
 log = logging.getLogger(__name__)
 
@@ -60,30 +58,9 @@ def commit_principle(uid: str, body: CommitRequest, store: Store = Depends(get_s
     p = store.get_principle(uid)
     if p is None:
         raise not_found(uid)
-    if has_conflicts(store.root):
-        raise conflict("Working tree has unresolved merge conflicts")
-    message = (body.message or "").strip()
-    if not message:
-        raise HTTPException(status_code=422, detail={"error": "validation", "message": "A commit message is required"})
-    snapshot = copy.deepcopy(p)
-    path = store.principle_path(uid)
-    try:
-        store.update_principle(
-            uid, {},
-            increment=body.increment or "patch",
-            summary=message,
-            change_ref=body.change_ref,
-        )
-        stage_file(store.root, path)
-        # Only this file is committed and nothing is written afterwards, so the tree stays clean.
-        sha = git_commit(
-            store.root, message,
-            store.config.git.commit_name, store.config.git.commit_email,
-            paths=[path],
-        )
-        p = store.get_principle(uid)
-        return {"commit_sha": sha, "version": p.get("version", "") if p else ""}
-    except RuntimeError as exc:
-        store.restore_principle(uid, snapshot)
-        unstage_file(store.root, path)
-        raise HTTPException(status_code=500, detail={"error": "git_error", "message": str(exc)})
+    return commit_artefact(
+        store, body, store.principle_path(uid),
+        bump=lambda message: store.update_principle(
+            uid, {}, increment=body.increment or "patch", summary=message, change_ref=body.change_ref),
+        undo=lambda: store.restore_principle(uid, p),
+        version=lambda: (store.get_principle(uid) or {}).get("version", ""))

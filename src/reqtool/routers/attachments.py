@@ -4,7 +4,6 @@ reqtool.routers.attachments
 FastAPI router for attachment upload, download, and listing endpoints.
 """
 
-from __future__ import annotations
 
 import logging
 import os
@@ -70,87 +69,56 @@ def _store_upload(store: Store, uid: str, filename: str, data: bytes, author: st
     return record
 
 
-@router.get("/artefacts/{uid}/attachments")
-def list_artefact_attachments(uid: str, store: Store = Depends(get_store)):
-    return store.list_attachments(uid)
-
-
-@router.post("/artefacts/{uid}/attachments", status_code=201)
-async def upload_artefact_attachment(uid: str, request: Request, author: str = "reqtool", store: Store = Depends(get_store)):
-    if not store.has_artefact(uid):
-        raise not_found(uid)
-    data = await _read_limited(request)
-    if not data:
-        raise HTTPException(status_code=422, detail={"error": "empty", "message": "No file data"})
-    return _store_upload(store, uid, _upload_filename(request), data, author, request.headers.get("x-description", ""))
-
-
-@router.get("/artefacts/{uid}/attachments/{filename}")
-def download_artefact_attachment(uid: str, filename: str, store: Store = Depends(get_store)):
+def _attachment_file(store: Store, uid: str, filename: str):
+    """The stored file's path and clean name, or a 404 (path traversal included)."""
+    missing = HTTPException(status_code=404, detail={"error": "not_found", "message": f"Attachment '{filename}' not found"})
     try:
         clean_name = _sanitize_filename(filename)
     except ValueError:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Attachment '{filename}' not found"})
+        raise missing
     target_dir = store.attachment_dir(uid).resolve()
     path = (target_dir / clean_name).resolve()
     if not path.is_relative_to(target_dir) or not path.exists():
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Attachment '{filename}' not found"})
-    mime, _ = mimetypes.guess_type(clean_name)
-    return Response(
-        content=path.read_bytes(),
-        media_type=mime or "application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{clean_name}"'},
-    )
+        raise missing
+    return path, clean_name
 
 
-@router.delete("/artefacts/{uid}/attachments/{filename}")
-def delete_artefact_attachment(uid: str, filename: str, store: Store = Depends(get_store)):
-    ok = store.delete_attachment(uid, filename)
-    if not ok:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Attachment '{filename}' not found"})
-    return {"deleted": filename}
+def _register(prefix: str, uid_type, exists, listing, tag: str) -> None:
+    """Register list, upload, download and delete once for a URL prefix (ARC-16)."""
+
+    @router.get(prefix + "/{uid}/attachments", name=f"list_{tag}_attachments")
+    def list_items(uid: uid_type, store: Store = Depends(get_store)):
+        if not exists(store, uid):
+            raise not_found(uid)
+        return listing(store, uid)
+
+    @router.post(prefix + "/{uid}/attachments", status_code=201, name=f"upload_{tag}_attachment")
+    async def upload(uid: uid_type, request: Request, author: str = "reqtool", store: Store = Depends(get_store)):
+        if not exists(store, uid):
+            raise not_found(uid)
+        data = await _read_limited(request)
+        if not data:
+            raise HTTPException(status_code=422, detail={"error": "empty", "message": "No file data"})
+        return _store_upload(store, uid, _upload_filename(request), data, author,
+                             request.headers.get("x-description", ""))
+
+    @router.get(prefix + "/{uid}/attachments/{filename}", name=f"download_{tag}_attachment")
+    def download(uid: uid_type, filename: str, store: Store = Depends(get_store)):
+        path, clean_name = _attachment_file(store, uid, filename)
+        mime, _ = mimetypes.guess_type(clean_name)
+        return Response(
+            content=path.read_bytes(),
+            media_type=mime or "application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{clean_name}"'},
+        )
+
+    @router.delete(prefix + "/{uid}/attachments/{filename}", name=f"delete_{tag}_attachment")
+    def delete(uid: uid_type, filename: str, store: Store = Depends(get_store)):
+        if not store.delete_attachment(uid, filename):
+            raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Attachment '{filename}' not found"})
+        return {"deleted": filename}
 
 
-@router.get("/requirements/{uid}/attachments")
-def list_attachments(uid: ReqUid, store: Store = Depends(get_store)):
-    req = store.get_requirement(uid)
-    if req is None:
-        raise not_found(uid)
-    return req.get("attachments", [])
-
-
-@router.post("/requirements/{uid}/attachments", status_code=201)
-async def upload_attachment(uid: ReqUid, request: Request, author: str = "reqtool", store: Store = Depends(get_store)):
-    if store.get_requirement(uid) is None:
-        raise not_found(uid)
-    data = await _read_limited(request)
-    if not data:
-        raise HTTPException(status_code=422, detail={"error": "empty", "message": "No file data received"})
-    return _store_upload(store, uid, _upload_filename(request), data, author, request.headers.get("x-description", ""))
-
-
-@router.get("/requirements/{uid}/attachments/{filename}")
-def download_attachment(uid: ReqUid, filename: str, store: Store = Depends(get_store)):
-    try:
-        clean_name = _sanitize_filename(filename)
-    except ValueError:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Attachment '{filename}' not found"})
-    target_dir = store.attachment_dir(uid).resolve()
-    path = (target_dir / clean_name).resolve()
-    if not path.is_relative_to(target_dir) or not path.exists():
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Attachment '{filename}' not found"})
-    mime, _ = mimetypes.guess_type(clean_name)
-    mime = mime or "application/octet-stream"
-    return Response(
-        content=path.read_bytes(),
-        media_type=mime,
-        headers={"Content-Disposition": f'attachment; filename="{clean_name}"'},
-    )
-
-
-@router.delete("/requirements/{uid}/attachments/{filename}")
-def delete_attachment(uid: ReqUid, filename: str, store: Store = Depends(get_store)):
-    ok = store.delete_attachment(uid, filename)
-    if not ok:
-        raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Attachment '{filename}' not found"})
-    return {"deleted": filename}
+_register("/artefacts", str, lambda s, u: s.has_artefact(u), lambda s, u: s.list_attachments(u), "artefact")
+_register("/requirements", ReqUid, lambda s, u: s.get_requirement(u) is not None,
+          lambda s, u: s.get_requirement(u).get("attachments", []), "requirement")

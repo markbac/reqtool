@@ -12,27 +12,19 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from reqtool.store import Store, ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId, UnknownParent
-from reqtool.git_ops import has_conflicts, stage_file, unstage_file, commit as git_commit, git_log
+from reqtool.git_ops import has_conflicts, git_log
 from reqtool.models import (
     CommitRequest, ApproveRequest, BulkUpdateRequest,
     CreateRequirementRequest, UpdateRequirementRequest,
     AddACRequest, UpdateACRequest,
 )
-from reqtool.fileio import utcnow_iso, uuid7, save_yaml
-from .deps import get_store, not_found, conflict, publish_event, ReqUid
+from reqtool.fileio import uuid7
+from .deps import get_store, not_found, conflict, publish_event, ReqUid, commit_artefact
 from .auth import get_current_user
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(tags=["requirements"])
-
-
-def _commit_message(body: CommitRequest) -> str:
-    """The commit message, or a 422 before anything is changed (git would reject an empty one)."""
-    message = (body.message or "").strip()
-    if not message:
-        raise HTTPException(status_code=422, detail={"error": "validation", "message": "A commit message is required"})
-    return message
 
 
 @router.get("/requirements")
@@ -315,34 +307,12 @@ def commit_requirement(uid: ReqUid, body: CommitRequest, store: Store = Depends(
     req = store.get_requirement(uid)
     if req is None:
         raise not_found(uid)
-    if has_conflicts(store.root):
-        raise conflict("Working tree has unresolved merge conflicts")
-    message = _commit_message(body)
-    snapshot = copy.deepcopy(req)
-    file_path = store.req_path(uid)
-    try:
-        store.update_requirement(
-            uid, {},
-            increment=body.increment or "patch",
-            summary=message,
-            change_ref=body.change_ref,
-        )
-        stage_file(store.root, file_path)
-        # Commit ONLY this requirement's file. Nothing is written back into the
-        # YAML afterwards, so the working tree is clean and the file hash/audit
-        # record cannot drift from what was committed; the SHA is in git history.
-        sha = git_commit(
-            store.root, message,
-            store.config.git.commit_name, store.config.git.commit_email,
-            paths=[file_path],
-        )
-        req = store.get_requirement(uid)
-        return {"commit_sha": sha, "version": req.get("version", "") if req else ""}
-    except RuntimeError as exc:
-        # The version bump and history entry were made for a commit that did not happen: undo them.
-        store.restore_requirement(uid, snapshot)
-        unstage_file(store.root, file_path)
-        raise HTTPException(status_code=500, detail={"error": "git_error", "message": str(exc)})
+    return commit_artefact(
+        store, body, store.req_path(uid),
+        bump=lambda message: store.update_requirement(
+            uid, {}, increment=body.increment or "patch", summary=message, change_ref=body.change_ref),
+        undo=lambda: store.restore_requirement(uid, req),
+        version=lambda: (store.get_requirement(uid) or {}).get("version", ""))
 
 
 @router.post("/requirements/{uid}/approve")

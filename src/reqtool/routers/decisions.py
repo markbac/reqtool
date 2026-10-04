@@ -13,11 +13,10 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from reqtool.store import Store
-from reqtool.git_ops import has_conflicts, stage_file, unstage_file, commit as git_commit
 from reqtool.models import CommitRequest, CreateDecisionRequest, UpdateDecisionRequest, ResolveRequest
 from .auth import get_current_user
 from reqtool.fileio import utcnow_iso
-from .deps import get_store, not_found, conflict
+from .deps import get_store, not_found, commit_artefact
 
 log = logging.getLogger(__name__)
 
@@ -76,27 +75,13 @@ def _build(prefix: str, kind: Optional[str], tag: str) -> None:
 
     @router.post(prefix + "/{uid}/commit", tags=[tag], name=f"commit_{tag}")
     def commit_item(uid: str, body: CommitRequest, store: Store = Depends(get_store)):
-        fetch(store, uid)
-        if has_conflicts(store.root):
-            raise conflict("Working tree has unresolved merge conflicts")
-        message = (body.message or "").strip()
-        if not message:
-            raise HTTPException(status_code=422, detail={"error": "validation", "message": "A commit message is required"})
-        snapshot = copy.deepcopy(store.get_decision(uid))
-        path = store.decision_path(uid)
-        try:
-            store.update_decision(uid, {}, increment=body.increment or "patch",
-                                  summary=message, change_ref=body.change_ref)
-            stage_file(store.root, path)
-            # Nothing is written back after the commit (the SHA lives in git history), so the tree stays clean.
-            sha = git_commit(store.root, message, store.config.git.commit_name,
-                             store.config.git.commit_email, paths=[path])
-            d = store.get_decision(uid)
-            return {"commit_sha": sha, "version": d.get("version", "") if d else ""}
-        except RuntimeError as exc:
-            store.restore_decision(uid, snapshot)
-            unstage_file(store.root, path)
-            raise HTTPException(status_code=500, detail={"error": "git_error", "message": str(exc)})
+        snapshot = copy.deepcopy(fetch(store, uid))
+        return commit_artefact(
+            store, body, store.decision_path(uid),
+            bump=lambda message: store.update_decision(
+                uid, {}, increment=body.increment or "patch", summary=message, change_ref=body.change_ref),
+            undo=lambda: store.restore_decision(uid, snapshot),
+            version=lambda: (store.get_decision(uid) or {}).get("version", ""))
 
     @router.post(prefix + "/{uid}/resolve", tags=[tag], name=f"resolve_{tag}")
     def resolve_item(uid: str, body: ResolveRequest, user: dict = Depends(get_current_user),

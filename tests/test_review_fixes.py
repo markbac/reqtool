@@ -294,7 +294,7 @@ def test_dat23_empty_commit_message_is_rejected_before_anything_changes(repo_roo
 
 
 def test_dat23_failed_git_commit_rolls_the_item_back(repo_root, monkeypatch):
-    import reqtool.routers.requirements as rr
+    import reqtool.routers.deps as rr
     c = TestClient(create_app(repo_root))
     uid = make_req(c)["uid"]
     _seed_git(repo_root)

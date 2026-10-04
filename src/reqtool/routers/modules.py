@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from reqtool.store import Store
 from reqtool import __version__
 from reqtool.fileio import save_yaml, uuid7, utcnow_iso, validate_id, compute_product_hash
-from .deps import get_store, not_found
+from .deps import get_store
 
 log = logging.getLogger(__name__)
 
