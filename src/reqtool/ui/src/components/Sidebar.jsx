@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../AppContext';
 import { api } from '../api';
 import ResolveDialog from './ResolveDialog';
+import { parentOf, candidateParents, canMoveUnder } from '../treeMove';
 import './Sidebar.css';
 
 const DOMAIN_COLOURS = {
@@ -61,6 +62,7 @@ function ContextMenu({ x, y, node, onClose, onAction }) {
     { label: '+ Add child',   action: 'add_child' },
     { label: '+ Add sibling', action: 'add_sibling' },
     { label: '⧉ Clone',       action: 'clone' },
+    { label: '⇄ Move to...',  action: 'move' },
     { label: '⟳ History',     action: 'history' },
     { label: '✕ Delete',      action: 'delete', danger: true },
   ];
@@ -96,12 +98,60 @@ function ChildTypeMenu({ x, y, parent, types, onClose, onPick }) {
   );
 }
 
+// Choose a new parent for ``node``. Targets the hierarchy does not allow are listed but disabled, with the reason.
+function MovePicker({ node, tree, rules, parentUid, onClose, onPick }) {
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const rows = candidateParents(tree).filter(({ node: t }) =>
+    !q || t.id?.toLowerCase().includes(q) || t.title?.toLowerCase().includes(q));
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" role="dialog" aria-label={`Move ${node.id}`} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span className="modal-title">Move {node.id} to...</span>
+          <button className="modal-close btn-ghost" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="modal-body">
+          <input autoFocus className="move-search" placeholder="Search by ID or title..." aria-label="Search parents"
+            value={query} onChange={e => setQuery(e.target.value)} />
+          <ul className="move-list" role="listbox" aria-label="New parent">
+            {!q && (
+              <li>
+                <button className="move-option" disabled={!parentUid} onClick={() => onPick(null)}
+                  title={parentUid ? '' : `${node.id} is already at the top level`}>
+                  <span className="move-id mono">(top level)</span>
+                  <span className="move-title">No parent</span>
+                </button>
+              </li>
+            )}
+            {rows.map(({ node: t, depth }) => {
+              const verdict = canMoveUnder(node, t, rules, parentUid);
+              return (
+                <li key={t.uid}>
+                  <button className="move-option" role="option" aria-selected="false" disabled={!verdict.ok}
+                    title={verdict.reason} style={{ paddingLeft: 10 + depth * 12 }} onClick={() => onPick(t)}>
+                    <span className="move-id mono">{t.id}</span>
+                    <span className="move-title">{t.title}</span>
+                    {!verdict.ok && <span className="move-why">{verdict.reason}</span>}
+                  </button>
+                </li>
+              );
+            })}
+            {q && rows.length === 0 && <li className="move-empty">No matches</li>}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Tree node
 // ---------------------------------------------------------------------------
-function TreeNode({ node, depth = 0, onContextMenu, forceOpen = false }) {
+function TreeNode({ node, depth = 0, onContextMenu, forceOpen = false, dnd }) {
   const { state, dispatch } = useApp();
   const [open, setOpen] = useState(depth < 1 || forceOpen);
+  const [dropHint, setDropHint] = useState(null);   // 'ok' | 'no' while something is dragged over
   const hasChildren = node.children?.length > 0;
   const isSelected  = state.selectedUid === node.uid;
   const isDirty     = state.dirtyUids.has(node.uid);
@@ -129,6 +179,26 @@ function TreeNode({ node, depth = 0, onContextMenu, forceOpen = false }) {
     else if (e.key === 'ArrowRight') { e.preventDefault(); setOpen(true); }
     else if (e.key === 'ArrowLeft')  { e.preventDefault(); setOpen(false); }
   };
+  const draggable = !!dnd && !isModule && !node.module;
+  const dragStart = (e) => {
+    e.stopPropagation();
+    e.dataTransfer?.setData?.('text/plain', node.uid);
+    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+    dnd.start(node);
+  };
+  const dragOver = (e) => {
+    if (!dnd || isModule || !dnd.dragging()) return;
+    e.preventDefault(); e.stopPropagation();
+    const ok = dnd.verdict(node).ok;
+    if (e.dataTransfer) e.dataTransfer.dropEffect = ok ? 'move' : 'none';
+    setDropHint(ok ? 'ok' : 'no');
+  };
+  const drop = (e) => {
+    if (!dnd || !dnd.dragging()) return;
+    e.preventDefault(); e.stopPropagation();
+    setDropHint(null);
+    dnd.drop(node);
+  };
   const rightClick = (e) => {
     if (isModule) return;
     e.preventDefault(); e.stopPropagation();
@@ -137,9 +207,11 @@ function TreeNode({ node, depth = 0, onContextMenu, forceOpen = false }) {
 
   return (
     <div className="tree-node-wrapper">
-      <div className={`tree-node ${isSelected ? 'tree-node--selected' : ''} ${isModule ? 'tree-node--module-group' : ''}`}
+      <div className={`tree-node ${isSelected ? 'tree-node--selected' : ''} ${isModule ? 'tree-node--module-group' : ''}${dropHint ? ` tree-node--drop-${dropHint}` : ''}`}
         style={{ paddingLeft: 12 + depth * 16, borderLeft: `3px solid ${accent}` }}
         onClick={click} onKeyDown={keyDown} onContextMenu={rightClick}
+        draggable={draggable || undefined} onDragStart={draggable ? dragStart : undefined} onDragEnd={draggable ? () => dnd.end() : undefined}
+        onDragOver={dragOver} onDragLeave={() => setDropHint(null)} onDrop={drop}
         role="treeitem" aria-selected={isSelected} aria-expanded={hasChildren ? open : undefined} tabIndex={0}>
         <span className="tree-node-toggle">
           {hasChildren ? (open ? '▾' : '▸') : <span style={{ opacity: 0 }}>▸</span>}
@@ -166,7 +238,7 @@ function TreeNode({ node, depth = 0, onContextMenu, forceOpen = false }) {
       {open && hasChildren && (
         <div className="tree-children">
           {node.children.map(c => (
-            <TreeNode key={c.uid} node={c} depth={depth + 1} onContextMenu={onContextMenu} forceOpen={forceOpen} />
+            <TreeNode key={c.uid} node={c} depth={depth + 1} onContextMenu={onContextMenu} forceOpen={forceOpen} dnd={dnd} />
           ))}
         </div>
       )}
@@ -218,6 +290,9 @@ function RequirementsPanel() {
   const [error, setError]     = useState(null);
   const [ctxMenu, setCtxMenu] = useState(null);
   const [childMenu, setChildMenu] = useState(null);
+  const [moving, setMoving] = useState(null);       // the node whose parent is being chosen
+  const [rules, setRules] = useState(null);         // allowed_children per type, from the server
+  const dragged = useRef(null);
   const [histUid, setHistUid] = useState(null);
   const [histData, setHistData] = useState(null);
   const [showModulePanel, setShowModulePanel] = useState(false);
@@ -283,8 +358,51 @@ function RequirementsPanel() {
     setChildMenu({ x: pos?.x ?? 200, y: pos?.y ?? 200, node, types });
   };
 
+  // The hierarchy rules decide which parents are offered; fetched when first needed.
+  const loadRules = async () => {
+    if (rules) return rules;
+    try { const h = await api.hierarchy.get(); setRules(h.hierarchy || {}); return h.hierarchy || {}; }
+    catch (err) { toast(err.message, 'error'); return null; }
+  };
+
+  // Re-parent ``node`` under ``target`` (a tree node, or null for the top level).
+  const moveItem = async (node, target) => {
+    if (state.dirtyUids.has(node.uid)) { toast(`Save or discard your changes to ${node.id} before moving it`, 'error'); return; }
+    try {
+      await api.requirements.update(node.uid, { parentId: target ? target.uid : null });
+      window.dispatchEvent(new Event('reqtool:tree-changed'));
+      window.dispatchEvent(new CustomEvent('reqtool:item-changed', { detail: { uid: node.uid } }));
+      toast(target ? `Moved ${node.id} under ${target.id}` : `Moved ${node.id} to the top level`, 'success');
+    } catch (err) { toast(err.message, 'error'); }
+  };
+
+  const dnd = {
+    start: (node) => { dragged.current = node; loadRules(); },
+    end: () => { dragged.current = null; },
+    dragging: () => !!dragged.current,
+    verdict: (target) => canMoveUnder(dragged.current, target, rules, parentOf(tree, dragged.current?.uid)?.uid ?? null),
+    drop: async (target) => {
+      const node = dragged.current; dragged.current = null;
+      const known = rules || await loadRules();
+      if (!node || !known) return;
+      const verdict = canMoveUnder(node, target, known, parentOf(tree, node.uid)?.uid ?? null);
+      if (!verdict.ok) { toast(verdict.reason, 'error'); return; }
+      await moveItem(node, target);
+    },
+  };
+
+  // Dropping on the empty part of the tree makes the item a top-level one.
+  const dropOnTree = async (e) => {
+    const node = dragged.current;
+    if (!node || e.target !== e.currentTarget) return;
+    e.preventDefault(); dragged.current = null;
+    if (!parentOf(tree, node.uid)) { toast(`${node.id} is already at the top level`, 'info'); return; }
+    await moveItem(node, null);
+  };
+
   const handleCtx = async (node, action, pos) => {
     if (action === 'add_child')   { await addChild(node, pos); }
+    else if (action === 'move') { if (await loadRules()) setMoving(node); }
     else if (action === 'add_sibling') {
       const full = await api.requirements.get(node.uid).catch(() => null);
       await createReq(full?.parentId || null, full?.req_type || node.req_type || null);
@@ -408,14 +526,17 @@ function RequirementsPanel() {
       )}
       {searchQuery && !displayTree.length && <div className="sidebar-empty">No matches for <em>{searchQuery}</em></div>}
 
-      <div className="tree-container" role="tree" onClick={() => setCtxMenu(null)}>
+      <div className="tree-container" role="tree" onClick={() => setCtxMenu(null)}
+        onDragOver={(e) => { if (dragged.current && e.target === e.currentTarget) e.preventDefault(); }} onDrop={dropOnTree}>
         {displayTree.map(node => (
-          <TreeNode key={node.uid} node={node} forceOpen={expandAll || !!searchQuery}
+          <TreeNode key={node.uid} node={node} forceOpen={expandAll || !!searchQuery} dnd={dnd}
             onContextMenu={(x, y, n) => setCtxMenu({ x, y, node: n })} />
         ))}
       </div>
       {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} node={ctxMenu.node}
         onClose={() => setCtxMenu(null)} onAction={handleCtx} />}
+      {moving && <MovePicker node={moving} tree={tree} rules={rules} parentUid={parentOf(tree, moving.uid)?.uid ?? null}
+        onClose={() => setMoving(null)} onPick={(t) => { const n = moving; setMoving(null); moveItem(n, t); }} />}
       {childMenu && <ChildTypeMenu x={childMenu.x} y={childMenu.y} parent={childMenu.node} types={childMenu.types}
         onClose={() => setChildMenu(null)} onPick={(t) => createReq(childMenu.node.uid, t)} />}
       {histData && <HistoryOverlay uid={histUid} data={histData}

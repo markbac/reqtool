@@ -2,7 +2,7 @@
 
 from playwright.sync_api import expect
 
-from .helpers import expand, field, open_app, seed_tree, select_item, tree_node, wait_until
+from .helpers import drag_and_drop, expand, field, open_app, seed_tree, select_item, tree_node, wait_until
 
 
 def right_click(page, text: str):
@@ -18,13 +18,13 @@ def requirement_ids(server) -> list[str]:
     return sorted(r["id"] for r in server.get("/requirements"))
 
 
-def test_context_menu_offers_the_five_actions(page):
+def test_context_menu_offers_the_six_actions(page):
     seed_tree(page.server)
     open_app(page)
     right_click(page, "TH-001")
     items = page.locator(".ctx-menu .ctx-item")
     assert [i.strip() for i in items.all_inner_texts()] == [
-        "+ Add child", "+ Add sibling", "⧉ Clone", "⟳ History", "✕ Delete"]
+        "+ Add child", "+ Add sibling", "⧉ Clone", "⇄ Move to...", "⟳ History", "✕ Delete"]
     page.locator("body").click(position={"x": 5, "y": 5})
     expect(page.locator(".ctx-menu")).to_have_count(0)
 
@@ -171,3 +171,117 @@ def test_tbd_list_creates_and_resolves(page):
     expect(page.locator(".list-item", has_text="New TBD")).to_be_visible()
     page.locator(".list-item").get_by_role("button", name="✓ Resolve").click()
     expect(page.locator(".modal, [role=dialog]").first).to_be_visible()
+
+
+# --- Re-parenting from the tree (#320) --------------------------------------------------------------
+
+def seed_two_epics(server) -> dict:
+    """The seeded tree plus a second epic under the same initiative, so a story has somewhere to go."""
+    ids = seed_tree(server)
+    ids["epic2"] = server.req(title="Epic two", req_type="epic", parentId=ids["initiative"]["uid"],
+                              content={"description": "A second epic."})
+    return ids
+
+
+def parent_of(server, item) -> str | None:
+    return server.get(f"/requirements/{item['uid']}")["parentId"]
+
+
+def picker_option(dialog, item_id: str):
+    """The picker row for ``item_id`` (matched on its ID cell, since a reason may name another item)."""
+    return dialog.get_by_role("option").filter(has=dialog.page.locator(".move-id", has_text=item_id))
+
+
+def open_move_picker(page, node_id: str):
+    right_click(page, node_id)
+    ctx(page, "Move to")
+    dialog = page.get_by_role("dialog", name=f"Move {node_id}")
+    expect(dialog).to_be_visible()
+    return dialog
+
+
+def test_move_to_offers_only_the_parents_the_hierarchy_allows(page):
+    seed_two_epics(page.server)
+    open_app(page)
+    expand(page, "TH-001", "IN-001", "EP-001")
+    dialog = open_move_picker(page, "US-001")
+    expect(picker_option(dialog, "EP-002")).to_be_enabled()
+    expect(picker_option(dialog, "EP-001")).to_be_disabled()        # its parent already
+    expect(picker_option(dialog, "TH-001")).to_be_disabled()        # a story cannot sit under a theme
+    expect(picker_option(dialog, "US-001")).to_be_disabled()        # itself
+    assert "cannot go under" in picker_option(dialog, "TH-001").get_attribute("title")
+
+
+def test_move_to_changes_the_parent_and_refreshes_the_tree(page):
+    ids = seed_two_epics(page.server)
+    open_app(page)
+    expand(page, "TH-001", "IN-001", "EP-001")
+    dialog = open_move_picker(page, "US-001")
+    picker_option(dialog, "EP-002").click()
+    wait_until(lambda: parent_of(page.server, ids["story"]) == ids["epic2"]["uid"], what="the new parent")
+    expect(page.locator(".toast-success").last).to_contain_text("Moved US-001 under EP-002")
+    expect(page.get_by_role("dialog")).to_have_count(0)
+    expand(page, "EP-002")
+    expect(tree_node(page, "US-001")).to_be_visible()
+
+
+def test_picker_can_filter_and_move_to_the_top_level(page):
+    ids = seed_two_epics(page.server)
+    open_app(page)
+    expand(page, "TH-001", "IN-001", "EP-001")
+    dialog = open_move_picker(page, "US-001")
+    dialog.get_by_label("Search parents").fill("two")
+    expect(dialog.get_by_role("option")).to_have_count(1)
+    dialog.get_by_label("Search parents").fill("")
+    dialog.get_by_role("button", name="(top level)").click()
+    wait_until(lambda: parent_of(page.server, ids["story"]) is None, what="the item at the top level")
+    expect(tree_node(page, "US-001")).to_be_visible()
+
+
+def test_picker_disables_the_item_and_everything_below_it(page):
+    seed_two_epics(page.server)
+    open_app(page)
+    expand(page, "TH-001", "IN-001")
+    dialog = open_move_picker(page, "EP-001")
+    for item_id in ("EP-001", "US-001"):
+        expect(picker_option(dialog, item_id)).to_be_disabled()
+    assert "descendants" in picker_option(dialog, "US-001").get_attribute("title")
+    expect(picker_option(dialog, "EP-002")).to_be_disabled()      # an epic cannot sit under an epic
+
+
+def test_dragging_onto_an_allowed_parent_moves_the_item(page):
+    ids = seed_two_epics(page.server)
+    open_app(page)
+    expand(page, "TH-001", "IN-001", "EP-001")
+    drag_and_drop(page, tree_node(page, "US-001"), tree_node(page, "EP-002"))
+    wait_until(lambda: parent_of(page.server, ids["story"]) == ids["epic2"]["uid"], what="the dropped item's parent")
+    expect(page.locator(".toast-success").last).to_contain_text("Moved US-001 under EP-002")
+
+
+def test_dropping_where_the_hierarchy_forbids_is_refused_with_the_reason(page):
+    ids = seed_two_epics(page.server)
+    open_app(page)
+    expand(page, "TH-001", "IN-001")
+    drag_and_drop(page, tree_node(page, "EP-001"), tree_node(page, "TH-001"))
+    expect(page.locator(".toast-error").last).to_contain_text("epic cannot go under a theme")
+    assert parent_of(page.server, ids["epic"]) == ids["initiative"]["uid"]
+
+
+def test_dropping_an_item_on_its_own_descendant_is_refused(page):
+    ids = seed_two_epics(page.server)
+    open_app(page)
+    expand(page, "TH-001", "IN-001", "EP-001")
+    drag_and_drop(page, tree_node(page, "EP-001"), tree_node(page, "US-001"))
+    expect(page.locator(".toast-error").last).to_contain_text("descendants")
+    assert parent_of(page.server, ids["epic"]) == ids["initiative"]["uid"]
+    assert parent_of(page.server, ids["story"]) == ids["epic"]["uid"]
+
+
+def test_moving_the_open_item_updates_its_editor(page):
+    ids = seed_two_epics(page.server)
+    open_app(page)
+    expand(page, "TH-001", "IN-001", "EP-001")
+    select_item(page, "US-001")
+    drag_and_drop(page, tree_node(page, "US-001"), tree_node(page, "EP-002"))
+    wait_until(lambda: parent_of(page.server, ids["story"]) == ids["epic2"]["uid"], what="the move")
+    expect(page.locator(".editor-breadcrumb")).to_contain_text("EP-002")

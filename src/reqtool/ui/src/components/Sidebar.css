@@ -625,3 +625,17 @@
   margin-left: 4px;
   flex-shrink: 0;
 }
+
+/* Re-parenting from the tree (#320) */
+.tree-node[draggable="true"] { cursor: grab; }
+.tree-node--drop-ok { outline: 2px solid var(--accent-green, #238636); outline-offset: -2px; background: rgba(35,134,54,.12); }
+.tree-node--drop-no { outline: 2px dashed var(--accent-red, #da3633); outline-offset: -2px; cursor: not-allowed; }
+.move-search { width: 100%; margin-bottom: 8px; }
+.move-list { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+.move-option { display: flex; gap: 8px; align-items: baseline; width: 100%; text-align: left; padding: 6px 10px; background: none; color: var(--text-primary); cursor: pointer; }
+.move-option:hover:not(:disabled) { background: var(--bg-hover); }
+.move-option:disabled { color: var(--text-muted); cursor: not-allowed; }
+.move-id { font-size: 11px; flex: none; }
+.move-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.move-why { font-size: 10px; flex: none; }
+.move-empty { padding: 8px 10px; color: var(--text-muted); }

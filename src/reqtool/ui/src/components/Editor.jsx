@@ -896,9 +896,9 @@ function RequirementEditor({ uid }) {
     }
   }, [activeTab, uid]);
 
-  useEffect(() => {
-    setLoading(true);
-    api.requirements.get(uid)
+  const loadItem = useCallback((quiet = false) => {
+    if (!quiet) setLoading(true);
+    return api.requirements.get(uid)
       .then(data => {
         setReq(data); setDraft(data);
         // Build breadcrumb by walking parentId chain
@@ -907,6 +907,15 @@ function RequirementEditor({ uid }) {
       .catch(err => toast(err.message, 'error'))
       .finally(() => setLoading(false));
   }, [uid]);
+
+  useEffect(() => { loadItem(); }, [loadItem]);
+
+  // Something else changed this item (the tree moved it): show the server's copy, so a later save cannot undo it.
+  useEffect(() => {
+    const changed = (e) => { if (e.detail?.uid === uid) loadItem(true); };
+    window.addEventListener('reqtool:item-changed', changed);
+    return () => window.removeEventListener('reqtool:item-changed', changed);
+  }, [uid, loadItem]);
 
   const clearSuspect = async (rel) => {
     const sameLink = r => r.type === rel.type && r.target?.uid === rel.target?.uid;
