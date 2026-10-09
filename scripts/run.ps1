@@ -89,7 +89,7 @@ function Assert-Command {
     }
 }
 
-function Initialize-Python {
+function Install-Venv {
     if (Test-Path $VenvPy) { return }
     Assert-Command $SystemPy 'Install Python 3.11 or newer, or set $env:PYTHON.'
     $version = & $SystemPy -c "import sys; print('%d.%d' % sys.version_info[:2])"
@@ -104,6 +104,18 @@ function Initialize-Python {
     & $VenvPy -m pip install --quiet --upgrade pip
     & $VenvPy -m pip install --quiet -e $RepoDir
     if ($LASTEXITCODE -ne 0) { throw 'pip install failed.' }
+}
+
+# Check the other tools reqtool uses (git, Node.js) and install Vale if it is missing. Never fatal, and quiet
+# when everything is there. Runs every time, so a tool that went missing is noticed.
+function Initialize-Tools {
+    & $VenvPy -m reqtool.cli tools --quiet
+    if ($LASTEXITCODE -ne 0) { Write-Note 'A required tool is missing (see above). Run: req tools' }
+}
+
+function Initialize-Python {
+    Install-Venv
+    Initialize-Tools
 }
 
 function Invoke-Npm {

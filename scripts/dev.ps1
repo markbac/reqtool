@@ -126,6 +126,10 @@ function Initialize-Venv {
     Write-Yellow "Installing reqtool (editable) ..."
     & $VenvPip install --quiet -e "$RepoDir[test]"
 
+    # Check the other tools reqtool uses (git, Node.js) and install Vale if it is missing. Never fatal.
+    & $VenvPython -m reqtool.cli tools --quiet
+    if ($LASTEXITCODE -ne 0) { Write-Yellow "A required tool is missing (see above). Run: req tools" }
+
     Write-Green "Environment ready."
     return $VenvDir
 }

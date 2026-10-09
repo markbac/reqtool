@@ -83,6 +83,9 @@ _setup_venv() {
     _yellow "Installing reqtool (editable) ..."
     pip install --quiet -e "$REPO_DIR[test]"
 
+    # Check the other tools reqtool uses (git, Node.js) and install Vale if it is missing. Never fatal.
+    python -m reqtool.cli tools --quiet || _yellow "A required tool is missing (see above). Run: req tools"
+
     _green "Environment ready."
 }
 

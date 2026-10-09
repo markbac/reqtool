@@ -152,3 +152,10 @@ def test_vale_failure_never_breaks_linting(tmp_path):
     binary = _fake_vale(tmp_path, "exit 3\n")
     cfg = parse_settings(merged_settings({"vale": {"enabled": True, "binary": binary}}))
     assert DocLinter(cfg, tmp_path).lint_text("The pump shall run.") is not None
+
+
+@pytest.mark.skipif(vale.find_binary(parse_settings(default_settings()).vale) is None, reason="Vale is not installed (run `req tools`)")
+def test_real_vale_with_the_bundled_incose_style():
+    cfg = parse_settings(merged_settings({"vale": {"enabled": True}}))
+    found = DocLinter(cfg).lint_text("The system shall be user-friendly.")
+    assert any(i.rule.startswith("vale:INCOSE") for i in found)

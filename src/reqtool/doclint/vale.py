@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any, Optional
 
+from .. import tooling
 from .config import ValeSettings
 
 log = logging.getLogger(__name__)
@@ -19,7 +19,8 @@ _SEVERITY = {"error": "error", "warning": "warning", "suggestion": "info"}
 
 
 def find_binary(settings: ValeSettings) -> Optional[str]:
-    return shutil.which(settings.binary or "vale")
+    """The configured command on PATH, or the copy ``req tools`` installed."""
+    return tooling.find_vale(settings.binary or "vale")
 
 
 def status(settings: ValeSettings, repo_root: Optional[Path] = None) -> dict[str, Any]:

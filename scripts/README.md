@@ -2,6 +2,9 @@
 
 Dev runner scripts for reqtool. Run `install` first -- it creates the virtual
 environment, builds the React UI, and installs the Python package in one step.
+Whenever the venv is checked, the scripts also run `req tools`, which checks for git and Node.js and
+downloads [Vale](https://vale.sh) (verified against its published checksum, kept in `~/.reqtool/tools`)
+if it is missing. Run `req tools --check` to see what is installed, or `req tools --force` to retry a failed download.
 
 ## dev.sh (Linux / macOS)
 

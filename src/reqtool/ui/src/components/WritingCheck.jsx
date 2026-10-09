@@ -133,7 +133,7 @@ function Settings({ info, editable, onSaved }) {
 
         <div className="metrics-section-title">Vale</div>
         <div className="wc-vale-status" data-testid="vale-status">
-          {vale.available ? `Vale found${vale.version ? ` (${vale.version})` : ''}` : 'Vale was not found on this machine.'}
+          {vale.available ? `Vale found${vale.version ? ` (${vale.version})` : ''}` : 'Vale was not found on this machine. Run `req tools` on the server to install it.'}
           {vale.message ? ` ${vale.message}` : ''}
         </div>
         <Row label="Use Vale"><input type="checkbox" checked={!!s.vale.enabled} onChange={e => setVale('enabled', e.target.checked)} /></Row>

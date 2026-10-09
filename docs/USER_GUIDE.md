@@ -80,6 +80,15 @@ reqtool validate --json           # Machine-readable JSON output
 reqtool validate --strict         # Treat warnings as blocking errors
 ```
 
+### `reqtool tools` -- Check and Install Tools
+```bash
+reqtool tools                 # check git, Node.js and Vale, and install Vale if it is missing
+reqtool tools --check         # only report
+reqtool tools --force         # try the Vale download again after a failure
+reqtool tools --vale-version 3.9.1
+```
+Vale is downloaded from its GitHub release, checked against the release's SHA-256 sums and kept in `~/.reqtool/tools` (set `REQTOOL_TOOLS_DIR` to move it), so no administrator rights are needed. After a failed download the setup scripts wait 24 hours before trying again. Python and git are required (the command exits 1 without them), Node.js is only needed to build the web UI from source, and installing it is left to you.
+
 ### `reqtool lint` -- Writing Check
 Checks the wording of requirements, principles and decisions with the rules in `.reqtool/lint.yaml` (see section 4.4):
 ```bash
@@ -334,7 +343,7 @@ Code blocks, inline code, URLs and HTML are not checked. Findings show under the
 
 **Settings** are in `.reqtool/lint.yaml` (every setting is written out when the repository is created) and administrators can edit them in More > Writing check > Settings: switch rules on and off, set each rule's severity, choose the fields, and edit the glossary, wordy phrases, vague terms and acronyms that need no definition.
 
-**Vale.** [Vale](https://vale.sh) is an optional prose linter. Install it yourself, then turn on "Use Vale". reqtool generates a Vale configuration from the settings (styles, checks to turn off, lowest alert level, time limit), or uses your own `.vale.ini` if you give its path. Styles go in `.reqtool/vale/styles` unless you set another folder. If Vale is missing or fails, the built-in rules still run and the settings page says Vale was not found.
+**Vale.** [Vale](https://vale.sh) is an optional prose linter. Run `reqtool tools` to download it (the setup scripts `dev.sh`, `dev.ps1` and `run.ps1` do this for you whenever they check the virtual environment), then turn on "Use Vale". reqtool generates a Vale configuration from the settings (styles, checks to turn off, lowest alert level, time limit), or uses your own `.vale.ini` if you give its path. Styles go in `.reqtool/vale/styles` unless you set another folder. If Vale is missing or fails, the built-in rules still run and the settings page says Vale was not found.
 
 ## 5. Modules, Variant Overlays & Parameter Substitution
 
@@ -434,6 +443,8 @@ With `REQTOOL_GITHUB_WEBHOOK_SECRET` set, a signed push webhook to `POST /webhoo
 | Variable | Purpose |
 |---|---|
 | `REQTOOL_AUTH` | `local` or `required`. Same as `--auth`. |
+| `REQTOOL_VALE_VERSION` | The Vale version `reqtool tools` installs (default: the latest release). |
+| `REQTOOL_TOOLS_DIR` | Where `reqtool tools` keeps the tools it installs (default `~/.reqtool/tools`). |
 | `REQTOOL_GITHUB_WEBHOOK_SECRET` | Shared secret for `POST /webhooks/github`. Requests must carry a matching `X-Hub-Signature-256` (HMAC-SHA256 of the body), otherwise `401`. Without a secret the endpoint is disabled (`503`). The endpoint is authenticated by its signature, not by a login. |
 | `REQTOOL_MAX_UPLOAD_MB` | Largest attachment upload in megabytes (default `25`). Larger bodies get `413` and nothing is stored. Each item holds at most 100 attachments (`409` beyond that). |
 | `REQTOOL_CORS_ORIGINS` | Comma-separated extra browser origins allowed to call the API. Localhost origins are always allowed. |
