@@ -956,6 +956,7 @@ function RequirementEditor({ uid }) {
       const updated = await api.requirements.update(uid, draft);
       setReq(updated); setDraft(updated);
       dispatch({ type: 'MARK_CLEAN', uid });
+      window.dispatchEvent(new Event('reqtool:tree-changed'));   // the tree shows title and status
       // Inline validation after save
       const issues = await api.validate.single(uid).catch(() => null);
       setValidationIssues(issues);
@@ -1040,6 +1041,7 @@ function RequirementEditor({ uid }) {
               try {
                 await api.requirements.delete(uid);
                 dispatch({ type: 'DESELECT' });
+                window.dispatchEvent(new Event('reqtool:tree-changed'));
                 toast(`Deleted ${draft.id}`, 'info');
               } catch (err) { toast(err.message, 'error'); }
             }}>Delete</button>

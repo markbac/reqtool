@@ -276,6 +276,8 @@ POST /modules/{module_id}/fetch-remote:
   status: surfaced
 POST /modules/{module_id}/import:
   status: surfaced
+POST /products/{product_id}/modules:
+  status: surfaced
 POST /modules/{module_id}/pin:
   status: surfaced
 POST /modules/{module_id}/version:

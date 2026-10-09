@@ -109,6 +109,19 @@ def import_module(module_id: str, product_id: str = "", store: Store = Depends(g
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e)})
 
 
+@router.post("/products/{product_id}/modules", status_code=201, tags=["products"])
+def include_module(product_id: str, body: dict[str, Any], store: Store = Depends(get_store)):
+    """Make a product include a module and lock the version it now has."""
+    module_id = str(body.get("module_id", "")).strip()
+    if not module_id:
+        raise HTTPException(status_code=422, detail={"error": "validation", "message": "module_id is required"})
+    try:
+        lock = store.include_module(product_id, module_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail={"error": "not_found", "message": str(e)})
+    return {"status": "ok", "product": product_id, "module": module_id, "locked_entries": len(lock.get("locked", []))}
+
+
 @router.post("/modules/{module_id}/fetch-remote", tags=["modules"])
 def fetch_remote_module(module_id: str, store: Store = Depends(get_store)):
     try:

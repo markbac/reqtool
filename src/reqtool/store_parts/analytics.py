@@ -7,12 +7,14 @@ from typing import Any, Optional
 
 from reqtool.graph import relationship_target
 
+from reqtool.store_parts._host import StoreHost
+
 log = logging.getLogger(__name__)
 
 STRATEGIC_TYPES = ("theme", "initiative")
 
 
-class AnalyticsMixin:
+class AnalyticsMixin(StoreHost):
     def compute_impact(self, uid: str) -> dict[str, Any]:
         """
         Return the transitive downstream impact closure for a requirement.

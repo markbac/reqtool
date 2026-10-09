@@ -103,6 +103,7 @@ jobs:
             --ignore=tests/test_features_v04.py \
             --ignore=tests/test_api.py \
             --ignore=tests/test_regression.py \
+            --ignore=tests/e2e \
             --timeout=60 \
             -v \
             --tb=short \
@@ -302,11 +303,58 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
+  # Browser tests (QA-02): the built UI in Chromium against a real `req serve`
+  # ---------------------------------------------------------------------------
+  e2e:
+    name: Browser tests
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: src/reqtool/ui/package-lock.json
+
+      - name: Build the UI
+        working-directory: src/reqtool/ui
+        run: |
+          npm install --legacy-peer-deps
+          npm run build
+
+      - name: Install package, test and browser extras
+        run: pip install -e ".[test,e2e]"
+
+      - name: Install Chromium
+        run: playwright install --with-deps chromium
+
+      # REQTOOL_E2E_REQUIRED turns a missing browser or UI build into a failure instead of a skip.
+      - name: Run browser tests
+        run: REQTOOL_E2E_REQUIRED=1 pytest tests/e2e --timeout=120 -v --tb=short
+
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-failures
+          path: test-results
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
   # Build: confirm the wheel builds and installs cleanly
   # ---------------------------------------------------------------------------
   build:
     name: Build wheel
-    needs: [test-core, test-features, test-api, ui-build]
+    needs: [test-core, test-features, test-api, ui-build, e2e]
     runs-on: ubuntu-latest
 
     steps:

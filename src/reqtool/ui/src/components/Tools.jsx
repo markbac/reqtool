@@ -160,6 +160,7 @@ export function BulkUpdatePanel({ onClose, onDone }) {
     try {
       const res = await api.requirements.bulk({ uids, fields: patch, summary: 'Bulk update' });
       toast(`Updated ${res.count} requirement(s)`, 'success');
+      window.dispatchEvent(new Event('reqtool:tree-changed'));
       onDone?.();
       onClose();
     } catch (err) { toast(err.message, 'error'); }

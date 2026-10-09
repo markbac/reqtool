@@ -223,6 +223,7 @@ export function KanbanPanel() {
 
     try {
       await api.requirements.transition(uid, targetState);
+      window.dispatchEvent(new Event('reqtool:tree-changed'));
       toast(`Moved to ${targetState.replace(/_/g, ' ')}`, 'success', 1500);
     } catch (err) {
       toast(`Could not move: ${err.message}`, 'error');
@@ -239,6 +240,7 @@ export function KanbanPanel() {
         req_type: typeFilter || 'story',
       });
       dispatch({ type: 'SELECT', uid: item.uid, artefactType: 'requirement' });
+      window.dispatchEvent(new Event('reqtool:tree-changed'));
       await load();
       toast(`Created ${item.id}`, 'success');
     } catch (err) {

@@ -11,10 +11,28 @@ from .locking import _locked
 from .remote import _git_remote, _validate_remote_ref, _validate_remote_url
 
 
+from reqtool.store_parts._host import StoreHost
+
 log = logging.getLogger(__name__)
 
 
-class ModuleOpsMixin:
+class ModuleOpsMixin(StoreHost):
+    @_locked
+    def include_module(self, product_id: str, module_id: str) -> dict[str, Any]:
+        """Add ``module_id`` to the product's module list (once) and lock it. Returns the lock."""
+        from reqtool.fileio import compute_product_hash
+        if product_id not in self.products:
+            raise ValueError(f"Product '{product_id}' not found")
+        if module_id not in self.modules:
+            raise ValueError(f"Module '{module_id}' not found")
+        product = self.products[product_id]
+        if not any(m.get("id") == module_id for m in product.get("modules") or []):
+            product["modules"] = list(product.get("modules") or []) + [{"id": module_id}]
+            product["last_modified"] = utcnow_iso()
+            product["content_hash"] = compute_product_hash(product)
+            save_yaml(self.root / "products" / validate_id(product_id, "product id") / "_product.yaml", product)
+        return self.import_module(product_id, module_id)
+
     @_locked
     def import_module(
         self,

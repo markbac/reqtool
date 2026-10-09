@@ -53,6 +53,9 @@ test = [
     "pypdf>=4.0",
     "fonttools>=4.40",
 ]
+e2e = [
+    "playwright>=1.45",
+]
 lint = [
     "ruff",
     "mypy>=1.10",

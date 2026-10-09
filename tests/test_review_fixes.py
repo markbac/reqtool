@@ -408,6 +408,7 @@ def test_evt03_handler_exceptions_do_not_escape(store):
 
     class Event:
         is_directory = False
+        event_type = "modified"
         src_path = "/x/requirements/a.yaml"
     store.reload_file = lambda p: (_ for _ in ()).throw(ValueError("boom"))
     make_handler(store).on_any_event(Event())  # must not raise

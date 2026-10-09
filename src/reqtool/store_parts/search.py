@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from reqtool.store_parts._host import StoreHost
 
 
-class SearchMixin:
+
+class SearchMixin(StoreHost):
     def search_uids(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
         """Search requirements, principles, and TBDs by ID or title fragment."""
         q = query.lower().strip()

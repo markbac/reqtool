@@ -305,8 +305,10 @@ def add_webhook(body: dict[str, Any], store: Store = Depends(get_store)):
     hooks = cfg.get("webhooks", [])
     hooks.append(hook.model_dump())
     cfg["webhooks"] = hooks
-    save_yaml(config_path, cfg)
+    # Update memory before the file: saving makes the watcher reload the config from disk, and appending
+    # after that reload would list the hook twice.
     store.config.webhooks.append(hook)
+    save_yaml(config_path, cfg)
     return _redact_hook(hook.model_dump())
 
 

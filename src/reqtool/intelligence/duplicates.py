@@ -28,8 +28,8 @@ def _find_duplicates(store: Store, threshold: float) -> list[dict[str, Any]]:
     tokens = [_tokenize(f"{r.get('title') or ''} {(r.get('content') or {}).get('description') or ''}") for r in reqs]
 
     freq: dict[str, int] = {}
-    for toks in tokens:
-        for t in toks:
+    for token_set in tokens:
+        for t in token_set:
             freq[t] = freq.get(t, 0) + 1
     order = lambda t: (freq[t], t)  # rarest first, ties broken by text so the order is total
 

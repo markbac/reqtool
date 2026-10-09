@@ -471,3 +471,60 @@ def test_ui_coverage_reverse_check_flags_unknown_call(monkeypatch):
     spec.loader.exec_module(chk)
     monkeypatch.setattr(chk, "ui_calls", lambda: {("GET", "/definitely/not/an/endpoint")})
     assert any("does not declare" in p for p in chk.problems())
+
+
+# --- file watcher must not reload because the tool itself read a file ---------------
+
+def test_watcher_ignores_read_only_events(repo_root):
+    from types import SimpleNamespace
+    from reqtool.watcher import make_handler
+    reloaded = []
+    handler = make_handler(SimpleNamespace(reload_file=reloaded.append))
+    path = str(repo_root / ".reqtool" / "config.yaml")
+    for kind in ("opened", "closed_no_write"):
+        handler.on_any_event(SimpleNamespace(is_directory=False, src_path=path, event_type=kind))
+    assert reloaded == []
+    handler.on_any_event(SimpleNamespace(is_directory=False, src_path=path, event_type="modified"))
+    assert len(reloaded) == 1
+
+
+def test_watcher_follows_an_atomic_save_to_the_destination(repo_root):
+    """An editor (or ``save_yaml``) writes a temporary file and renames it over the target."""
+    from types import SimpleNamespace
+    from reqtool.watcher import make_handler
+    reloaded = []
+    handler = make_handler(SimpleNamespace(reload_file=reloaded.append))
+    target = str(repo_root / "requirements" / "a.yaml")
+    handler.on_any_event(SimpleNamespace(is_directory=False, event_type="moved", src_path=target + ".tmp",
+                                         dest_path=target))
+    assert [str(p) for p in reloaded] == [target]
+
+
+def test_running_watcher_does_not_reload_in_a_loop(repo_root):
+    """Reloading reads files, and reads are events too: that once made the store reload forever."""
+    import shutil
+    import time
+    from importlib.resources import files
+    for name in ("enums.yaml", "workflow.yaml", "hierarchy.yaml"):
+        shutil.copy(str(files("reqtool") / "defaults" / name), repo_root / ".reqtool" / name)
+    app = create_app(repo_root, enable_watcher=True)
+    with TestClient(app):
+        store = app.state.store
+        before = store._revision
+        store.reload_file(repo_root / ".reqtool" / "config.yaml")  # one genuine full reload
+        time.sleep(1.5)
+        assert store._revision - before <= 3
+
+
+def test_including_a_module_adds_it_to_the_product_and_locks_it(c):
+    assert c.post("/products", json={"id": "p1", "title": "P"}).status_code == 201
+    assert c.post("/modules", json={"id": "m1", "title": "M"}).status_code == 201
+    r = c.post("/products/p1/modules", json={"module_id": "m1"})
+    assert r.status_code == 201 and r.json()["locked_entries"] == 1
+    assert c.post("/products/p1/modules", json={"module_id": "m1"}).status_code == 201  # repeating changes nothing
+    assert [m["id"] for m in c.get("/products/p1").json()["modules"]] == ["m1"]
+    assert [x["product"] for x in c.get("/modules/m1/consumers").json()] == ["p1"]
+    assert c.get("/modules/m1/verify", params={"product_id": "p1"}).json()["verified"] is True
+    assert c.post("/products/p1/modules", json={"module_id": "nope"}).status_code == 404
+    assert c.post("/products/p1/modules", json={}).status_code == 422
+    assert c.post("/products/zzz/modules", json={"module_id": "m1"}).status_code == 404

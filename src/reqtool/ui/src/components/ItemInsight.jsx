@@ -145,7 +145,7 @@ export default function ItemInsight({ uid, draft, version }) {
       </div>
       <details><summary className="ins-muted">Raw progress and impact data</summary>
         <pre style={{ fontSize: 11, overflow: 'auto' }}>{JSON.stringify({ progress, impact }, null, 2)}</pre></details>
-      <button className="btn btn-ghost" onClick={() => act(async () => { const c = await api.requirements.clone(uid); open(c.uid); }, 'Cloned')}>Clone this item</button>
+      <button className="btn btn-ghost" onClick={() => act(async () => { const c = await api.requirements.clone(uid); window.dispatchEvent(new Event('reqtool:tree-changed')); open(c.uid); }, 'Cloned')}>Clone this item</button>
 
       <h4>Writing quality (advisory)</h4>
       {findings.length === 0 ? <div className="ins-muted">No suggestions.</div>

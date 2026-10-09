@@ -14,6 +14,8 @@ from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
+# Event types that mean the file changed. Others (opened, closed_no_write) come from reading it.
+CHANGE_EVENTS = ("created", "modified", "deleted", "moved", "closed")
 WATCHED_DIRS = ("requirements", "principles", "decisions", "tbds", "modules", "products", ".reqtool")
 
 
@@ -22,16 +24,26 @@ def make_handler(store: Any):
 
     class ReloadHandler(FileSystemEventHandler):
         def on_any_event(self, event):
-            if event.is_directory or not str(event.src_path).endswith(".yaml"):
+            if event.is_directory:
                 return
-            # An exception escaping a watchdog handler kills the observer thread, so no later
-            # change would ever be seen: log it and carry on.
-            try:
-                changed = Path(event.src_path)
-                log.debug("File changed: %s", changed)
-                store.reload_file(changed)
-            except Exception:
-                log.exception("Could not reload %s", event.src_path)
+            # Reading a file is itself an event ("opened", "closed_no_write") on newer watchdog versions.
+            # Reacting to those makes every reload cause the next one, so only real changes count.
+            if event.event_type not in CHANGE_EVENTS:
+                return
+            # An atomic save (ours, or an editor's) writes a temporary file and renames it over the target, so
+            # the file that changed is the destination of a move, and a file renamed away has changed too.
+            paths = [str(event.src_path), str(getattr(event, "dest_path", "") or "")]
+            for raw in paths:
+                if not raw.endswith(".yaml"):
+                    continue
+                # An exception escaping a watchdog handler kills the observer thread, so no later
+                # change would ever be seen: log it and carry on.
+                try:
+                    changed = Path(raw)
+                    log.debug("File changed: %s", changed)
+                    store.reload_file(changed)
+                except Exception:
+                    log.exception("Could not reload %s", raw)
 
     return ReloadHandler()
 

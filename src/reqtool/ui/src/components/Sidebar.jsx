@@ -316,8 +316,13 @@ function RequirementsPanel() {
       </div>
     </div>
   );
-  if (loading) return <div className="sidebar-loading"><div className="spinner" /></div>;
-  if (error)   return <div className="sidebar-error">{error}</div>;
+  if (loading && tree.length === 0) return <div className="sidebar-loading"><div className="spinner" /></div>;
+  if (error)   return (
+    <div className="sidebar-error">
+      <div>{error}</div>
+      <button className="btn btn-secondary" style={{ marginTop: 8, fontSize: 11 }} onClick={load}>Retry</button>
+    </div>
+  );
 
   return (
     <>

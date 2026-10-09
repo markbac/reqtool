@@ -45,6 +45,19 @@ npm run build # writes src/reqtool/ui/dist/
 
 See `tests/README.md` for details on what each suite covers.
 
+### Browser tests
+
+`tests/e2e/` drives the built UI in Chromium against a real `req serve` process on a throw-away git repository: creating, editing, committing and deleting items, the tree and its context menu, the board, every panel under the header menu, edits made on disk, a server restart, and the `--auth required` login. They are skipped when Playwright or the UI build is missing, so the ordinary suite is unaffected.
+
+```bash
+pip install -e ".[test,e2e]"
+playwright install chromium
+(cd src/reqtool/ui && npm install --legacy-peer-deps && npm run build)
+pytest tests/e2e                     # REQTOOL_E2E_REQUIRED=1 makes a missing piece an error (CI does this)
+```
+
+Each test gets its own repository and server. A test fails on any console error, uncaught exception or unexpected HTTP 4xx/5xx; one that provokes an error on purpose says so with `@pytest.mark.expect_http(409)`. The page is offline except for the test server. On failure a screenshot is written to `test-results/`. Wait with `helpers.wait_until` or Playwright's `expect`, never `time.sleep`: the offline route handler runs in the test thread, so a plain sleep freezes the page.
+
 ## Static checks
 
 CI runs `ruff`, `mypy` and `import-linter` in the lint job. To run them locally:

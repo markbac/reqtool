@@ -73,7 +73,7 @@ def record_approval(store, uid: str, approver: str) -> None:
             _save(store, rows)
 
 
-def approvals(store, uid: str) -> list[dict[str, Any]]:
+def approvals(store, uid: str) -> dict[str, Any]:
     """Who approved which version: the signed approval plus earlier ones from the history."""
     req = store.get_requirement(uid)
     if req is None:

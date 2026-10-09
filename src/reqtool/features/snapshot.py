@@ -93,7 +93,7 @@ def build_site(store, out_dir: Path, baseline: Optional[str] = None) -> dict[str
         i = names.index(ref)
         previous = names[i - 1] if i else None
     change_html = ""
-    if previous:
+    if previous and ref:
         d = ref_diff(store.root, previous, ref)
         change_html = (f"<h2>Changes since {_e(previous.removeprefix('baseline/'))}</h2><p>{len(d['added'])} added, "
                        f"{len(d['removed'])} removed, {len(d['modified'])} modified</p><ul>"

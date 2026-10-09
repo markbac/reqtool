@@ -2275,6 +2275,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /products/{product_id}/modules:
+    post:
+      tags:
+      - products
+      summary: Include Module
+      description: Make a product include a module and lock the version it now has.
+      operationId: include_module_products__product_id__modules_post
+      parameters:
+      - name: product_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Product Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /modules/{module_id}/fetch-remote:
     post:
       tags:

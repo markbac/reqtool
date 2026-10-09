@@ -5,10 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from reqtool.store_parts._host import StoreHost
+
 from reqtool.fileio import load_yaml, save_yaml
 
 
-class PresetsMixin:
+class PresetsMixin(StoreHost):
     def _presets_path(self) -> Path:
         return self.root / ".reqtool" / "filter_presets.yaml"
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import Optional
 
 from . import __version__
 
@@ -88,7 +89,7 @@ def write_base_repo(root: Path, repo_id: str, title: str, theme: str = "dark") -
         pass
 
 
-def write_enums(root: Path, domains: list, nfr_keys: list = None, id_domain: dict = None) -> None:
+def write_enums(root: Path, domains: list, nfr_keys: Optional[list] = None, id_domain: Optional[dict] = None) -> None:
     from .fileio import save_yaml
     save_yaml(root / ".reqtool" / "enums.yaml", {
         "domain": domains,
