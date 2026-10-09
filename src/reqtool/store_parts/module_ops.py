@@ -6,9 +6,9 @@ from typing import Any
 
 import logging
 
-from reqtool.fileio import load_yaml, save_yaml, utcnow_iso, validate_id
+from reqtool.fileio import utcnow_iso, validate_id
+from reqtool.vcs import _validate_remote_ref, _validate_remote_url
 from .locking import _locked
-from .remote import _git_remote, _validate_remote_ref, _validate_remote_url
 
 
 from reqtool.store_parts._host import StoreHost
@@ -30,7 +30,7 @@ class ModuleOpsMixin(StoreHost):
             product["modules"] = list(product.get("modules") or []) + [{"id": module_id}]
             product["last_modified"] = utcnow_iso()
             product["content_hash"] = compute_product_hash(product)
-            save_yaml(self.root / "products" / validate_id(product_id, "product id") / "_product.yaml", product)
+            self.storage.write(self.root / "products" / validate_id(product_id, "product id") / "_product.yaml", product)
         return self.import_module(product_id, module_id)
 
     @_locked
@@ -46,7 +46,6 @@ class ModuleOpsMixin(StoreHost):
         Returns the lock dict.
         """
         import hashlib
-        from reqtool.git_ops import _run_git
 
         if product_id not in self.products:
             raise ValueError(f"Product '{product_id}' not found")
@@ -54,15 +53,14 @@ class ModuleOpsMixin(StoreHost):
             raise ValueError(f"Module '{module_id}' not found")
 
         module_dir = self.root / "modules" / validate_id(module_id, "module id")
-        module_files = sorted(p for p in module_dir.glob("*.yaml") if not p.name.startswith("_"))
+        module_files = [p for p in self.storage.list_yaml(module_dir) if not p.name.startswith("_")]
         h = hashlib.sha256()
         for f in module_files:
-            h.update(f.read_bytes())
+            h.update(self.storage.read_bytes(f))
         content_hash = f"sha256:{h.hexdigest()}"
 
         # Try to get the current git SHA
-        rc, sha, _ = _run_git(["rev-parse", "HEAD"], self.root)
-        commit_sha = sha[:40] if rc == 0 else ""
+        commit_sha = self.vcs.head_commit(self.root)
 
         module_manifest = self.modules[module_id]
         version = module_manifest.get("version", "1.0.0")
@@ -80,9 +78,9 @@ class ModuleOpsMixin(StoreHost):
         }
 
         lock_path = self.root / "products" / validate_id(product_id, "product id") / "_product.lock"
-        if lock_path.exists():
+        if self.storage.exists(lock_path):
             try:
-                existing = load_yaml(lock_path)
+                existing = self.storage.read(lock_path)
                 locked_list = existing.get("locked", [])
             except Exception:
                 locked_list = []
@@ -99,7 +97,7 @@ class ModuleOpsMixin(StoreHost):
             "generated_by": locked_by,
             "locked": locked_list,
         }
-        save_yaml(lock_path, lock_data)
+        self.storage.write(lock_path, lock_data)
         log.info("Lock written: %s (module %s)", lock_path, module_id)
         return lock_data
 
@@ -108,10 +106,10 @@ class ModuleOpsMixin(StoreHost):
         import hashlib
         validate_id(module_id, "module id")
         lock_path = self.root / "products" / validate_id(product_id, "product id") / "_product.lock"
-        if not lock_path.exists():
+        if not self.storage.exists(lock_path):
             return {"verified": False, "reason": "lock file missing"}
         try:
-            lock = load_yaml(lock_path)
+            lock = self.storage.read(lock_path)
         except Exception as e:
             return {"verified": False, "reason": f"lock parse error: {e}"}
 
@@ -120,10 +118,10 @@ class ModuleOpsMixin(StoreHost):
             return {"verified": False, "reason": f"module '{module_id}' not in lock"}
 
         module_dir = self.root / "modules" / validate_id(module_id, "module id")
-        files = sorted(p for p in module_dir.glob("*.yaml") if not p.name.startswith("_"))
+        files = [p for p in self.storage.list_yaml(module_dir) if not p.name.startswith("_")]
         h = hashlib.sha256()
         for f in files:
-            h.update(f.read_bytes())
+            h.update(self.storage.read_bytes(f))
         computed = f"sha256:{h.hexdigest()}"
 
         if computed == locked.get("content_hash", ""):
@@ -144,9 +142,9 @@ class ModuleOpsMixin(StoreHost):
         validate_id(module_id, "module id")
 
         manifest_path = self.root / "modules" / module_id / "_module.yaml"
-        if not manifest_path.exists():
+        if not self.storage.exists(manifest_path):
             raise ValueError(f"Module manifest for '{module_id}' not found")
-        data = load_yaml(manifest_path)
+        data = self.storage.read(manifest_path)
         git_remote = str(data.get("git_remote", "")).strip()
         git_ref = str(data.get("git_ref", "main")).strip()
         if not git_remote:
@@ -156,20 +154,13 @@ class ModuleOpsMixin(StoreHost):
         _validate_remote_ref(git_ref)
 
         target_dir = self.root / "modules" / module_id / "remote"
-        target_dir.mkdir(parents=True, exist_ok=True)
-        if (target_dir / ".git").exists():
-            _git_remote(["fetch", "origin"], target_dir)
-            _git_remote(["checkout", git_ref, "--"], target_dir)
-        else:
-            _git_remote(["clone", "--branch", git_ref, "--", git_remote, str(target_dir)], self.root)
+        self.vcs.fetch_checkout(git_remote, git_ref, target_dir, self.root)
 
         # Record exactly what was fetched, so a moving branch cannot change a module unnoticed (FEAT-08).
-        from reqtool.git_ops import _run_git
-        code, commit, _ = _run_git(["rev-parse", "HEAD"], target_dir)
-        commit = commit.strip() if code == 0 else ""
+        commit = self.vcs.head_commit(target_dir)
         if commit and data.get("pinned_commit") != commit:
             data["pinned_commit"] = commit
-            save_yaml(manifest_path, data)
+            self.storage.write(manifest_path, data)
 
         self._load_modules()
         return {"status": "fetched", "module_id": module_id, "git_remote": git_remote, "git_ref": git_ref,

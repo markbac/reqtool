@@ -23,7 +23,7 @@ router = APIRouter()
 
 @router.get("/modules", tags=["modules"])
 def list_modules(store: Store = Depends(get_store)):
-    return list(store.modules.values())
+    return list(store.module_map().values())
 
 
 def _module_call(fn, *args, **kwargs):
@@ -56,7 +56,7 @@ def clone_module(module_id: str, body: dict[str, Any], store: Store = Depends(ge
 
 @router.get("/modules/{module_id}/consumers", tags=["modules"])
 def module_consumers(module_id: str, store: Store = Depends(get_store)):
-    if module_id not in store.modules:
+    if module_id not in store.module_map():
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Module '{module_id}' not found"})
     return registry.consumers(store, module_id)
 
@@ -75,12 +75,12 @@ def module_update_preview(module_id: str, ref: str, store: Store = Depends(get_s
 
 @router.get("/modules/{module_id}", tags=["modules"])
 def get_module(module_id: str, store: Store = Depends(get_store)):
-    m = store.modules.get(module_id)
+    m = store.module_map().get(module_id)
     if m is None:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Module '{module_id}' not found"})
     return {
         "manifest": m,
-        "requirements": list(store.module_requirements.get(module_id, {}).values()),
+        "requirements": list(store.module_requirement_map().get(module_id, {}).values()),
     }
 
 
@@ -88,7 +88,7 @@ def get_module(module_id: str, store: Store = Depends(get_store)):
 def import_module(module_id: str, product_id: str = "", store: Store = Depends(get_store)):
     if not product_id:
         results = []
-        for pid, product in store.products.items():
+        for pid, product in store.product_map().items():
             if any(m.get("id") == module_id for m in product.get("modules", [])):
                 try:
                     lock = store.import_module(pid, module_id)
@@ -133,7 +133,7 @@ def fetch_remote_module(module_id: str, store: Store = Depends(get_store)):
 @router.get("/modules/{module_id}/verify", tags=["modules"])
 def verify_module(module_id: str, product_id: str = "", store: Store = Depends(get_store)):
     if not product_id:
-        for pid, product in store.products.items():
+        for pid, product in store.product_map().items():
             if any(m.get("id") == module_id for m in product.get("modules", [])):
                 product_id = pid
                 break
@@ -147,7 +147,7 @@ def verify_module(module_id: str, product_id: str = "", store: Store = Depends(g
 
 @router.get("/products", tags=["products"])
 def list_products(store: Store = Depends(get_store)):
-    return list(store.products.values())
+    return list(store.product_map().values())
 
 
 @router.post("/products", status_code=201, tags=["products"])
@@ -157,7 +157,7 @@ def create_product(body: dict[str, Any], store: Store = Depends(get_store)):
     if not product_id:
         raise HTTPException(status_code=422, detail={"error": "validation", "message": "id is required"})
     validate_id(product_id, "product id")
-    if product_id in store.products:
+    if product_id in store.product_map():
         raise HTTPException(status_code=409, detail={"error": "conflict", "message": f"Product '{product_id}' already exists"})
     prod_dir = store.root / "products" / product_id
     if not prod_dir.resolve().is_relative_to((store.root / "products").resolve()):
@@ -175,13 +175,13 @@ def create_product(body: dict[str, Any], store: Store = Depends(get_store)):
     }
     product["content_hash"] = compute_product_hash(product)
     save_yaml(prod_dir / "_product.yaml", product)
-    store.products[product_id] = product
+    store.register_product(product_id, product)
     return product
 
 
 @router.get("/products/{product_id}", tags=["products"])
 def get_product(product_id: str, store: Store = Depends(get_store)):
-    p = store.products.get(product_id)
+    p = store.product_map().get(product_id)
     if p is None:
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Product '{product_id}' not found"})
     return p
@@ -195,7 +195,7 @@ def product_tree(product_id: str, variant: Optional[str] = None, store: Store = 
 @router.get("/products/{product_id}/matrix", tags=["products"])
 def product_matrix(product_id: str, store: Store = Depends(get_store)):
     """Allocation matrix: requirements x teams."""
-    if product_id not in store.products:
+    if product_id not in store.product_map():
         raise HTTPException(status_code=404, detail={"error": "not_found", "message": f"Product '{product_id}' not found"})
     in_product: set[str] = set()
 
@@ -204,7 +204,7 @@ def product_matrix(product_id: str, store: Store = Depends(get_store)):
             in_product.add(n["uid"])
             collect(n.get("children", []))
     collect(store.build_tree(product_id))
-    known = {**{u: r for mod in store.module_requirements.values() for u, r in mod.items()}, **store.requirements}
+    known = {**{u: r for mod in store.module_requirement_map().values() for u, r in mod.items()}, **store.requirement_map()}
     reqs = [r for u, r in known.items() if u in in_product and not r.get("deleted")]
     teams: set[str] = set()
     for req in reqs:

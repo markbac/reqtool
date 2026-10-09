@@ -19,7 +19,7 @@ APPROVED_STATES = ("approved", "baselined", "verified")
 
 
 def _live(store) -> dict[str, dict]:
-    return {u: r for u, r in store.requirements.items() if not r.get("deleted")}
+    return {u: r for u, r in store.requirement_map().items() if not r.get("deleted")}
 
 
 def _ref(r: dict) -> dict:
@@ -111,12 +111,12 @@ def lifecycle(store, uid: str) -> Optional[dict[str, Any]]:
 
 def _baselined_uids(store) -> dict[str, list[str]]:
     """uid -> baseline names whose tagged tree contains the requirement file (empty without git)."""
-    from reqtool.git_ops import git_list_tags, is_git_repo, _run_git
+    from reqtool.git_ops import git_list_tags, is_git_repo, run_git
     out: dict[str, list[str]] = {}
     if not is_git_repo(store.root):
         return out
     for tag in git_list_tags(store.root, prefix="baseline/"):
-        code, listing, _ = _run_git(["ls-tree", "-r", "--name-only", tag["name"], "--", "requirements"], store.root)
+        code, listing, _ = run_git(["ls-tree", "-r", "--name-only", tag["name"], "--", "requirements"], store.root)
         if code != 0:
             continue
         for path in listing.splitlines():
@@ -129,7 +129,7 @@ def _baselined_uids(store) -> dict[str, list[str]]:
 # --- ENH-03 overview --------------------------------------------------------------
 
 def overview(store, product_id: Optional[str] = None) -> dict[str, Any]:
-    reqs = store.resolved_requirements(product_id) if product_id else store.requirements
+    reqs = store.resolved_requirements(product_id) if product_id else store.requirement_map()
     live = [r for r in reqs.values() if not r.get("deleted")]
     total = len(live)
     approved = sum(1 for r in live if r.get("status") in APPROVED_STATES)
@@ -142,7 +142,7 @@ def overview(store, product_id: Optional[str] = None) -> dict[str, Any]:
     result = validate_all(store)
     return {
         "product": product_id,
-        "counts": {"requirements": total, "modules": len(store.modules), "products": len(store.products),
+        "counts": {"requirements": total, "modules": len(store.module_map()), "products": len(store.product_map()),
                    "open_tbds": sum(1 for t in store.live_tbds() if t.get("status") in ("open", "in_progress")),
                    "decisions": len(store.live_decision_records())},
         "by_status": by_status,
@@ -212,7 +212,7 @@ def impact_preview(store, uid: str, proposed: dict[str, Any]) -> Optional[dict[s
 def release_readiness(store, product_id: Optional[str] = None) -> dict[str, Any]:
     """Policy findings that should stop a release. ``ready`` is true when there are none."""
     from reqtool.git_ops import dirty_paths, is_git_repo
-    reqs = store.resolved_requirements(product_id) if product_id else store.requirements
+    reqs = store.resolved_requirements(product_id) if product_id else store.requirement_map()
     findings: list[dict[str, str]] = []
 
     def add(code: str, req: dict, message: str) -> None:

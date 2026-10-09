@@ -142,3 +142,55 @@ def review_first(client, uid, headers=None):
     for state in ("in_review", "reviewed"):
         r = client.post(f"/requirements/{uid}/transition", json={"to_state": state}, headers=headers)
         assert r.status_code == 200, r.text
+
+
+# ---------------------------------------------------------------------------
+# Agile fixture repository (QA-01)
+# ---------------------------------------------------------------------------
+# The IoT demo has no theme, initiative or feature items and almost everything is a draft, so the defects in
+# the agile hierarchy could not show up in it. This one has every level and items in several states.
+
+_DESCRIBED = {"description": "Described so that the item validates cleanly."}
+
+
+def build_agile_repo(client: TestClient) -> dict:
+    """Theme > initiative > epic > feature > story > task, plus a bug and a spike, in mixed workflow states.
+
+    Returns each item under a short key. Statuses: the theme is active, one story is done, one is in progress,
+    one is in review and the rest are backlog or draft.
+    """
+    def make(key, req_type, parent=None, **extra):
+        fields = {"title": f"{req_type.title()} {key}", "req_type": req_type, "content": _DESCRIBED, **extra}
+        if parent:
+            fields["parentId"] = items[parent]["uid"]
+        items[key] = make_req(client, **fields)
+
+    def move(key, *states):
+        for state in states:
+            r = client.post(f"/requirements/{items[key]['uid']}/transition", json={"to_state": state})
+            assert r.status_code == 200, (key, state, r.text)
+            items[key] = r.json()
+
+    items: dict = {}
+    make("theme", "theme")
+    make("initiative", "initiative", "theme")
+    make("epic", "epic", "initiative")
+    make("feature", "feature", "epic")
+    make("story_done", "story", "feature")
+    make("story_doing", "story", "feature")
+    make("story_review", "story", "feature")
+    make("story_new", "story", "feature")
+    make("task", "task", "story_doing")
+    make("bug", "bug", "story_doing")
+    make("spike", "spike", "epic")
+    move("theme", "active")
+    move("story_done", "ready", "in_progress", "in_review", "done")
+    move("story_doing", "ready", "in_progress")
+    move("story_review", "ready", "in_progress", "in_review")
+    return items
+
+
+@pytest.fixture
+def agile_client(client: TestClient):
+    """``(client, items)``: a TestClient over a repository holding every level of the agile hierarchy."""
+    return client, build_agile_repo(client)

@@ -22,6 +22,7 @@ from . import __version__
 from .watcher import start_watcher, stop_watcher
 from .store import Store
 from .fileio import InvalidId
+from .services.errors import ServiceError
 from .git_ops import InvalidRef, has_conflicts
 from .store import UnknownParent, ParentCycle, HierarchyViolation, RelationshipViolation, DuplicateId
 from .routers import (
@@ -119,6 +120,10 @@ def create_app(repo_root: Path, auth_mode: str | None = None, enable_watcher: bo
     @app.exception_handler(InvalidRef)
     async def _invalid_input_handler(request, exc):
         return JSONResponse(status_code=422, content={"detail": {"error": "validation", "message": str(exc)}})
+
+    @app.exception_handler(ServiceError)
+    async def _service_error_handler(request, exc):
+        return JSONResponse(status_code=exc.status, content={"detail": exc.detail})
 
     @app.exception_handler(ParentCycle)
     async def _parent_cycle_handler(request, exc):

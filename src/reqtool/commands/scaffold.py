@@ -159,7 +159,7 @@ def init_defaults(repo: Optional[str], title: str, repo_id: str):
                 principle_count += 1
 
     by_domain: dict[str, int] = {}
-    for p in store.principles.values():
+    for p in store.principle_map().values():
         d = p.get("domain") or "unclassified"
         by_domain[d] = by_domain.get(d, 0) + 1
 

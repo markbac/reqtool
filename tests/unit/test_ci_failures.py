@@ -2,7 +2,7 @@
 import importlib.util
 from pathlib import Path
 
-spec = importlib.util.spec_from_file_location("ci_failures", Path(__file__).parent.parent / "scripts" / "ci_failures.py")
+spec = importlib.util.spec_from_file_location("ci_failures", Path(__file__).resolve().parents[2] / "scripts" / "ci_failures.py")
 ci_failures = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ci_failures)
 

@@ -9,13 +9,13 @@ from __future__ import annotations
 from typing import Any
 
 from reqtool.fileio import yaml_loads_safe
-from reqtool.git_ops import _run_git
+from reqtool.git_ops import run_git
 
 IGNORED = {"history", "last_modified", "content_hash", "tool_version"}
 
 
 def _show(root, ref: str, path: str) -> dict | None:
-    code, text, _ = _run_git(["show", f"{ref}:{path}"], root)
+    code, text, _ = run_git(["show", f"{ref}:{path}"], root)
     data = yaml_loads_safe(text) if code == 0 else None
     return data if isinstance(data, dict) else None
 
@@ -36,7 +36,7 @@ def field_changes(old: dict, new: dict, prefix: str = "") -> list[dict[str, Any]
 
 def ref_diff(root, ref_a: str, ref_b: str, folder: str = "requirements") -> dict[str, Any]:
     """Added, removed and modified items between two refs, with the changed fields of each modified item."""
-    code, out, err = _run_git(["diff", "--name-status", "--no-renames", ref_a, ref_b, "--", folder], root)
+    code, out, err = run_git(["diff", "--name-status", "--no-renames", ref_a, ref_b, "--", folder], root)
     if code != 0:
         raise ValueError(err.strip() or "git diff failed")
     result: dict[str, Any] = {"from": ref_a, "to": ref_b, "added": [], "removed": [], "modified": []}

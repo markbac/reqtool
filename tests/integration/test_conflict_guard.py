@@ -5,7 +5,7 @@ import time
 
 from reqtool.git_ops import has_conflicts
 from tests.conftest import make_req
-from tests.test_baseline_diff import _commit_all, _setup
+from tests.integration.test_baseline_diff import _commit_all, _setup
 
 
 def _git(root, *a):

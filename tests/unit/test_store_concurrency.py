@@ -24,7 +24,7 @@ def _run(n, fn):
 def _slow_disk(monkeypatch):
     """Widen the race window: a slow save lets other threads interleave."""
     import time
-    from reqtool import store as store_mod
+    from reqtool import storage as store_mod
     real = store_mod.save_yaml
 
     def slow(path, data):
@@ -50,7 +50,7 @@ def test_concurrent_updates_all_recorded(store, monkeypatch):
 
 def test_every_mutator_holds_the_lock_while_writing(store, monkeypatch):
     """Deterministic guard: any save_yaml during a mutation must happen under the lock."""
-    from reqtool import store as store_mod
+    from reqtool import storage as store_mod
     real = store_mod.save_yaml
     unlocked = []
 
@@ -74,7 +74,7 @@ def test_every_mutator_holds_the_lock_while_writing(store, monkeypatch):
 
 
 def test_reload_file_holds_lock_for_its_whole_body(store, monkeypatch):
-    from reqtool import store as store_mod
+    from reqtool import storage as store_mod
     uid = store.create_requirement({"title": "T"})["uid"]
     seen = []
     real = store_mod.load_yaml

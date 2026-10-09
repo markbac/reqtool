@@ -37,6 +37,22 @@ chmod +x scripts/dev.sh   # first time only
 .\scripts\dev.ps1 help              # show usage
 ```
 
+## run.ps1 (Windows PowerShell: run the tool)
+
+`run.ps1` starts reqtool; `dev.ps1` is for setting up and testing. The first run creates `.venv`, installs reqtool and builds the UI.
+
+```powershell
+.\scripts\run.ps1                              # API + UI together on http://127.0.0.1:8765
+.\scripts\run.ps1 -Repo C:\reqs -Browser       # another repository, open the browser
+.\scripts\run.ps1 -Mode Server                 # API only (no Node.js needed)
+.\scripts\run.ps1 -Mode Server -Auth required  # API only, login required
+.\scripts\run.ps1 -Mode Ui                     # hot-reload UI (Vite, port 5173) against a running API
+.\scripts\run.ps1 -Mode Dev                    # API in the background + hot-reload UI, Ctrl+C stops both
+.\scripts\run.ps1 -Rebuild                     # rebuild the UI first
+```
+
+`Combined` is the normal way to use the tool. `Ui` and `Dev` are for working on the UI: the Vite dev server proxies API calls to port 8765. Get-Help `.\scripts\run.ps1 -Full` lists every parameter.
+
 If your execution policy blocks the script:
 
 ```powershell

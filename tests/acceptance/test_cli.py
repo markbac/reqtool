@@ -9,7 +9,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from reqtool.cli import cli
 

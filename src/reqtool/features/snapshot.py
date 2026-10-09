@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from reqtool.fileio import yaml_loads_safe
-from reqtool.git_ops import _run_git, git_list_tags, is_git_repo
+from reqtool.git_ops import run_git, git_list_tags, is_git_repo
 from reqtool.graph import relationship_target
 from .diff import ref_diff
 
@@ -30,13 +30,13 @@ def _e(value: Any) -> str:
 
 def _requirements_at(store, ref: Optional[str]) -> dict[str, dict]:
     if ref is None:
-        return {u: r for u, r in store.requirements.items() if not r.get("deleted")}
-    code, listing, _ = _run_git(["ls-tree", "-r", "--name-only", ref, "--", "requirements"], store.root)
+        return {u: r for u, r in store.requirement_map().items() if not r.get("deleted")}
+    code, listing, _ = run_git(["ls-tree", "-r", "--name-only", ref, "--", "requirements"], store.root)
     out = {}
     for path in listing.splitlines() if code == 0 else []:
         if not path.endswith(".yaml"):
             continue
-        c, text, _ = _run_git(["show", f"{ref}:{path}"], store.root)
+        c, text, _ = run_git(["show", f"{ref}:{path}"], store.root)
         data = yaml_loads_safe(text) if c == 0 else None
         if isinstance(data, dict) and data.get("uid") and not data.get("deleted"):
             out[data["uid"]] = data

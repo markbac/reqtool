@@ -32,7 +32,7 @@ def validate_ref(ref: str) -> str:
     return ref
 
 
-def _run_git(args: list[str], cwd: Path) -> tuple[int, str, str]:
+def run_git(args: list[str], cwd: Path) -> tuple[int, str, str]:
     """Run a git command, return (returncode, stdout, stderr)."""
     result = subprocess.run(
         ["git"] + args,
@@ -46,7 +46,7 @@ def _run_git(args: list[str], cwd: Path) -> tuple[int, str, str]:
 
 
 def is_git_repo(path: Path) -> bool:
-    rc, _, _ = _run_git(["rev-parse", "--git-dir"], path)
+    rc, _, _ = run_git(["rev-parse", "--git-dir"], path)
     return rc == 0
 
 
@@ -62,13 +62,13 @@ def has_conflicts(path: Path) -> bool:
     git_dir = path / ".git"
     if git_dir.is_dir() and any((git_dir / m).exists() for m in _IN_PROGRESS_MARKERS):
         return True
-    rc, out, _ = _run_git(["ls-files", "-u"], path)
+    rc, out, _ = run_git(["ls-files", "-u"], path)
     return rc == 0 and bool(out.strip())
 
 
 def dirty_paths(path: Path, prefixes: tuple[str, ...]) -> list[str]:
     """Paths with uncommitted changes (staged, unstaged or untracked) under any of ``prefixes``."""
-    rc, out, _ = _run_git(["status", "--porcelain", "-uall", "--", *prefixes], path)
+    rc, out, _ = run_git(["status", "--porcelain", "-uall", "--", *prefixes], path)
     if rc != 0:
         return []
     return [line[3:].split(" -> ")[-1].strip().strip('"') for line in out.splitlines() if line.strip()]
@@ -76,7 +76,7 @@ def dirty_paths(path: Path, prefixes: tuple[str, ...]) -> list[str]:
 
 def git_status(path: Path) -> dict[str, list[str]]:
     """Return staged, unstaged, and untracked file lists."""
-    rc, out, _ = _run_git(["status", "--porcelain"], path)
+    rc, out, _ = run_git(["status", "--porcelain"], path)
     staged, unstaged, untracked = [], [], []
     for line in out.splitlines():
         if len(line) < 3:
@@ -95,7 +95,7 @@ def git_status(path: Path) -> dict[str, list[str]]:
 def stage_file(repo_root: Path, file_path: Path) -> None:
     """Stage a single file."""
     rel = file_path.relative_to(repo_root)
-    rc, _, err = _run_git(["add", str(rel)], repo_root)
+    rc, _, err = run_git(["add", str(rel)], repo_root)
     if rc != 0:
         raise RuntimeError(f"git add failed: {err}")
 
@@ -103,7 +103,7 @@ def stage_file(repo_root: Path, file_path: Path) -> None:
 def unstage_file(repo_root: Path, file_path: Path) -> None:
     """Remove a single file from the index (best effort), keeping its working-tree content."""
     rel = file_path.relative_to(repo_root)
-    _run_git(["reset", "-q", "--", str(rel)], repo_root)
+    run_git(["reset", "-q", "--", str(rel)], repo_root)
 
 
 class NothingToCommit(RuntimeError):
@@ -146,7 +146,7 @@ def commit(
             raise NothingToCommit("Nothing staged to commit")
         raise RuntimeError(f"git commit failed: {detail}")
     # Extract SHA
-    rc, sha, _ = _run_git(["rev-parse", "HEAD"], repo_root)
+    rc, sha, _ = run_git(["rev-parse", "HEAD"], repo_root)
     return sha if rc == 0 else ""
 
 
@@ -160,14 +160,14 @@ def amend_commit(repo_root: Path) -> str:
     )
     if result.returncode != 0:
         raise RuntimeError(f"git commit --amend failed: {result.stderr}")
-    rc, sha, _ = _run_git(["rev-parse", "HEAD"], repo_root)
+    rc, sha, _ = run_git(["rev-parse", "HEAD"], repo_root)
     return sha if rc == 0 else ""
 
 
 def git_log(repo_root: Path, file_path: Path, max_count: int = 20) -> list[dict]:
     """Return git log entries for a specific file."""
     rel = str(file_path.relative_to(repo_root))
-    rc, out, _ = _run_git(
+    rc, out, _ = run_git(
         ["log", f"--max-count={max_count}", "--pretty=format:%H|%an|%ae|%ai|%s", "--", rel],
         repo_root,
     )
@@ -188,31 +188,31 @@ def git_log(repo_root: Path, file_path: Path, max_count: int = 20) -> list[dict]
 
 def ensure_git_config(repo_root: Path, name: str, email: str) -> None:
     """Set local git user config if not already set."""
-    rc, out, _ = _run_git(["config", "--local", "user.name"], repo_root)
+    rc, out, _ = run_git(["config", "--local", "user.name"], repo_root)
     if rc != 0 or not out:
-        _run_git(["config", "--local", "user.name", name], repo_root)
-    rc, out, _ = _run_git(["config", "--local", "user.email"], repo_root)
+        run_git(["config", "--local", "user.name", name], repo_root)
+    rc, out, _ = run_git(["config", "--local", "user.email"], repo_root)
     if rc != 0 or not out:
-        _run_git(["config", "--local", "user.email", email], repo_root)
+        run_git(["config", "--local", "user.email", email], repo_root)
 
 
 def git_create_tag(repo_root: Path, tag_name: str, message: str = "") -> str:
     """Create an annotated git tag at HEAD. Returns the SHA."""
     validate_ref(tag_name)
     if message:
-        rc, out, err = _run_git(["tag", "-a", tag_name, "-m", message], repo_root)
+        rc, out, err = run_git(["tag", "-a", tag_name, "-m", message], repo_root)
     else:
-        rc, out, err = _run_git(["tag", tag_name], repo_root)
+        rc, out, err = run_git(["tag", tag_name], repo_root)
     if rc != 0:
         raise RuntimeError(f"git tag failed: {err}")
-    rc2, sha, _ = _run_git(["rev-parse", tag_name + "^{}"], repo_root)
+    rc2, sha, _ = run_git(["rev-parse", tag_name + "^{}"], repo_root)
     return sha if rc2 == 0 else ""
 
 
 def git_list_tags(repo_root: Path, prefix: str = "") -> list[dict]:
     """List tags, optionally filtered by prefix. Returns [{name, sha, date, message}]."""
     pattern = f"{prefix}*" if prefix else "*"
-    rc, out, _ = _run_git(
+    rc, out, _ = run_git(
         ["tag", "-l", pattern, "--format=%(refname:short)|%(objectname:short)|%(creatordate:iso)|%(subject)"],
         repo_root,
     )
@@ -236,7 +236,7 @@ def git_diff_tree(repo_root: Path, ref_a: str, ref_b: str = "HEAD") -> list[dict
     """List files changed between two refs. Returns [{path, status}]."""
     validate_ref(ref_a)
     validate_ref(ref_b)
-    rc, out, _ = _run_git(["diff", "--name-status", ref_a, ref_b, "--"], repo_root)
+    rc, out, _ = run_git(["diff", "--name-status", ref_a, ref_b, "--"], repo_root)
     changes = []
     if rc == 0 and out:
         for line in out.splitlines():
@@ -251,7 +251,7 @@ def git_show_file(repo_root: Path, ref: str, file_path: Path) -> Optional[str]:
     validate_ref(ref)
     try:
         rel = str(file_path.relative_to(repo_root))
-        rc, out, _ = _run_git(["show", f"{ref}:{rel}"], repo_root)
+        rc, out, _ = run_git(["show", f"{ref}:{rel}"], repo_root)
         return out if rc == 0 else None
     except Exception:
         return None

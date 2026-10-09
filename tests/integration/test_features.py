@@ -466,7 +466,7 @@ def test_strategic_summary_endpoint(c):
 def test_ui_coverage_reverse_check_flags_unknown_call(monkeypatch):
     import importlib.util
     from pathlib import Path
-    spec = importlib.util.spec_from_file_location("chk", Path(__file__).parent.parent / "scripts" / "check_ui_coverage.py")
+    spec = importlib.util.spec_from_file_location("chk", Path(__file__).resolve().parents[2] / "scripts" / "check_ui_coverage.py")
     chk = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(chk)
     monkeypatch.setattr(chk, "ui_calls", lambda: {("GET", "/definitely/not/an/endpoint")})

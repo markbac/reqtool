@@ -149,7 +149,7 @@ def export_markdown(
     Returns a dict of filename -> content.
     Includes a mkdocs_nav.yml fragment when flavor == 'mkdocs'.
     """
-    reqs = [r for r in store.requirements.values() if not r.get("deleted")]
+    reqs = store.live_requirements()
 
     if product_id:
         tree = store.build_tree(product_id, variant)
@@ -164,7 +164,7 @@ def export_markdown(
         reqs = [r for r in reqs if r.get("uid") in tree_uids]
 
     # Build UID -> ID map for cross-link resolution
-    req_id_by_uid: dict[str, str] = {r["uid"]: r.get("id", "") for r in store.requirements.values()}
+    req_id_by_uid: dict[str, str] = {r["uid"]: r.get("id", "") for r in store.requirement_map().values()}
 
     split = split_by or store.config.export.markdown.split_by or "none"
     files: dict[str, str] = {}
@@ -193,7 +193,7 @@ def export_markdown(
         req_files.append(fname)
 
     # Principles
-    principles = [p for p in store.principles.values() if not p.get("deleted")]
+    principles = store.live_principles()
     if principles:
         lines = []
         for p in sorted(principles, key=lambda x: x.get("id", "")):
@@ -335,7 +335,7 @@ def export_csv(
     field_list = fields or store.config.export.csv.include_fields or _DEFAULT_CSV_FIELDS
     delimiter = store.config.export.csv.delimiter or ","
 
-    reqs = [r for r in store.requirements.values() if not r.get("deleted")]
+    reqs = store.live_requirements()
 
     if product_id:
         tree = store.build_tree(product_id, variant)
@@ -501,7 +501,7 @@ def export_jsx(
     principles_data = (
         [{"uid": p["uid"], "id": p.get("id"), "title": p.get("title"),
           "content": p.get("content", {}), "status": p.get("status")}
-         for p in store.principles.values() if not p.get("deleted")]
+         for p in store.principle_map().values() if not p.get("deleted")]
         if cfg.include_principles else []
     )
     tbds_data = (
@@ -543,8 +543,8 @@ def export_coverage_matrix(
     target_type: str = "functional",
 ) -> dict[str, Any]:
     """Generate 2D coverage matrix grid mapping source_type requirements to target_type requirements."""
-    sources = [r for r in store.requirements.values() if not r.get("deleted") and r.get("req_type") == source_type]
-    targets = [r for r in store.requirements.values() if not r.get("deleted") and r.get("req_type") == target_type]
+    sources = [r for r in store.requirement_map().values() if not r.get("deleted") and r.get("req_type") == source_type]
+    targets = [r for r in store.requirement_map().values() if not r.get("deleted") and r.get("req_type") == target_type]
 
     grid: list[list[str]] = []
     matrix_rows = []
@@ -586,7 +586,7 @@ def export_gap_analysis(store: "Store") -> dict[str, Any]:
     missing_verification = []
     missing_upstream = []
 
-    for uid, req in store.requirements.items():
+    for uid, req in store.requirement_map().items():
         if req.get("deleted"):
             continue
         req_type = req.get("req_type", "")
@@ -665,7 +665,7 @@ def export_reqif_xml(store: "Store") -> str:
     el(spec_types, "SPEC-RELATION-TYPE", {
         "IDENTIFIER": "SRT-RELATION", "LAST-CHANGE": now, "LONG-NAME": "Relationship"})
 
-    live = {uid: r for uid, r in store.requirements.items() if not r.get("deleted")}
+    live = {uid: r for uid, r in store.requirement_map().items() if not r.get("deleted")}
     spec_objects = el(content, "SPEC-OBJECTS")
     for uid, req in live.items():
         obj = el(spec_objects, "SPEC-OBJECT", {"IDENTIFIER": f"req-{uid}", "LAST-CHANGE": req.get("last_modified") or now})

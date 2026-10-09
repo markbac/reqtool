@@ -85,9 +85,9 @@ def serve(repo: Optional[str], host: str, port: int, auth_mode: Optional[str], r
     try:
         _store = Store(root)
         _store.load()
-        _req_count = len([r for r in _store.requirements.values() if not r.get("deleted")])
-        _principle_count = len([p for p in _store.principles.values() if not p.get("deleted")])
-        _tbd_count = len([t for t in _store.decisions.values() if not t.get("deleted")])
+        _req_count = len(_store.live_requirements())
+        _principle_count = len(_store.live_principles())
+        _tbd_count = len(_store.live_decisions())
         _repo_title = _store.config.repo_title or _store.config.repo_id or root.name
         _has_ui = (Path(__file__).parent.parent / "ui" / "dist").exists()
         _type_count = len(_store.hierarchy.types)

@@ -129,7 +129,7 @@ def import_module(module_id: str, product: str, repo: Optional[str]):
     store = Store(root)
     store.load()
 
-    if module_id not in store.modules:
+    if module_id not in store.module_map():
         click.echo(f"Module '{module_id}' not found in {root / 'modules'}", err=True)
         sys.exit(1)
 
@@ -137,7 +137,7 @@ def import_module(module_id: str, product: str, repo: Optional[str]):
         products_to_lock = [product]
     else:
         products_to_lock = [
-            pid for pid, prod in store.products.items()
+            pid for pid, prod in store.product_map().items()
             if any(m.get("id") == module_id for m in prod.get("modules", []))
         ]
         if not products_to_lock:

@@ -21,7 +21,7 @@ router = APIRouter(tags=["principles"])
 
 @router.get("/principles")
 def list_principles(store: Store = Depends(get_store)):
-    return [p for p in store.principles.values() if not p.get("deleted")]
+    return store.live_principles()
 
 
 @router.get("/principles/{uid}")

@@ -515,10 +515,10 @@ Server behaviour is set with `--auth` and environment variables (`REQTOOL_AUTH`,
 
 ```bash
 pip install -e ".[test]"
-pytest tests/test_store.py tests/test_validation.py tests/test_cli.py     # ~20s
-pytest tests/test_features_v03.py                                          # ~30s
-pytest tests/test_api.py -k "not watchdog"                                 # ~60s
-pytest tests/test_regression.py                                            # ~30s
+pytest tests/unit                      # in-process logic, no HTTP: seconds
+pytest tests/integration               # the API through a test client: minutes
+pytest tests/acceptance                # the CLI, the demo repository, the docs and CI definitions
+pytest tests/e2e                       # a real browser (needs Playwright, see CONTRIBUTING)
 ```
 
 The watchdog-based incremental reload tests are slow (they wait for filesystem events). Exclude with `-k "not watchdog"` during development.
@@ -567,5 +567,5 @@ For detailed guides, literature-backed requirements engineering philosophy, and 
 
 - 📖 **[User Guide & Operations Manual](docs/USER_GUIDE.md):** Complete operational guide covering CLI commands, REST endpoints, React UI workstation, workflow transitions, and module overlays.
 - 🎓 **[Requirements Philosophy & Best Practices](docs/REQUIREMENTS_PHILOSOPHY.md):** Grounding in Robertson & Robertson (Volere), INCOSE standards, ISO 29148, and how `reqtool` enforces good requirements management.
-- 🏗️ **[Architecture & Technical Specification](ARCHITECTURE.md):** Comprehensive component design, data models, store locking, APIRouters, WebSocket CRDTs, and export engines.
+- 🏗️ **[Architecture & Technical Specification](docs/ARCHITECTURE.md):** Comprehensive component design, data models, store locking, APIRouters, WebSocket CRDTs, and export engines.
 - 🤝 **[Contributing Guidelines](CONTRIBUTING.md):** Developer environment setup, testing guidelines, and submission workflow.

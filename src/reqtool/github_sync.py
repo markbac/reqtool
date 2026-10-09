@@ -42,7 +42,7 @@ def parse_requirement_refs(text: str, known: dict[str, str] | None = None) -> li
 def build_ref_index(store: Store) -> dict[str, str]:
     """Map upper-cased human ID and UID of every live requirement to its UID."""
     index: dict[str, str] = {}
-    for uid, req in store.requirements.items():
+    for uid, req in store.requirement_map().items():
         if req.get("deleted"):
             continue
         index[uid.upper()] = uid

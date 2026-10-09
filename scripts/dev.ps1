@@ -273,34 +273,26 @@ function Invoke-Test {
 
     switch ($Sub) {
         'core' {
-            Write-Bold "Running core tests (store, validation, CLI) ..."
-            Invoke-Pytest @(
-                'tests/test_store.py', 'tests/test_validation.py', 'tests/test_cli.py',
-                '--timeout=30', '-v', '--tb=short'
-            )
+            Write-Bold "Running core tests (unit and acceptance tiers) ..."
+            Invoke-Pytest @('tests/unit', 'tests/acceptance', '--timeout=30', '-v', '--tb=short')
         }
         'features' {
-            Write-Bold "Running v0.3.0 feature tests ..."
-            Invoke-Pytest @('tests/test_features_v03.py', '--timeout=30', '-v', '--tb=short')
+            Write-Bold "Running integration tests (without the API and regression files) ..."
+            Invoke-Pytest @(
+                'tests/integration', '--ignore=tests/integration/test_api.py',
+                '--ignore=tests/integration/test_regression.py', '--timeout=30', '-v', '--tb=short'
+            )
         }
         'api' {
             Write-Bold "Running API + regression tests ..."
             Invoke-Pytest @(
-                'tests/test_api.py', 'tests/test_regression.py',
+                'tests/integration/test_api.py', 'tests/integration/test_regression.py',
                 '--timeout=60', '-v', '--tb=short'
             )
         }
         default {
             Write-Bold "Running full test suite ..."
-            Invoke-Pytest @(
-                'tests/test_store.py',
-                'tests/test_validation.py',
-                'tests/test_cli.py',
-                'tests/test_features_v03.py',
-                'tests/test_api.py',
-                'tests/test_regression.py',
-                '--timeout=60', '-v', '--tb=short'
-            )
+            Invoke-Pytest @('tests', '--ignore=tests/e2e', '--timeout=60', '-v', '--tb=short')
         }
     }
 

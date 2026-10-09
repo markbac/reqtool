@@ -8,13 +8,17 @@ history records. One implementation, so the three kinds cannot drift apart.
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
+
+from pydantic import BaseModel
 
 from .actor import resolve_author
 from .fileio import (
     bump_version, compute_principle_hash, compute_requirement_hash, compute_tbd_hash, utcnow_iso,
 )
+from .models import Requirement
 
 
 @dataclass(frozen=True)
@@ -77,3 +81,39 @@ def mark_deleted(data: dict[str, Any]) -> None:
     """Soft delete: the file stays (git history, restores) and the item drops out of every live view."""
     data["deleted"] = True
     data["last_modified"] = utcnow_iso()
+
+
+# ---------------------------------------------------------------------------
+# New requirements are built from the typed model (ARC-06)
+# ---------------------------------------------------------------------------
+
+# Keys the tool sets itself: a caller cannot supply them when creating an item.
+_SYSTEM_KEYS = frozenset({
+    "schema_version", "type", "tool_version", "uid", "id", "version",
+    "content_hash", "created", "last_modified", "deleted", "history",
+})
+
+
+def _plain(value: Any) -> Any:
+    if isinstance(value, BaseModel):
+        return value.model_dump(by_alias=True, mode="json", exclude_unset=True)
+    return copy.deepcopy(value)
+
+
+def requirement_defaults() -> dict[str, Any]:
+    """Every key of a stored requirement with its default, in file order (``uid`` and ``id`` are ``None``)."""
+    out: dict[str, Any] = {}
+    for name, field in Requirement.model_fields.items():
+        key = field.alias or name
+        out[key] = None if field.is_required() and name != "title" else _plain(field.get_default(call_default_factory=True))
+    return out
+
+
+def new_requirement(fields: Mapping[str, Any], *, uid: str, item_id: str, now: str, tool_version: str) -> dict[str, Any]:
+    """A new requirement: the model's defaults, overridden by the supplied ``fields`` that the model knows."""
+    data = requirement_defaults()
+    for key in data:
+        if key not in _SYSTEM_KEYS and key in fields:
+            data[key] = fields[key]
+    data.update(uid=uid, id=item_id, tool_version=tool_version, created=now, last_modified=now)
+    return data

@@ -55,7 +55,7 @@ def iteration_metrics(iteration_id: str, store: Store = Depends(get_store)):
     # Calculate assigned requirements and burndown metrics
     # Requirements record their sprint in `iteration`, which holds the iteration's id (or its title).
     names = {iteration_id, it.get("title")} - {None, ""}
-    reqs = [r for r in store.requirements.values() if not r.get("deleted") and r.get("iteration") in names]
+    reqs = [r for r in store.requirement_map().values() if not r.get("deleted") and r.get("iteration") in names]
     total_assigned = len(reqs)
     approved_count = len([r for r in reqs if r.get("status") == "approved"])
     draft_count = len([r for r in reqs if r.get("status") == "draft"])

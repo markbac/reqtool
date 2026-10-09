@@ -85,7 +85,7 @@ jobs:
       - name: Package Documentation Archive
         run: |
           mkdir -p docs-dist/docs
-          cp README.md ARCHITECTURE.md LICENSE reqtool-user-guide.pdf reqtool-demo-iot-sensor-specification.pdf docs-dist/
+          cp README.md docs/ARCHITECTURE.md LICENSE reqtool-user-guide.pdf reqtool-demo-iot-sensor-specification.pdf docs-dist/
           cp docs/*.md docs-dist/docs/
           cd docs-dist
           zip -r ../reqtool-documentation-and-user-guide.zip .

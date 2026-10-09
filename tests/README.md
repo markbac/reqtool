@@ -2,14 +2,16 @@
 
 ## Structure
 
-| File | Coverage | ~Time |
-|------|----------|-------|
-| `test_store.py` | Store load, CRUD, tree, modules, products, comments, attachments | 10s |
-| `test_validation.py` | Full validation suite, all rules and edge cases | 5s |
-| `test_cli.py` | CLI commands: init, validate, verify, export, import, diff, stats | 8s |
-| `test_api.py` | All REST endpoints including edge cases; excludes watchdog-slow tests | 60s |
-| `test_regression.py` | Cross-cutting regression scenarios | 30s |
-| `test_features_v03.py` | v0.3.0 feature suite (see below) | 30s |
+The suite has four tiers (QA-01). Put a new test in the lowest tier that can show the behaviour.
+
+| Directory | What it tests | How it runs |
+|-----------|---------------|-------------|
+| `unit/` | Logic in one process with no HTTP: the store, validation, services, gateways, models, file IO, architecture guards | seconds |
+| `integration/` | The REST API through a test client, including the hierarchy and workflow contract tests | minutes |
+| `acceptance/` | The product from outside: the CLI, the demo repository, the docs and the CI definitions | a minute or two |
+| `e2e/` | A real browser against a real server (needs Playwright, see `CONTRIBUTING.md`) | about six minutes |
+
+Shared helpers and fixtures live in `conftest.py`; `golden/` holds the recorded files that tests compare against.
 
 ## v0.3.0 test coverage (`test_features_v03.py`)
 
@@ -35,14 +37,14 @@
 ## Running
 
 ```bash
-# Fast subset (no watchdog)
-pytest tests/test_store.py tests/test_validation.py tests/test_cli.py tests/test_features_v03.py
+# Fast: no HTTP
+pytest tests/unit
 
-# Full suite excluding slow watchdog tests
-pytest -k "not watchdog"
+# Everything except the browser tests
+pytest tests --ignore=tests/e2e
 
-# All tests (slow -- allows watchdog settle time)
-pytest
+# A single tier
+pytest tests/integration
 ```
 
 ## Fixtures
@@ -53,6 +55,8 @@ Defined in `conftest.py`:
 - `store` -- loaded `Store` instance backed by fresh temp repo
 - `client` -- `TestClient` backed by fresh temp repo
 - `client_with_store` -- returns `(TestClient, Store)` sharing the same root
+- `agile_client` -- returns `(TestClient, items)` over a repository with every level of the agile hierarchy
+  (theme to task, a bug and a spike) in mixed workflow states; `build_agile_repo(client)` builds it on any client
 - `make_req(client, **kwargs)` -- helper to POST a minimal requirement
 - `make_principle(client, **kwargs)` -- helper to POST a minimal principle
 - `make_tbd(client, **kwargs)` -- helper to POST a minimal TBD

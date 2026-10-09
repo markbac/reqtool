@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SHARED = ("ARCHITECTURE.md", "CONTRIBUTING.md")
+SHARED = ("CONTRIBUTING.md",)
 
 
 def out_of_sync() -> list[str]:

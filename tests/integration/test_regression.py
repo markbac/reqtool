@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from tests.conftest import review_first, make_req, make_principle, make_tbd, settle
 
@@ -32,7 +32,7 @@ class TestPackageVersion:
     def test_init_version_matches_pyproject(self):
         import tomllib
         from reqtool import __version__
-        with open(Path(__file__).parent.parent / "pyproject.toml", "rb") as f:
+        with open(Path(__file__).resolve().parents[2] / "pyproject.toml", "rb") as f:
             pj = tomllib.load(f)
         assert pj["project"]["version"] == __version__
 

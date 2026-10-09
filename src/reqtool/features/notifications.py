@@ -90,7 +90,7 @@ def recipients(store, event: str, payload: dict) -> list[str]:
     if event == "review_requested":
         return [payload["reviewer"]] if payload.get("reviewer") else []
     if event == "status_changed":
-        owner = (store.requirements.get(payload.get("uid", "")) or {}).get("owner")
+        owner = (store.requirement_map().get(payload.get("uid", "")) or {}).get("owner")
         return [owner] if owner else []
     return []
 

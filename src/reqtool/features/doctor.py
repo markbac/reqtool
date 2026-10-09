@@ -48,7 +48,7 @@ def run_doctor(store) -> dict[str, Any]:
 
     # hierarchy sanity
     types = set(store.hierarchy.types)
-    live = {u: r for u, r in store.requirements.items() if not r.get("deleted")}
+    live = {u: r for u, r in store.requirement_map().items() if not r.get("deleted")}
     for uid, r in live.items():
         label = r.get("id") or uid
         if types and r.get("req_type") and r["req_type"] not in types:
@@ -65,7 +65,7 @@ def run_doctor(store) -> dict[str, Any]:
             cur = live[cur].get("parentId")
 
     # orphaned and misnamed files
-    known = {*store.requirements, *store.principles, *store.decisions}
+    known = {*store.requirement_map(), *store.principle_map(), *store.decision_map()}
     for d in ARTEFACT_DIRS:
         folder = root / d
         if not folder.is_dir():

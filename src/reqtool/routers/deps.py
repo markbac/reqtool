@@ -13,7 +13,7 @@ from typing import Annotated, Optional
 from fastapi import Depends, Request, WebSocket, HTTPException
 
 from reqtool import __version__
-from reqtool.git_ops import has_conflicts, stage_file, unstage_file, commit as git_commit
+from reqtool.services import commit as commit_service
 from reqtool.store import Store
 from reqtool.events import publisher, wire_name, subscription_matches
 from reqtool.automation import automation_subscriber
@@ -48,34 +48,9 @@ def conflict(msg: str) -> HTTPException:
     )
 
 
-def commit_message(body) -> str:
-    """The commit message, or a 422 before anything is changed (git would reject an empty one)."""
-    message = (body.message or "").strip()
-    if not message:
-        raise HTTPException(status_code=422, detail={"error": "validation", "message": "A commit message is required"})
-    return message
-
-
 def commit_artefact(store: Store, body, path, *, bump, undo, version) -> dict:
-    """Bump the version, stage and commit ONLY ``path``, and undo the bump if git fails (ARC-16).
-
-    ``bump(message)`` records the version and history entry, ``undo()`` reverses it and ``version()``
-    reads the new version. Nothing is written after the commit, so the working tree stays clean and
-    the SHA lives in git history.
-    """
-    if has_conflicts(store.root):
-        raise conflict("Working tree has unresolved merge conflicts")
-    message = commit_message(body)
-    try:
-        bump(message)
-        stage_file(store.root, path)
-        sha = git_commit(store.root, message, store.config.git.commit_name,
-                         store.config.git.commit_email, paths=[path])
-        return {"commit_sha": sha, "version": version()}
-    except RuntimeError as exc:
-        undo()
-        unstage_file(store.root, path)
-        raise HTTPException(status_code=500, detail={"error": "git_error", "message": str(exc)})
+    """Commit ONLY ``path`` with the request's message (see ``services.commit``). Failures raise ``ServiceError``."""
+    return commit_service.commit_artefact(store, body.message, path, bump=bump, undo=undo, version=version)
 
 
 class ConnectionManager:

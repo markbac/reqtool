@@ -16,6 +16,7 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
+from .validation_context import ValidationContext
 from .fileio import (
     compute_requirement_hash,
     compute_principle_hash,
@@ -160,49 +161,29 @@ def check_workflow_graph(hierarchy) -> list[tuple[str, str, str]]:
 
 def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
     """Run full validation. Returns {"errors": [...], "warnings": [...]}."""
+    return validate_context(ValidationContext.from_store(store))
+
+
+def validate_context(ctx: ValidationContext) -> dict[str, list[dict[str, str]]]:
+    """Run every rule against ``ctx``. Needs no store: build the context by hand to test a rule."""
     errors: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
 
-    all_uids = store.all_uids()
-    merged_enums = store.merged_enums()
-    cfg = store.config.validation
-    nfr_keys: set[str] = set(store.repo_enums.nfr_keys)
+    merged_enums = ctx.merged_enums
+    nfr_keys = ctx.nfr_keys
 
-    # Build map: uid -> status, for supersedes validation
-    req_status_by_uid = {uid: r.get("status", "") for uid, r in store.requirements.items()}
-
-    # Build set of open TBDs (for warn_on_open_tbds_in_approved)
-    open_tbd_uids: set[str] = {
-        uid for uid, t in store.decisions.items()
-        if not t.get("deleted") and t.get("status") in ("open", "in_progress")
-    }
-
-    known_tags: set[str] = set(store.repo_enums.tags) if store.repo_enums.tags else frozenset()
-    known_teams: set[str] = set(store.repo_enums.team) if store.repo_enums.team else frozenset()
-    known_owners: set[str] = set(store.repo_enums.owner) if store.repo_enums.owner else frozenset()
-    known_safety: set[str] = set(store.repo_enums.safety_class) if store.repo_enums.safety_class else frozenset()
-
-    # Load custom field schema for validation
-    custom_field_schema = store.load_custom_field_schema()
-
-    for uid, req in store.requirements.items():
+    for uid, req in ctx.requirements.items():
         if req.get("deleted"):
             continue
-        e, w = _validate_requirement(
-            req, all_uids, merged_enums, cfg, nfr_keys,
-            req_status_by_uid, open_tbd_uids,
-            known_tags=known_tags, known_teams=known_teams,
-            known_owners=known_owners, known_safety=known_safety,
-            req_by_uid=store.requirements,
-        )
+        e, w = _validate_requirement(req, ctx)
         errors.extend(e)
         warnings.extend(w)
         # Custom field validation
-        cf_errors = store.validate_custom_fields(req)
+        cf_errors = ctx.custom_field_errors(req)
         for cfe in cf_errors:
             errors.append(_err("invalid_custom_field", cfe["message"], uid, cfe["field"]))
 
-    for uid, principle in store.principles.items():
+    for uid, principle in ctx.principles.items():
         if principle.get("deleted"):
             continue
         e, w = _validate_principle(principle, merged_enums)
@@ -222,7 +203,7 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
                             uid, "nfr_targets",
                         ))
             satisfied = False
-            for req_uid, req in store.requirements.items():
+            for req_uid, req in ctx.requirements.items():
                 if req.get("deleted"):
                     continue
                 for rel in req.get("relationships", []):
@@ -245,7 +226,7 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
                     uid, "principle_kind",
                 ))
 
-    for uid, tbd in store.decisions.items():
+    for uid, tbd in ctx.decisions.items():
         if tbd.get("deleted"):
             continue
         e, w = _validate_tbd(tbd, merged_enums)
@@ -253,8 +234,8 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
         warnings.extend(w)
 
     # Deleted requirement referenced by non-deleted parentId
-    deleted_uids = {uid for uid, r in store.requirements.items() if r.get("deleted")}
-    for uid, req in store.requirements.items():
+    deleted_uids = {uid for uid, r in ctx.requirements.items() if r.get("deleted")}
+    for uid, req in ctx.requirements.items():
         if req.get("deleted"):
             continue
         parent = req.get("parentId")
@@ -266,22 +247,22 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
             ))
 
     # Hierarchy rules: child type must be allowed under its parent's type
-    if store.hierarchy.enforce != "off":
-        for uid, req in store.requirements.items():
+    if ctx.hierarchy.enforce != "off":
+        for uid, req in ctx.requirements.items():
             if req.get("deleted"):
                 continue
-            problem = store.hierarchy_problem(req.get("req_type", "functional"), req.get("parentId"))
+            problem = ctx.hierarchy_problem(req.get("req_type", "functional"), req.get("parentId"))
             if problem:
-                (errors if store.hierarchy.enforce == "error" else warnings).append(
-                    (_err if store.hierarchy.enforce == "error" else _warn)(
+                (errors if ctx.hierarchy.enforce == "error" else warnings).append(
+                    (_err if ctx.hierarchy.enforce == "error" else _warn)(
                         "hierarchy_violation", problem, uid, "parentId"))
 
     from .stores import hierarchy_store as _hs
     # Parents already in a guarded state (e.g. done) while children are still open
-    for uid, req in store.requirements.items():
+    for uid, req in ctx.requirements.items():
         if req.get("deleted"):
             continue
-        blocking = _hs.open_children(store.hierarchy, store.requirements, req, req.get("status", ""))
+        blocking = _hs.open_children(ctx.hierarchy, ctx.requirements, req, req.get("status", ""))
         if blocking:
             warnings.append(_warn(
                 "open_children",
@@ -289,7 +270,7 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
                 uid, "status"))
 
     # Approved items whose upstream changed after approval need review
-    for uid, req in store.requirements.items():
+    for uid, req in ctx.requirements.items():
         if req.get("deleted") or req.get("approval", {}).get("status") != "approved":
             continue
         n = sum(1 for rel in req.get("relationships") or [] if rel.get("suspect"))
@@ -300,23 +281,23 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
                 uid, "relationships"))
 
     # Workflow definitions must be coherent
-    for code, wf_id, message in check_workflow_graph(store.hierarchy):
+    for code, wf_id, message in check_workflow_graph(ctx.hierarchy):
         warnings.append(_warn(code, message, "", f"workflows.{wf_id}"))
 
     # Cross-layer relationship rules
-    if store.hierarchy.enforce != "off":
-        as_error = store.hierarchy.enforce == "error"
-        for uid, req in store.requirements.items():
+    if ctx.hierarchy.enforce != "off":
+        as_error = ctx.hierarchy.enforce == "error"
+        for uid, req in ctx.requirements.items():
             if req.get("deleted"):
                 continue
             for rel in req.get("relationships", []) or []:
-                problem = store.relationship_problem(req.get("req_type", "functional"), rel)
+                problem = ctx.relationship_problem(req.get("req_type", "functional"), rel)
                 if problem:
                     errors.append(_err("relationship_violation", problem, uid, "relationships")) if as_error \
                         else warnings.append(_warn("relationship_violation", problem, uid, "relationships"))
 
     # Human IDs must be unique within requirements and within decisions/TBDs
-    for label, table in (("requirement", store.requirements), ("decision", getattr(store, "decisions", {}))):
+    for label, table in (("requirement", ctx.requirements), ("decision", ctx.decisions)):
         owners: dict[str, list[str]] = {}
         for uid, item in table.items():
             if not item.get("deleted") and item.get("id"):
@@ -327,12 +308,12 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
                     errors.append(_err("duplicate_id", f"{label} ID '{rid}' is used by {len(uids)} items", uid, "id"))
 
     # parentId cycles (reported on each member of the loop)
-    for uid, req in store.requirements.items():
+    for uid, req in ctx.requirements.items():
         if req.get("deleted"):
             continue
         seen = {uid}
         cur = req.get("parentId")
-        while cur and cur in store.requirements:
+        while cur and cur in ctx.requirements:
             if cur == uid:
                 errors.append(_err("parent_cycle",
                                    "parentId chain loops back to this item", uid, "parentId"))
@@ -340,18 +321,18 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
             if cur in seen:
                 break
             seen.add(cur)
-            cur = store.requirements[cur].get("parentId")
+            cur = ctx.requirements[cur].get("parentId")
 
     # Module lock file checks per product
-    _validate_module_locks(store, errors)
+    _validate_module_locks(ctx, errors)
 
     # Approval signatures: forged/tampered signatures are errors; approved content
     # that changed after signing is a warning (it needs re-approval).
     from .auth import check_approval
-    for r_uid, r in store.requirements.items():
+    for r_uid, r in ctx.requirements.items():
         if r.get("deleted"):
             continue
-        verdict = check_approval(r, store.root)
+        verdict = check_approval(r, ctx.root)
         if verdict == "invalid":
             errors.append(_err("approval_signature_invalid",
                                "Approval signature does not verify (record altered or signed with another key)",
@@ -368,12 +349,12 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
     return {"errors": errors, "warnings": warnings}
 
 
-def _validate_module_locks(store: "Store", errors: list) -> None:
+def _validate_module_locks(ctx: ValidationContext, errors: list) -> None:
     """Check that lock files exist and match current module file hashes."""
-    for product_id, product in store.products.items():
+    for product_id, product in ctx.products.items():
         if not product.get("modules"):
             continue
-        lock_path = store.root / "products" / product_id / "_product.lock"
+        lock_path = ctx.root / "products" / product_id / "_product.lock"
         if not lock_path.exists():
             errors.append(_err(
                 "lock_missing",
@@ -404,7 +385,7 @@ def _validate_module_locks(store: "Store", errors: list) -> None:
                 continue
             locked = locked_by_id[mod_id]
             stored_hash = locked.get("content_hash", "")
-            computed = _compute_module_dir_hash(store.root / "modules" / mod_id)
+            computed = _compute_module_dir_hash(ctx.root / "modules" / mod_id)
             if stored_hash and computed and stored_hash != computed:
                 errors.append(_err(
                     "lock_hash_mismatch",
@@ -426,18 +407,13 @@ def _compute_module_dir_hash(module_dir: Path) -> str:
 
 def _validate_requirement(
     req: dict[str, Any],
-    all_uids: set[str],
-    merged_enums: dict[str, Any],
-    cfg: Any,
-    nfr_keys: set[str],
-    req_status_by_uid: dict[str, str],
-    open_tbd_uids: set[str],
-    known_tags: set[str] = frozenset(),
-    known_teams: set[str] = frozenset(),
-    known_owners: set[str] = frozenset(),
-    known_safety: set[str] = frozenset(),
-    req_by_uid: Optional[dict[str, dict[str, Any]]] = None,
+    ctx: ValidationContext,
 ) -> tuple[list[dict], list[dict]]:
+    all_uids, merged_enums, cfg, nfr_keys = ctx.all_uids, ctx.merged_enums, ctx.cfg, ctx.nfr_keys
+    req_status_by_uid, open_tbd_uids = ctx.req_status_by_uid, ctx.open_tbd_uids
+    known_tags, known_teams, known_owners, known_safety = (
+        ctx.known_tags, ctx.known_teams, ctx.known_owners, ctx.known_safety)
+    req_by_uid = ctx.requirements
     errors: list[dict] = []
     warnings: list[dict] = []
     uid = req.get("uid", "")
@@ -758,33 +734,17 @@ def _validate_tbd(
 
 def validate_single(store: "Store", uid: str) -> dict[str, list[dict[str, str]]]:
     """Validate a single artefact by UID."""
-    all_uids = store.all_uids()
-    merged_enums = store.merged_enums()
-    cfg = store.config.validation
-    nfr_keys = set(store.repo_enums.nfr_keys)
-    req_status_by_uid = {u: r.get("status", "") for u, r in store.requirements.items()}
-    open_tbd_uids = {
-        u for u, t in store.decisions.items()
-        if not t.get("deleted") and t.get("status") in ("open", "in_progress")
-    }
+    return validate_one(ValidationContext.from_store(store), uid)
 
-    if uid in store.requirements:
-        known_tags: set[str] = set(store.repo_enums.tags) if store.repo_enums.tags else frozenset()
-        known_teams: set[str] = set(store.repo_enums.team) if store.repo_enums.team else frozenset()
-        known_owners: set[str] = set(store.repo_enums.owner) if store.repo_enums.owner else frozenset()
-        known_safety: set[str] = set(store.repo_enums.safety_class) if store.repo_enums.safety_class else frozenset()
-        e, w = _validate_requirement(
-            store.requirements[uid], all_uids, merged_enums, cfg,
-            nfr_keys, req_status_by_uid, open_tbd_uids,
-            known_tags=known_tags, known_teams=known_teams,
-            known_owners=known_owners, known_safety=known_safety,
-            req_by_uid=store.requirements,
-        )
+
+def validate_one(ctx: ValidationContext, uid: str) -> dict[str, list[dict[str, str]]]:
+    if uid in ctx.requirements:
+        e, w = _validate_requirement(ctx.requirements[uid], ctx)
         return {"errors": e, "warnings": w}
-    if uid in store.principles:
-        e, w = _validate_principle(store.principles[uid], merged_enums)
+    if uid in ctx.principles:
+        e, w = _validate_principle(ctx.principles[uid], ctx.merged_enums)
         return {"errors": e, "warnings": w}
-    if uid in store.decisions:
-        e, w = _validate_tbd(store.decisions[uid], merged_enums)
+    if uid in ctx.decisions:
+        e, w = _validate_tbd(ctx.decisions[uid], ctx.merged_enums)
         return {"errors": e, "warnings": w}
     return {"errors": [_err("not_found", f"UID '{uid}' not found", uid)], "warnings": []}

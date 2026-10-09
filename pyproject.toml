@@ -123,3 +123,9 @@ source_modules = [
     "reqtool.github_sync", "reqtool.pdf", "reqtool.exports", "reqtool.intelligence",
 ]
 forbidden_modules = ["reqtool.routers", "reqtool.api", "reqtool.security", "fastapi", "starlette"]
+
+[[tool.importlinter.contracts]]
+name = "Services do not import the web layer"
+type = "forbidden"
+source_modules = ["reqtool.services"]
+forbidden_modules = ["reqtool.routers", "reqtool.api", "reqtool.security", "fastapi", "starlette"]

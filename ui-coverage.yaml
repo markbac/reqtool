@@ -1,4 +1,4 @@
-# Which API operations the UI uses (QA-04). Checked by scripts/check_ui_coverage.py and tests/test_ui_coverage.py.
+# Which API operations the UI uses (QA-04). Checked by scripts/check_ui_coverage.py and tests/unit/test_ui_coverage.py.
 # status: surfaced | partial (note) | backend-only (reason) | planned (ref: issue)
 DELETE /artefacts/{uid}/attachments/{filename}:
   status: surfaced

@@ -1,0 +1,374 @@
+{
+ "minimal": {
+  "keys": [
+   "schema_version",
+   "type",
+   "tool_version",
+   "uid",
+   "id",
+   "parentId",
+   "title",
+   "version",
+   "content",
+   "acceptance_criteria",
+   "status",
+   "priority",
+   "req_type",
+   "domain",
+   "feature",
+   "discipline",
+   "owner",
+   "assignee",
+   "component",
+   "allocated_to",
+   "tags",
+   "iteration",
+   "estimate",
+   "estimate_unit",
+   "dor_checklist",
+   "dod_checklist",
+   "attributes",
+   "custom_fields",
+   "nfr",
+   "constraints",
+   "assumptions",
+   "relationships",
+   "links",
+   "attachments",
+   "risk",
+   "safety_related",
+   "safety_classification",
+   "safety_standard",
+   "asil_level",
+   "dal_level",
+   "mitigates_hazard",
+   "source_document",
+   "legal_compliance_status",
+   "compliance_rationale",
+   "target_release",
+   "target_milestone",
+   "release_status",
+   "planned_start_date",
+   "planned_completion_date",
+   "verification_method",
+   "verification",
+   "approval",
+   "review",
+   "implementation",
+   "content_hash",
+   "created",
+   "last_modified",
+   "deleted",
+   "history"
+  ],
+  "data": {
+   "schema_version": "1.0.0",
+   "type": "requirement",
+   "tool_version": "<x>",
+   "uid": "<x>",
+   "id": "FR-001",
+   "parentId": null,
+   "title": "Minimal",
+   "version": "1.0.0",
+   "content": {
+    "description": "",
+    "rationale": "",
+    "extended_description": ""
+   },
+   "acceptance_criteria": [],
+   "status": "draft",
+   "priority": "medium",
+   "req_type": "functional",
+   "domain": null,
+   "feature": null,
+   "discipline": null,
+   "owner": null,
+   "assignee": null,
+   "component": null,
+   "allocated_to": [],
+   "tags": [],
+   "iteration": null,
+   "estimate": null,
+   "estimate_unit": null,
+   "dor_checklist": [],
+   "dod_checklist": [
+    {
+     "item": "Acceptance criteria met",
+     "checked": false
+    },
+    {
+     "item": "Verification method executed",
+     "checked": false
+    },
+    {
+     "item": "Verification evidence recorded",
+     "checked": false
+    }
+   ],
+   "attributes": {},
+   "custom_fields": {},
+   "nfr": {},
+   "constraints": [],
+   "assumptions": [],
+   "relationships": [],
+   "links": [],
+   "attachments": [],
+   "risk": "none",
+   "safety_related": false,
+   "safety_classification": null,
+   "safety_standard": null,
+   "asil_level": null,
+   "dal_level": null,
+   "mitigates_hazard": null,
+   "source_document": null,
+   "legal_compliance_status": null,
+   "compliance_rationale": null,
+   "target_release": null,
+   "target_milestone": null,
+   "release_status": "unassigned",
+   "planned_start_date": null,
+   "planned_completion_date": null,
+   "verification_method": "test",
+   "verification": {
+    "status": "not_started",
+    "verified_date": null,
+    "note": ""
+   },
+   "approval": {
+    "status": "draft",
+    "approved_by": null,
+    "approved_date": null
+   },
+   "review": {
+    "last_reviewed": null,
+    "reviewers": [],
+    "note": ""
+   },
+   "implementation": {
+    "status": "not_started",
+    "branch": null
+   },
+   "content_hash": "<x>",
+   "created": "<x>",
+   "last_modified": "<x>",
+   "deleted": false,
+   "history": [
+    {
+     "version": "1.0.0",
+     "date": "<x>",
+     "modified_by": "reqtool",
+     "summary": "Initial draft.",
+     "commit_sha": null,
+     "change_ref": null
+    }
+   ]
+  }
+ },
+ "full": {
+  "keys": [
+   "schema_version",
+   "type",
+   "tool_version",
+   "uid",
+   "id",
+   "parentId",
+   "title",
+   "version",
+   "content",
+   "acceptance_criteria",
+   "status",
+   "priority",
+   "req_type",
+   "domain",
+   "feature",
+   "discipline",
+   "owner",
+   "assignee",
+   "component",
+   "allocated_to",
+   "tags",
+   "iteration",
+   "estimate",
+   "estimate_unit",
+   "dor_checklist",
+   "dod_checklist",
+   "attributes",
+   "custom_fields",
+   "nfr",
+   "constraints",
+   "assumptions",
+   "relationships",
+   "links",
+   "attachments",
+   "risk",
+   "safety_related",
+   "safety_classification",
+   "safety_standard",
+   "asil_level",
+   "dal_level",
+   "mitigates_hazard",
+   "source_document",
+   "legal_compliance_status",
+   "compliance_rationale",
+   "target_release",
+   "target_milestone",
+   "release_status",
+   "planned_start_date",
+   "planned_completion_date",
+   "verification_method",
+   "verification",
+   "approval",
+   "review",
+   "implementation",
+   "content_hash",
+   "created",
+   "last_modified",
+   "deleted",
+   "history"
+  ],
+  "data": {
+   "schema_version": "1.0.0",
+   "type": "requirement",
+   "tool_version": "<x>",
+   "uid": "<x>",
+   "id": "US-001",
+   "parentId": null,
+   "title": "Full",
+   "version": "1.0.0",
+   "content": {
+    "description": "d",
+    "rationale": "r",
+    "extended_description": ""
+   },
+   "acceptance_criteria": [],
+   "status": "ready",
+   "priority": "high",
+   "req_type": "story",
+   "domain": null,
+   "feature": null,
+   "discipline": null,
+   "owner": "alice",
+   "assignee": null,
+   "component": null,
+   "allocated_to": [
+    "t"
+   ],
+   "tags": [
+    "a",
+    "b"
+   ],
+   "iteration": null,
+   "estimate": 3,
+   "estimate_unit": "points",
+   "dor_checklist": [
+    {
+     "item": "Title clearly describes user value",
+     "checked": false
+    },
+    {
+     "item": "Acceptance criteria defined",
+     "checked": false
+    },
+    {
+     "item": "Estimate provided",
+     "checked": false
+    },
+    {
+     "item": "Dependencies identified",
+     "checked": false
+    },
+    {
+     "item": "Fits within a single sprint",
+     "checked": false
+    }
+   ],
+   "dod_checklist": [
+    {
+     "item": "All acceptance criteria met",
+     "checked": false
+    },
+    {
+     "item": "Code reviewed and merged",
+     "checked": false
+    },
+    {
+     "item": "Unit tests passing",
+     "checked": false
+    },
+    {
+     "item": "Documentation updated if required",
+     "checked": false
+    },
+    {
+     "item": "Product Owner accepted",
+     "checked": false
+    }
+   ],
+   "attributes": {},
+   "custom_fields": {
+    "k": 1
+   },
+   "nfr": {
+    "latency_ms": 5
+   },
+   "constraints": [],
+   "assumptions": [],
+   "relationships": [],
+   "links": [],
+   "attachments": [
+    {
+     "name": "x"
+    }
+   ],
+   "risk": "none",
+   "safety_related": true,
+   "safety_classification": null,
+   "safety_standard": null,
+   "asil_level": "ASIL-B",
+   "dal_level": null,
+   "mitigates_hazard": null,
+   "source_document": null,
+   "legal_compliance_status": null,
+   "compliance_rationale": null,
+   "target_release": null,
+   "target_milestone": null,
+   "release_status": "unassigned",
+   "planned_start_date": null,
+   "planned_completion_date": null,
+   "verification_method": "inspection",
+   "verification": {
+    "status": "not_started",
+    "verified_date": null,
+    "note": ""
+   },
+   "approval": {
+    "status": "draft",
+    "approved_by": null,
+    "approved_date": null
+   },
+   "review": {
+    "last_reviewed": null,
+    "reviewers": [],
+    "note": ""
+   },
+   "implementation": {
+    "status": "not_started",
+    "branch": null
+   },
+   "content_hash": "<x>",
+   "created": "<x>",
+   "last_modified": "<x>",
+   "deleted": false,
+   "history": [
+    {
+     "version": "1.0.0",
+     "date": "<x>",
+     "modified_by": "reqtool",
+     "summary": "Initial draft.",
+     "commit_sha": null,
+     "change_ref": null
+    }
+   ]
+  }
+ }
+}

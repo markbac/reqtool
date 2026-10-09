@@ -26,19 +26,19 @@ def _scoped(store: Store, scope: str, product: Optional[str], module: Optional[s
     if scope not in SCOPES:
         raise AuditScopeError(f"scope must be one of {', '.join(SCOPES)}")
     if scope == "repository":
-        return dict(store.requirements)
+        return dict(store.requirement_map())
     if scope == "product":
-        if product not in store.products:
+        if product not in store.product_map():
             raise AuditScopeError(f"Product '{product}' not found")
         return dict(store.resolved_requirements(product))
     if scope == "module":
-        if module not in store.modules:
+        if module not in store.module_map():
             raise AuditScopeError(f"Module '{module}' not found")
-        return dict(store.module_requirements.get(module, {}))
+        return dict(store.module_requirement_map().get(module or "", {}))
     wanted = {store.resolve_uid(u) or u for u in (uids or [])}  # a human id such as FR-042 is accepted too
     if not wanted:
         raise AuditScopeError("selection scope needs at least one uid")
-    return {u: r for u, r in store.requirements.items() if u in wanted}
+    return {u: r for u, r in store.requirement_map().items() if u in wanted}
 
 
 def generate_audit_package(store: Store, scope: str = "repository", product: Optional[str] = None,
@@ -60,7 +60,7 @@ def generate_audit_package(store: Store, scope: str = "repository", product: Opt
             "scope": scope, "product": product, "module": module,
             "content": list(include),
             "total_requirements": len(reqs),
-            "total_principles": len(store.principles),
+            "total_principles": len(store.principle_map()),
         }
         zf.writestr("audit_manifest.json", json.dumps(manifest, indent=2))
         if "signatures" in include:

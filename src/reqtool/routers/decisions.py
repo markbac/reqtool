@@ -41,7 +41,7 @@ def _build(prefix: str, kind: Optional[str], tag: str) -> None:
     def list_items(status: Optional[str] = None, priority: Optional[str] = None, owner: Optional[str] = None,
                    store: Store = Depends(get_store)):
         results = []
-        for item in store.decisions.values():
+        for item in store.decision_map().values():
             if item.get("deleted") or not _matches(item, kind):
                 continue
             if (status and item.get("status") != status) or (priority and item.get("priority") != priority) \

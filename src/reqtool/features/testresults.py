@@ -46,7 +46,7 @@ def parse_junit(xml_text: str) -> list[dict[str, Any]]:
 def ingest(store, xml_text: str, source: str = "ci", run_url: str = "") -> dict[str, Any]:
     """Apply results. Returns what changed, which tests matched nothing and which ids are unknown."""
     cases = parse_junit(xml_text)
-    by_id = {r.get("id"): uid for uid, r in store.requirements.items() if not r.get("deleted") and r.get("id")}
+    by_id = {r.get("id"): uid for uid, r in store.requirement_map().items() if not r.get("deleted") and r.get("id")}
     pattern = re.compile("|".join(re.escape(i) for i in sorted(by_id, key=len, reverse=True))) if by_id else None
     per_req: dict[str, list[dict]] = {}
     unmatched = []
@@ -67,11 +67,11 @@ def ingest(store, xml_text: str, source: str = "ci", run_url: str = "") -> dict[
             note += " -- " + failed[0]["name"] + ": " + failed[0]["text"]
         if run_url:
             note += f" [{run_url}]"
-        current = store.requirements[uid].get("verification") or {}
+        current = store.requirement_map()[uid].get("verification") or {}
         fields = {"verification": {"status": status, "verified_date": utcnow_iso() if status == "passed" else None,
                                    "note": note}}
         if current.get("status") == status and current.get("note") == note:
             continue
         store.update_requirement(uid, fields, increment="patch", author=source, summary=f"Test results: {status}")
-        updated.append({"uid": uid, "id": store.requirements[uid].get("id"), "status": status})
+        updated.append({"uid": uid, "id": store.requirement_map()[uid].get("id"), "status": status})
     return {"tests": len(cases), "updated": updated, "unmatched_tests": unmatched}

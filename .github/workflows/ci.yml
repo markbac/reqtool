@@ -94,16 +94,11 @@ jobs:
       - name: Install package + test extras
         run: pip install -e ".[test]"
 
-      # Every test file runs somewhere: this job takes all files except the ones the two jobs below run,
-      # so a new test file is picked up automatically.
-      - name: Run core tests (everything except features, API and regression files)
+      # Every test file runs somewhere (QA-01): this job takes the unit and acceptance tiers, the next two take
+      # the integration tier, so a new test file is picked up automatically.
+      - name: Run core tests (unit and acceptance tiers)
         run: |
-          pytest tests \
-            --ignore=tests/test_features_v03.py \
-            --ignore=tests/test_features_v04.py \
-            --ignore=tests/test_api.py \
-            --ignore=tests/test_regression.py \
-            --ignore=tests/e2e \
+          pytest tests/unit tests/acceptance \
             --timeout=60 \
             -v \
             --tb=short \
@@ -141,11 +136,11 @@ jobs:
       - name: Install package + test extras
         run: pip install -e ".[test]"
 
-      - name: Run feature tests
+      - name: Run integration tests (everything but the API and regression files)
         run: |
-          pytest \
-            tests/test_features_v03.py \
-            tests/test_features_v04.py \
+          pytest tests/integration \
+            --ignore=tests/integration/test_api.py \
+            --ignore=tests/integration/test_regression.py \
             --timeout=60 \
             -v \
             --tb=short \
@@ -186,8 +181,8 @@ jobs:
       - name: Run API and regression tests
         run: |
           pytest \
-            tests/test_api.py \
-            tests/test_regression.py \
+            tests/integration/test_api.py \
+            tests/integration/test_regression.py \
             --timeout=60 \
             -v \
             --tb=short \

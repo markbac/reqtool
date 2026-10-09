@@ -2,7 +2,7 @@
 import re
 from pathlib import Path
 
-ROUTERS = Path(__file__).parent.parent / "src" / "reqtool"  # the whole package, store.py aside
+ROUTERS = Path(__file__).resolve().parents[2] / "src" / "reqtool"  # the whole package, store.py aside
 
 # Private Store members routers already use; shrink this set (never grow it) as ARC work lands.
 ALLOWED: set[str] = set()

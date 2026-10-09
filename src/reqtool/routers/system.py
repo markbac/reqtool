@@ -31,7 +31,7 @@ router = APIRouter()
 
 @router.get("/health", tags=["meta"])
 def health(store: Store = Depends(get_store)):
-    return {"status": "ok", "version": __version__, "requirements": len(store.requirements)}
+    return {"status": "ok", "version": __version__, "requirements": len(store.requirement_map())}
 
 
 @router.get("/version", tags=["meta"])
@@ -152,8 +152,8 @@ def get_repo_info(store: Store = Depends(get_store)):
         "repo_id": store.config.repo_id,
         "repo_title": store.config.repo_title,
         "repo_description": store.config.repo_description,
-        "requirements_count": len(store.requirements),
-        "principles_count": len(store.principles),
+        "requirements_count": len(store.requirement_map()),
+        "principles_count": len(store.principle_map()),
         "tbds_count": len(store.live_tbds()),
         "decisions_count": len(store.live_decision_records()),
     }
@@ -465,8 +465,8 @@ def validation_badge(store: Store = Depends(get_store)):
 
 @router.get("/metrics", tags=["metrics"])
 def get_metrics(store: Store = Depends(get_store)):
-    reqs = [r for r in store.requirements.values() if not r.get("deleted")]
-    principles = [p for p in store.principles.values() if not p.get("deleted")]
+    reqs = store.live_requirements()
+    principles = store.live_principles()
     tbds = store.live_tbds()
 
     status_counts = Counter(r.get("status", "draft") for r in reqs)

@@ -24,7 +24,7 @@ def detect_duplicate_requirements(store: Store, threshold: float = 0.5) -> list[
 
 
 def _find_duplicates(store: Store, threshold: float) -> list[dict[str, Any]]:
-    reqs = [r for r in store.requirements.values() if not r.get("deleted")]
+    reqs = store.live_requirements()
     tokens = [_tokenize(f"{r.get('title') or ''} {(r.get('content') or {}).get('description') or ''}") for r in reqs]
 
     freq: dict[str, int] = {}
@@ -76,7 +76,7 @@ def suggest_duplicates(store: Store, title: str, description: str = "", exclude_
     if not mine:
         return []
     out = []
-    for r in store.requirements.values():
+    for r in store.requirement_map().values():
         if r.get("deleted") or r["uid"] == exclude_uid:
             continue
         theirs = _tokenize(f"{r.get('title') or ''} {(r.get('content') or {}).get('description') or ''}")

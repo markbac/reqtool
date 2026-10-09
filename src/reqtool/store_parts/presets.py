@@ -7,7 +7,6 @@ from typing import Any
 
 from reqtool.store_parts._host import StoreHost
 
-from reqtool.fileio import load_yaml, save_yaml
 
 
 class PresetsMixin(StoreHost):
@@ -16,9 +15,9 @@ class PresetsMixin(StoreHost):
 
     def list_filter_presets(self) -> list[dict[str, Any]]:
         path = self._presets_path()
-        if not path.exists():
+        if not self.storage.exists(path):
             return []
-        data = load_yaml(path)
+        data = self.storage.read(path)
         return data if isinstance(data, list) else []
 
     def save_filter_preset(self, preset: dict[str, Any]) -> dict[str, Any]:
@@ -26,7 +25,7 @@ class PresetsMixin(StoreHost):
         presets = self.list_filter_presets()
         presets = [p for p in presets if p.get("id") != preset.get("id")]
         presets.append(preset)
-        save_yaml(path, presets)
+        self.storage.write(path, presets)
         return preset
 
     def delete_filter_preset(self, preset_id: str) -> bool:
@@ -35,5 +34,5 @@ class PresetsMixin(StoreHost):
         new = [p for p in presets if p.get("id") != preset_id]
         if len(new) == len(presets):
             return False
-        save_yaml(path, new)
+        self.storage.write(path, new)
         return True

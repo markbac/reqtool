@@ -12,8 +12,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .fileio import (
-    load_yaml,
-    save_yaml,
     utcnow_iso,
     uuid7,
     validate_id,
@@ -31,11 +29,14 @@ log = logging.getLogger(__name__)
 from . import __version__ as TOOL_VERSION
 from .actor import resolve_author
 from .artefacts import (
-    DECISION, PRINCIPLE, REQUIREMENT, apply_fields, history_entry, mark_deleted, record_change, seal_new,
+    DECISION, PRINCIPLE, REQUIREMENT, apply_fields, history_entry, mark_deleted, new_requirement, record_change,
+    seal_new,
 )
 from .graph import TraceabilityGraph, relationship_target
-from .store_parts.remote import _REMOTE_SCHEMES, _validate_remote_url, _validate_remote_ref, _git_remote  # noqa: F401
+from .storage import FileStorage, Storage
+from .vcs import GitVcs, Vcs, _REMOTE_SCHEMES, _validate_remote_url, _validate_remote_ref, _git_remote  # noqa: F401
 from .store_parts.locking import _locked
+from .store_parts.access import AccessMixin
 from .store_parts.analytics import AnalyticsMixin
 from .store_parts.presets import PresetsMixin
 from .store_parts.module_ops import ModuleOpsMixin
@@ -86,14 +87,16 @@ def substitute_template_variables(val: Any, variables: dict[str, Any]) -> Any:
     return val
 
 
-class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
+class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
     """
     Holds all loaded artefacts in memory.
     Call load() to populate from disk.
     """
 
-    def __init__(self, repo_root: Path = Path(".")) -> None:
+    def __init__(self, repo_root: Path = Path("."), storage: Optional[Storage] = None, vcs: Optional[Vcs] = None) -> None:
         self.root = repo_root
+        self.storage: Storage = storage or FileStorage()   # all artefact file access goes through this
+        self.vcs: Vcs = vcs or GitVcs()                    # and all git access through this
         self._lock = threading.RLock()
         self.config: RepoConfig = RepoConfig()
         self.core_enums: CoreEnums = CoreEnums()
@@ -127,10 +130,6 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
             new_reqs: dict[str, dict[str, Any]] = {}
             new_principles: dict[str, dict[str, Any]] = {}
             new_decisions: dict[str, dict[str, Any]] = {}
-            self.modules = {}
-            self.products = {}
-            self.module_requirements = {}
-
             self._load_config()
             self._load_enums()
             self._load_hierarchy()
@@ -143,9 +142,11 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
             self._load_dir(self.root / "principles", new_principles, "principles")
             self._load_dir(self.root / "decisions", new_decisions, "decisions")
             self._load_dir(self.root / "tbds", new_decisions, "decisions")
+            new_modules, new_module_reqs = self._read_modules()
+            new_products = self._read_products()
+            # One swap: a reader never sees the new requirements next to the old (or empty) modules and products.
             self.requirements, self.principles, self.decisions = new_reqs, new_principles, new_decisions
-            self._load_modules()
-            self._load_products()
+            self.modules, self.module_requirements, self.products = new_modules, new_module_reqs, new_products
             self._revision += 1
             log.info(
                 "Store loaded: %d requirements, %d principles, %d decisions/TBDs, "
@@ -156,14 +157,14 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
 
     def _load_config(self) -> None:
         cfg_path = self.root / ".reqtool" / "config.yaml"
-        if cfg_path.exists():
-            data = load_yaml(cfg_path)
+        if self.storage.exists(cfg_path):
+            data = self.storage.read(cfg_path)
             self.config = RepoConfig.model_validate(data)
 
     def _load_enums(self) -> None:
         enums_path = self.root / ".reqtool" / "enums.yaml"
-        if enums_path.exists():
-            data = load_yaml(enums_path)
+        if self.storage.exists(enums_path):
+            data = self.storage.read(enums_path)
             self.repo_enums = RepoEnums.model_validate(data)
 
     def _load_hierarchy(self) -> None:
@@ -213,13 +214,13 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
         )
 
     def _load_dir(self, directory: Path, target: dict, kind: str) -> None:
-        if not directory.exists():
+        if not self.storage.exists(directory):
             return
-        for path in sorted(directory.glob("*.yaml")):
+        for path in self.storage.list_yaml(directory):
             if path.name.startswith("_"):
                 continue
             try:
-                data = load_yaml(path)
+                data = self.storage.read(path)
                 uid = data.get("uid")
                 if uid:
                     if uid in target:
@@ -231,28 +232,34 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
                 log.warning("Failed to load %s: %s", path, exc)
 
     def _load_modules(self) -> None:
+        """Read the modules from disk into the store (adding to, or replacing, what is held)."""
+        modules, module_reqs = self._read_modules()
+        self.modules.update(modules)
+        self.module_requirements.update(module_reqs)
+
+    def _read_modules(self) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, dict[str, Any]]]]:
+        modules: dict[str, dict[str, Any]] = {}
+        module_requirements: dict[str, dict[str, dict[str, Any]]] = {}
         modules_dir = self.root / "modules"
-        if not modules_dir.exists():
-            return
-        for module_dir in sorted(modules_dir.iterdir()):
-            if not module_dir.is_dir():
-                continue
+        if not self.storage.exists(modules_dir):
+            return modules, module_requirements
+        for module_dir in self.storage.list_dirs(modules_dir):
             manifest = module_dir / "_module.yaml"
-            if not manifest.exists():
+            if not self.storage.exists(manifest):
                 continue
             try:
-                data = load_yaml(manifest)
+                data = self.storage.read(manifest)
                 if not isinstance(data, dict):
                     log.warning("Skipping module %s: manifest is not a mapping", module_dir)
                     continue
                 module_id = data.get("id") or module_dir.name
-                self.modules[module_id] = data
+                modules[module_id] = data
                 reqs: dict[str, dict] = {}
-                for req_path in sorted(module_dir.glob("*.yaml")):
+                for req_path in self.storage.list_yaml(module_dir):
                     if req_path.name.startswith("_"):
                         continue
                     try:
-                        req_data = load_yaml(req_path)
+                        req_data = self.storage.read(req_path)
                         if not isinstance(req_data, dict):
                             continue
                         uid = req_data.get("uid")
@@ -260,29 +267,33 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
                             reqs[uid] = req_data
                     except Exception as exc:
                         log.warning("Failed to load module req %s: %s", req_path, exc)
-                self.module_requirements[module_id] = reqs
+                module_requirements[module_id] = reqs
             except Exception as exc:
                 log.warning("Failed to load module %s: %s", module_dir, exc)
+        return modules, module_requirements
 
     def _load_products(self) -> None:
+        self.products.update(self._read_products())
+
+    def _read_products(self) -> dict[str, dict[str, Any]]:
+        products: dict[str, dict[str, Any]] = {}
         products_dir = self.root / "products"
-        if not products_dir.exists():
-            return
-        for product_dir in sorted(products_dir.iterdir()):
-            if not product_dir.is_dir():
-                continue
+        if not self.storage.exists(products_dir):
+            return products
+        for product_dir in self.storage.list_dirs(products_dir):
             manifest = product_dir / "_product.yaml"
-            if not manifest.exists():
+            if not self.storage.exists(manifest):
                 continue
             try:
-                data = load_yaml(manifest)
+                data = self.storage.read(manifest)
                 if not isinstance(data, dict):
                     log.warning("Skipping product %s: manifest is not a mapping", product_dir)
                     continue
                 product_id = data.get("id") or product_dir.name
-                self.products[product_id] = data
+                products[product_id] = data
             except Exception as exc:
                 log.warning("Failed to load product %s: %s", product_dir, exc)
+        return products
 
     # ------------------------------------------------------------------
     # Lookup helpers
@@ -346,7 +357,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
         if recorded is not None:
             return recorded
         legacy = self.root / "tbds" / f"{uid}.yaml"
-        if legacy.exists():
+        if self.storage.exists(legacy):
             return legacy
         return self.root / "decisions" / f"{uid}.yaml"
 
@@ -589,70 +600,12 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
         dor = fields.get("dor_checklist") or self.default_checklist("dor", req_type)
         dod = fields.get("dod_checklist") or self.default_checklist("dod", req_type)
 
-        data: dict[str, Any] = {
-            "schema_version": "1.0.0",
-            "type": "requirement",
-            "tool_version": TOOL_VERSION,
-            "uid": uid,
-            "id": provided_id,
-            "parentId": fields.get("parentId"),
-            "title": fields.get("title", ""),
-            "version": "1.0.0",
-            "content": fields.get("content", {"description": "", "rationale": "", "extended_description": ""}),
-            "acceptance_criteria": fields.get("acceptance_criteria", []),
-            "status": fields.get("status", default_status),
-            "priority": fields.get("priority", "medium"),
-            "req_type": req_type,
-            "domain": fields.get("domain"),
-            "feature": fields.get("feature"),
-            "discipline": fields.get("discipline"),
-            "owner": fields.get("owner"),
-            "assignee": fields.get("assignee"),
-            "component": fields.get("component"),
-            "allocated_to": fields.get("allocated_to", []),
-            "tags": fields.get("tags", []),
-            "iteration": fields.get("iteration"),
-            "estimate": fields.get("estimate"),
-            "estimate_unit": fields.get("estimate_unit"),
-            "dor_checklist": dor,
-            "dod_checklist": dod,
-            "attributes": fields.get("attributes", {}),
-            "custom_fields": fields.get("custom_fields", {}),
-            "nfr": fields.get("nfr", {}),
-            "constraints": fields.get("constraints", []),
-            "assumptions": fields.get("assumptions", []),
-            "relationships": fields.get("relationships", []),
-            "links": fields.get("links", []),
-            "attachments": fields.get("attachments", []),
-            "risk": fields.get("risk", "none"),
-            "safety_related": fields.get("safety_related", False),
-            "safety_classification": fields.get("safety_classification"),
-            "safety_standard": fields.get("safety_standard"),
-            "asil_level": fields.get("asil_level"),
-            "dal_level": fields.get("dal_level"),
-            "mitigates_hazard": fields.get("mitigates_hazard"),
-            "source_document": fields.get("source_document"),
-            "legal_compliance_status": fields.get("legal_compliance_status"),
-            "compliance_rationale": fields.get("compliance_rationale"),
-            "target_release": fields.get("target_release"),
-            "target_milestone": fields.get("target_milestone"),
-            "release_status": fields.get("release_status", "unassigned"),
-            "planned_start_date": fields.get("planned_start_date"),
-            "planned_completion_date": fields.get("planned_completion_date"),
-            "verification_method": fields.get("verification_method", "test"),
-            "verification": fields.get("verification", {"status": "not_started", "verified_date": None, "note": ""}),
-            "approval": fields.get("approval", {"status": "draft", "approved_by": None, "approved_date": None}),
-            "review": fields.get("review", {"last_reviewed": None, "reviewers": [], "note": ""}),
-            "implementation": fields.get("implementation", {"status": "not_started", "branch": None}),
-            "content_hash": "",
-            "created": now,
-            "last_modified": now,
-            "deleted": False,
-            "history": [],
-        }
+        data = new_requirement(
+            {**fields, "status": fields.get("status", default_status), "dor_checklist": dor, "dod_checklist": dod},
+            uid=uid, item_id=provided_id, now=now, tool_version=TOOL_VERSION)
         seal_new(REQUIREMENT, data, author)
         self.requirements[uid] = data
-        save_yaml(self.req_path(uid), data)
+        self.storage.write(self.req_path(uid), data)
         return data
 
     @_locked
@@ -683,7 +636,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
         if record_change(REQUIREMENT, data, increment, author, summary, change_ref):
             self._mark_downstream_suspect(uid)
 
-        save_yaml(self.req_path(uid), data)
+        self.storage.write(self.req_path(uid), data)
         return data
 
     def hierarchy_problem(self, child_type: str, parent_uid: Optional[str]) -> Optional[str]:
@@ -782,7 +735,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
                         req.get("version", "1.0.0"), "reqtool",
                         f"Link to {current_id} became suspect (upstream change)", now=now)]
             if changed:
-                save_yaml(self.req_path(req_uid), req)
+                self.storage.write(self.req_path(req_uid), req)
 
     @_locked
     def clear_suspect_link(self, req_uid: str, rel_index: int) -> bool:
@@ -793,7 +746,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
         rels = req["relationships"]
         if 0 <= rel_index < len(rels):
             rels[rel_index]["suspect"] = False
-            save_yaml(self.req_path(req_uid), req)
+            self.storage.write(self.req_path(req_uid), req)
             return True
         return False
 
@@ -818,7 +771,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
         approval["signed_version"] = result["version"]
         approval["signed_hash"] = result["content_hash"]
         approval["signature"] = sign_approval_v2(uid, result["version"], approved_by, result["content_hash"], self.root)
-        save_yaml(self.req_path(uid), result)
+        self.storage.write(self.req_path(uid), result)
         return result
 
     @_locked
@@ -836,7 +789,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
                     # The grandparent may not accept this type: fall back to the root.
                     self.update_requirement(child_uid, {"parentId": None}, summary=note)
         mark_deleted(data)
-        save_yaml(self.req_path(uid), data)
+        self.storage.write(self.req_path(uid), data)
         return data
 
     # ------------------------------------------------------------------
@@ -872,7 +825,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
         }
         seal_new(PRINCIPLE, data, author)
         self.principles[uid] = data
-        save_yaml(self.principle_path(uid), data)
+        self.storage.write(self.principle_path(uid), data)
         return data
 
     @_locked
@@ -886,7 +839,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
             return None
         apply_fields(data, fields)
         record_change(PRINCIPLE, data, increment, author, summary, change_ref)
-        save_yaml(self.principle_path(uid), data)
+        self.storage.write(self.principle_path(uid), data)
         return data
 
     @_locked
@@ -895,7 +848,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
         if data is None:
             return None
         mark_deleted(data)
-        save_yaml(self.principle_path(uid), data)
+        self.storage.write(self.principle_path(uid), data)
         return data
 
     # ------------------------------------------------------------------
@@ -945,7 +898,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
         if data.get("supersedes"):
             self._mark_superseded(data["supersedes"], uid, author)
 
-        save_yaml(self.decision_path(uid), data)
+        self.storage.write(self.decision_path(uid), data)
         return data
 
     def _mark_superseded(self, old_uid: str, new_uid: str, author: str = "reqtool") -> None:
@@ -957,7 +910,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
         old_item["superseded_by"] = new_uid
         new_id = self.decisions.get(new_uid, {}).get("id", new_uid)
         record_change(DECISION, old_item, "patch", author, f"Superseded by {new_id}.")
-        save_yaml(self.decision_path(old_uid), old_item)
+        self.storage.write(self.decision_path(old_uid), old_item)
 
     @_locked
     def create_tbd(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
@@ -982,7 +935,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
             self._mark_superseded(fields["supersedes"], uid, author)
 
         record_change(DECISION, data, increment, author, summary, change_ref)
-        save_yaml(self.decision_path(uid), data)
+        self.storage.write(self.decision_path(uid), data)
         return data
 
     @_locked
@@ -995,7 +948,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
         if data is None:
             return None
         mark_deleted(data)
-        save_yaml(self.decision_path(uid), data)
+        self.storage.write(self.decision_path(uid), data)
         return data
 
     @_locked
@@ -1035,7 +988,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
 
         try:
             if top == "requirements":
-                if not changed_path.exists():
+                if not self.storage.exists(changed_path):
                     to_remove = [uid for uid, r in self.requirements.items()
                                  if self.req_path(uid) == changed_path]
                     for uid in to_remove:
@@ -1043,7 +996,7 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
                         self._file_for.pop(("requirements", uid), None)
                     log.debug("Incremental reload: removed %d requirement(s)", len(to_remove))
                     return
-                data = load_yaml(changed_path)
+                data = self.storage.read(changed_path)
                 if not isinstance(data, dict):
                     return
                 uid = data.get("uid")
@@ -1061,14 +1014,14 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
                 return
 
             if top == "principles":
-                if not changed_path.exists():
+                if not self.storage.exists(changed_path):
                     to_remove = [uid for uid, p in self.principles.items()
                                  if self.principle_path(uid) == changed_path]
                     for uid in to_remove:
                         del self.principles[uid]
                         self._file_for.pop(("principles", uid), None)
                     return
-                data = load_yaml(changed_path)
+                data = self.storage.read(changed_path)
                 if not isinstance(data, dict):
                     return
                 uid = data.get("uid")
@@ -1080,12 +1033,12 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
                 return
 
             if top in ("decisions", "tbds"):
-                if not changed_path.exists():
+                if not self.storage.exists(changed_path):
                     for uid in [u for u in self.decisions if self.decision_path(u) == changed_path]:
                         del self.decisions[uid]
                         self._file_for.pop(("decisions", uid), None)
                     return
-                data = load_yaml(changed_path)
+                data = self.storage.read(changed_path)
                 if isinstance(data, dict) and (uid := data.get("uid")):
                     if self.decisions.get(uid) == data:
                         return
@@ -1110,17 +1063,17 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
     def restore_requirement(self, uid: str, snapshot: dict[str, Any]) -> None:
         """Put back an earlier copy of a requirement (used when a commit fails after the item was updated)."""
         self.requirements[uid] = snapshot
-        save_yaml(self.req_path(uid), snapshot)
+        self.storage.write(self.req_path(uid), snapshot)
 
     @_locked
     def restore_principle(self, uid: str, snapshot: dict[str, Any]) -> None:
         self.principles[uid] = snapshot
-        save_yaml(self.principle_path(uid), snapshot)
+        self.storage.write(self.principle_path(uid), snapshot)
 
     @_locked
     def restore_decision(self, uid: str, snapshot: dict[str, Any]) -> None:
         self.decisions[uid] = snapshot
-        save_yaml(self.decision_path(uid), snapshot)
+        self.storage.write(self.decision_path(uid), snapshot)
 
     def live_tbds(self) -> list[dict[str, Any]]:
         """Non-deleted items of type ``tbd`` (open questions), excluding decision records."""
@@ -1270,14 +1223,14 @@ class Store(AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMixin):
 
     def load_custom_field_schema(self) -> list[dict[str, Any]]:
         path = self.root / ".reqtool" / "custom_fields.yaml"
-        if not path.exists():
+        if not self.storage.exists(path):
             return []
-        data = load_yaml(path)
+        data = self.storage.read(path)
         return data if isinstance(data, list) else []
 
     def save_custom_field_schema(self, schema: list[dict[str, Any]]) -> None:
         path = self.root / ".reqtool" / "custom_fields.yaml"
-        save_yaml(path, schema)
+        self.storage.write(path, schema)
 
     def validate_custom_fields(self, req: dict[str, Any]) -> list[dict[str, str]]:
         """Validate custom_fields against the project schema. Returns list of errors."""

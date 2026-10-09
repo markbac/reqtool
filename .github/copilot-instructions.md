@@ -28,4 +28,4 @@ When reviewing Pull Requests in this repository, GitHub Copilot should evaluate 
 
 ## 6. Test Suite Coverage
 - **100% Pass Rate:** All unit and integration tests under `tests/` must pass (`pytest`).
-- **New Tests Required:** Any new feature or bug fix must be accompanied by new test cases in `tests/test_store.py`, `tests/test_api.py`, `tests/test_validation.py`, or `tests/test_cli.py`.
+- **New Tests Required:** Any new feature or bug fix must be accompanied by new test cases in `tests/unit/test_store.py`, `tests/integration/test_api.py`, `tests/unit/test_validation.py`, or `tests/acceptance/test_cli.py`.

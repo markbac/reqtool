@@ -60,7 +60,7 @@ def verify(repo: Optional[str]):
     store.load()
 
     failures = []
-    for uid, req in store.requirements.items():
+    for uid, req in store.requirement_map().items():
         if req.get("deleted"):
             continue
         stored = req.get("content_hash", "")
@@ -68,13 +68,13 @@ def verify(repo: Optional[str]):
         if stored and stored != computed:
             failures.append(f"requirement {req.get('id', uid)}: hash mismatch")
 
-    for uid, p in store.principles.items():
+    for uid, p in store.principle_map().items():
         stored = p.get("content_hash", "")
         computed = compute_principle_hash(p)
         if stored and stored != computed:
             failures.append(f"principle {p.get('id', uid)}: hash mismatch")
 
-    for uid, t in store.decisions.items():
+    for uid, t in store.decision_map().items():
         stored = t.get("content_hash", "")
         computed = compute_tbd_hash(t)
         if stored and stored != computed:

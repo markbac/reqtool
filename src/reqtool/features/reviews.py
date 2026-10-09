@@ -57,7 +57,7 @@ def request_review(store, uid: str, reviewers: list[str], requested_by: str) -> 
 
 def list_requests(store, uid: Optional[str] = None, reviewer: Optional[str] = None) -> list[dict[str, Any]]:
     rows = [r for r in _load(store) if (uid is None or r["uid"] == uid) and (reviewer is None or r["reviewer"] == reviewer)]
-    return [_view(r, store.requirements.get(r["uid"])) for r in rows]
+    return [_view(r, store.requirement_map().get(r["uid"])) for r in rows]
 
 
 def record_approval(store, uid: str, approver: str) -> None:

@@ -82,20 +82,21 @@ class RequirementContent(BaseModel):
     user_benefit: str = ""
 
 
+# Dates in artefact files are ISO strings, kept as written (the files are the record, not these models).
 class VerificationBlock(BaseModel):
     status: str = "not_started"
-    verified_date: Optional[datetime] = None
+    verified_date: Optional[str] = None
     note: str = ""
 
 
 class ApprovalBlock(BaseModel):
     status: str = "draft"
     approved_by: Optional[str] = None
-    approved_date: Optional[datetime] = None
+    approved_date: Optional[str] = None
 
 
 class ReviewBlock(BaseModel):
-    last_reviewed: Optional[datetime] = None
+    last_reviewed: Optional[str] = None
     reviewers: list[str] = Field(default_factory=list)
     note: str = ""
 
@@ -123,7 +124,23 @@ class Iteration(BaseModel):
 # Requirement
 # ---------------------------------------------------------------------------
 
+def _new_content() -> RequirementContent:
+    # A new item stores only the three text fields every type has; the strategic ones are added when used.
+    return RequirementContent(description="", rationale="", extended_description="")
+
+
+def _set(model: type[BaseModel], **values: Any) -> Any:
+    """An instance whose fields all count as set, so that dumping with ``exclude_unset`` keeps every key."""
+    return model(**values)
+
+
 class Requirement(BaseModel):
+    """A requirement as stored in ``requirements/<uid>.yaml``.
+
+    The field order is the key order of a new file, and ``reqtool.artefacts.new_requirement`` builds new items
+    from these defaults. ``tests/unit/test_artefact_models.py`` checks that every stored item still validates.
+    """
+
     schema_version: str = "1.0.0"
     type: Literal["requirement"] = "requirement"
     tool_version: str = "0.3.20"
@@ -131,10 +148,10 @@ class Requirement(BaseModel):
     uid: str
     id: str
     parent_id: Optional[str] = Field(None, alias="parentId")
-    title: str
+    title: str = ""
     version: str = "1.0.0"
 
-    content: RequirementContent = Field(default_factory=RequirementContent)
+    content: RequirementContent = Field(default_factory=_new_content)
     acceptance_criteria: list[AcceptanceCriterion] = Field(default_factory=list)
 
     status: str = "draft"
@@ -142,6 +159,7 @@ class Requirement(BaseModel):
     req_type: str = "functional"
     domain: Optional[str] = None
     feature: Optional[str] = None
+    discipline: Optional[str] = None
 
     owner: Optional[str] = None
     assignee: Optional[str] = None
@@ -149,21 +167,21 @@ class Requirement(BaseModel):
     allocated_to: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     iteration: Optional[str] = None
-    target_release: Optional[str] = None
-    target_milestone: Optional[str] = None
-    release_status: Optional[str] = "unassigned"
-    planned_start_date: Optional[str] = None
-    planned_completion_date: Optional[str] = None
     estimate: Optional[float] = None
     estimate_unit: Optional[str] = None
 
+    dor_checklist: list[ChecklistItem] = Field(default_factory=list)
+    dod_checklist: list[ChecklistItem] = Field(default_factory=list)
+
     attributes: dict[str, Any] = Field(default_factory=dict)
+    custom_fields: dict[str, Any] = Field(default_factory=dict)
     nfr: dict[str, float] = Field(default_factory=dict)
     constraints: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
 
     relationships: list[Relationship] = Field(default_factory=list)
     links: list[Link] = Field(default_factory=list)
+    attachments: list[dict[str, Any]] = Field(default_factory=list)
 
     risk: str = "none"
     safety_related: bool = False
@@ -177,20 +195,27 @@ class Requirement(BaseModel):
     legal_compliance_status: Optional[str] = None
     compliance_rationale: Optional[str] = None
 
-    verification_method: str = "test"
-    verification: VerificationBlock = Field(default_factory=VerificationBlock)
-    approval: ApprovalBlock = Field(default_factory=ApprovalBlock)
-    review: ReviewBlock = Field(default_factory=ReviewBlock)
-    implementation: ImplementationBlock = Field(default_factory=ImplementationBlock)
+    target_release: Optional[str] = None
+    target_milestone: Optional[str] = None
+    release_status: Optional[str] = "unassigned"
+    planned_start_date: Optional[str] = None
+    planned_completion_date: Optional[str] = None
 
-    dor_checklist: list[ChecklistItem] = Field(default_factory=list)
-    dod_checklist: list[ChecklistItem] = Field(default_factory=list)
+    verification_method: str = "test"
+    verification: VerificationBlock = Field(
+        default_factory=lambda: _set(VerificationBlock, status="not_started", verified_date=None, note=""))
+    approval: ApprovalBlock = Field(
+        default_factory=lambda: _set(ApprovalBlock, status="draft", approved_by=None, approved_date=None))
+    review: ReviewBlock = Field(
+        default_factory=lambda: _set(ReviewBlock, last_reviewed=None, reviewers=[], note=""))
+    implementation: ImplementationBlock = Field(
+        default_factory=lambda: _set(ImplementationBlock, status="not_started", branch=None))
 
     content_hash: str = ""
-    created: datetime = Field(default_factory=datetime.utcnow)
-    last_modified: datetime = Field(default_factory=datetime.utcnow)
+    created: str = ""
+    last_modified: str = ""
     deleted: bool = False
-    history: list[HistoryEntry] = Field(default_factory=list)
+    history: list[dict[str, Any]] = Field(default_factory=list)
 
     model_config = {"populate_by_name": True}
 

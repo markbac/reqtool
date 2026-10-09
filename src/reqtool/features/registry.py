@@ -15,7 +15,7 @@ from typing import Any
 
 from reqtool import __version__
 from reqtool.fileio import bump_version, load_yaml, save_yaml, utcnow_iso, uuid7, validate_id
-from reqtool.store_parts.remote import _git_remote, _validate_remote_ref, _validate_remote_url
+from reqtool.vcs import _git_remote, _validate_remote_ref, _validate_remote_url
 
 
 class ModuleError(ValueError):
@@ -79,7 +79,7 @@ def clone_module(store, module_id: str, new_id: str) -> dict[str, Any]:
 def consumers(store, module_id: str) -> list[dict[str, Any]]:
     """Products that include the module, with the version each one has locked."""
     out = []
-    for pid, product in store.products.items():
+    for pid, product in store.product_map().items():
         if not any(m.get("id") == module_id for m in product.get("modules") or []):
             continue
         lock = store.root / "products" / pid / "_product.lock"

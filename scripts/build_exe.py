@@ -37,7 +37,6 @@ def build_docs_bundle():
     docs_dir = ROOT / "docs"
     files_to_pack = [
         ROOT / "README.md",
-        ROOT / "ARCHITECTURE.md",
         ROOT / "LICENSE",
     ]
     if docs_dir.exists():

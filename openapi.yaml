@@ -1007,8 +1007,7 @@ paths:
       tags:
       - requirements
       summary: Bulk Update Requirements
-      description: "Update a set of fields across multiple requirements at once.\n\nSame guards as single updates: no writes
-        while the tree has merge conflicts,\nand a status change must be a legal workflow transition for each item."
+      description: Update a set of fields across multiple requirements at once (same guards as single updates).
       operationId: bulk_update_requirements_requirements_bulk_post
       requestBody:
         content:

@@ -3,7 +3,7 @@ from pathlib import Path
 
 from reqtool.fileio import load_yaml
 
-WF = Path(__file__).parent.parent / ".github" / "workflows"
+WF = Path(__file__).resolve().parents[2] / ".github" / "workflows"
 
 
 def _needs(job):

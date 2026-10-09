@@ -62,7 +62,7 @@ def query(expression: str, repo: Optional[str]):
     """Find requirements, for example: req query 'status:approved no:verification'."""
     from ..features import query as q
     try:
-        found = q.run(_store(repo).requirements, expression)
+        found = q.run(_store(repo).requirement_map(), expression)
     except q.QueryError as exc:
         raise click.ClickException(str(exc))
     for r in found:

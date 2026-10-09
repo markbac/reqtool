@@ -29,24 +29,32 @@ This document covers:
 
 ### 2.1 Component overview
 
+The code is layered. A request passes through each layer once, and a layer only knows the one below it.
+
 ```mermaid
 graph TB
     subgraph process["reqtool process"]
         CLI["CLI (Click)<br/>req serve / init / new<br/>validate / verify"]
-        subgraph app["FastAPI application"]
-            REST["REST API<br/>endpoints"]
+        subgraph web["Web layer"]
+            Routers["Routers<br/>parse the request, return the response"]
             WS["WebSocket /ws<br/>ConnectionManager"]
-            REST --> Store
-            WS --> Store
         end
-        CLI --> app
-        Store["Store<br/>in-memory graph · hierarchy config<br/>filter presets · impact index"]
-        fileio["fileio<br/>YAML I/O · hashing · uuid7"]
-        validation["validation<br/>exports · git_ops"]
-        Store --> fileio
-        Store --> validation
+        Services["Services<br/>use cases: guards, workflow, approval,<br/>commit, events"]
+        Store["Store<br/>in-memory graph, read-only accessors,<br/>hierarchy, presets, impact index"]
+        Validation["validation<br/>ValidationContext, rules"]
+        subgraph gateways["Gateways (replaceable)"]
+            Storage["Storage<br/>FileStorage / MemoryStorage"]
+            Vcs["Vcs<br/>GitVcs / NullVcs"]
+        end
+        CLI --> Store
+        Routers --> Services
+        WS --> Store
+        Services --> Store
+        Store --> Storage
+        Store --> Vcs
+        Validation -. "reads a snapshot" .-> Store
     end
-    fileio -- "read / write" --> repo
+    Storage -- "read / write" --> repo
 
     subgraph repo["Requirements repository (git)"]
         config[".reqtool/<br/>config.yaml · enums.yaml<br/>hierarchy.yaml · help.yaml"]
@@ -56,6 +64,15 @@ graph TB
     end
 ```
 
+| Layer | Package or module | Responsibility |
+|-------|-------------------|----------------|
+| Web | `routers/`, `api.py` | Parse the request, call a service, turn `ServiceError` and the store's domain exceptions into a response with one handler each |
+| Services | `services/` | The rules that used to sit in handlers: merge-conflict and version checks, workflow guards, approval, commit and rollback, event publication. No FastAPI imports (enforced by `lint-imports`) |
+| Store | `store.py`, `store_parts/` | The in-memory graph and the mutations that write through to disk, split into mixins; `AccessMixin` exposes the graph read-only |
+| Models | `models/`, `artefacts.py` | Pydantic models that mirror the stored shape; `new_requirement` builds a new item, checked against a golden file |
+| Gateways | `storage.py`, `vcs.py` | The only code that touches the file system and git on the store's behalf; an in-memory pair lets tests run without either |
+| Validation | `validation.py`, `validation_context.py` | Rules run over a `ValidationContext` snapshot, so they need no store |
+
 ### 2.2 Module dependency graph
 
 ```mermaid
@@ -63,23 +80,25 @@ graph LR
     cli --> store
     cli --> api
     cli --> validation
-    cli --> exports
-    api --> store
-    api --> validation
-    api --> exports
-    api --> git_ops
-    store --> fileio
+    api --> routers
+    routers --> services
+    services --> store
+    services --> git_ops
+    store --> storage
+    store --> vcs
     store --> models
-    validation --> fileio
-    validation --> models
+    storage --> fileio
+    vcs --> git_ops
+    validation --> validation_context
+    validation_context --> models
     exports --> models
     main --> api
 
-    models["models.py<br/>(pure Pydantic, no internal deps)"]
+    models["models/<br/>(pure Pydantic, no internal deps)"]
     main["main.py<br/>(thin ASGI factory)"]
 ```
 
-All reqtool modules depend on `models.py` for type definitions. `models.py` itself has no internal dependencies, only Pydantic and the standard library. This makes models safe to import anywhere without triggering side effects.
+`models/` has no internal dependencies, only Pydantic and the standard library, so it is safe to import anywhere. Two import contracts keep the layering honest (`lint-imports`, run in CI): the core modules and `services/` may not import `routers`, `api`, `fastapi` or `starlette`. A third guard, `tests/unit/test_store_encapsulation.py`, fails when code outside the store reads or writes its dicts directly instead of using the accessors.
 
 ### 2.3 Process startup
 
@@ -101,7 +120,7 @@ sequenceDiagram
     Store->>Store: _load_config()
     Store->>Store: _load_enums()
     Store->>Store: _load_hierarchy()
-    Store->>Store: _load_dir(requirements/principles/tbds)
+    Store->>Store: _load_dir(requirements/principles/decisions)
     Store->>Store: _load_modules() / _load_products()
     API->>API: start watchdog Observer (skipped in tests)
     API-->>Uvicorn: FastAPI app
@@ -348,13 +367,17 @@ New requirements get `status` set to the `initial` field of their workflow, not 
 ```python
 Store.requirements: dict[uid, dict]
 Store.principles:   dict[uid, dict]
-Store.tbds:         dict[uid, dict]
+Store.decisions:    dict[uid, dict]     # decisions and TBDs
 Store.modules:      dict[module_id, dict]
 Store.products:     dict[product_id, dict]
 Store.module_requirements: dict[module_id, dict[uid, dict]]
 ```
 
-The store is loaded once at startup (`Store.load()`). A `watchdog` file system observer monitors the `requirements/`, `principles/`, `tbds/`, `modules/`, `products/`, and `.reqtool/` directories. When a YAML file changes on disk (e.g. via external `git pull`), `store.reload_file(path)` is called. This skips re-loading if the in-memory `last_modified` is already at or newer than the file's value, avoiding a read-after-write race between the store's own saves and the watcher.
+These dicts are the store's own. Code outside it reads them through `AccessMixin` (`requirement_map()`, `principle_map()`, `decision_map()`, `module_map()`, `product_map()`, `module_requirement_map()` and the `live_*` forms), which return read-only views, and changes them only through store methods.
+
+All file and git access goes through two gateways passed to `Store(repo_root, storage=None, vcs=None)`. `FileStorage` and `GitVcs` are the defaults; `MemoryStorage` and `NullVcs` let a test build a store with no disk and no git.
+
+`load()` reads every file into new dicts first and then swaps them in as one step, so a reader never sees a half-loaded store. The store is loaded once at startup. A `watchdog` file system observer monitors the `requirements/`, `principles/`, `decisions/`, `modules/`, `products/`, and `.reqtool/` directories. When a YAML file is created, modified, deleted or renamed on disk (e.g. by `git pull`, or by an editor that saves through a temporary file), `store.reload_file(path)` is called for the source and the destination path. Reads and other access events are ignored. Reloading is skipped if the in-memory `last_modified` is already at or newer than the file's value, avoiding a read-after-write race between the store's own saves and the watcher.
 
 Config and enum changes trigger a full reload. Artefact changes trigger incremental reload of just the affected file.
 
@@ -369,9 +392,10 @@ All mutations follow this sequence:
 4. if hash changed: bump semver by requested increment (patch/minor/major)
 5. append history entry {version, date, author, summary}
 6. trim history to 20 entries
-7. save_yaml(path, data)
-8. update in-memory dict
+7. update the in-memory dict, then storage.write(path, data)
 ```
+
+A new requirement is built by `artefacts.new_requirement`, which validates the fields against the `Requirement` model and returns the stored shape (key order and defaults are pinned by `tests/golden/new_requirement.json`).
 
 Git staging and committing are separate explicit steps, either via `POST /requirements/{uid}/commit` or `POST /git/commit` (batch). The store does not auto-commit.
 
@@ -400,18 +424,15 @@ Result:
 
 ### 7.1 Architecture
 
-The API is a standard FastAPI application. All routes are registered inside `create_app(repo_root)` as closures over the `store` instance, which is created once per server process. There is no dependency injection framework -- the store is captured by the closure.
+The API is a FastAPI application built by `create_app(repo_root)`. The store is created once per server process and kept on `app.state`; routers get it through the `get_store` dependency, and use-case routers build their service from it.
 
 ```
 create_app(repo_root: Path) -> FastAPI
     │
     ├── store = Store(repo_root); store.load()
     ├── watchdog observer started
-    ├── ConnectionManager (WebSocket) instantiated
-    │
-    ├── @app.get("/requirements") ...        all routes registered here
-    ├── @app.post("/requirements") ...
-    ├── ...
+    ├── exception handlers: ServiceError and the store's domain exceptions
+    ├── routers included (system, requirements, principles, decisions, modules, ...)
     │
     └── StaticFiles("/", ui/dist/)           React UI served last (catch-all)
 ```
@@ -422,20 +443,25 @@ create_app(repo_root: Path) -> FastAPI
 HTTP request
     │
     ▼
-FastAPI routing
+FastAPI routing + Pydantic validation of the body
     │
     ▼
-Endpoint function (closure over store)
+Router function: one call into a service
     │
-    ├── check has_conflicts(repo_root)    409 if merge conflicts
-    ├── fetch artefact from store
-    ├── validate input (Pydantic model)
-    ├── call store method (create/update/delete)
-    │       └── write YAML to disk
-    ├── fire webhooks (async thread)
-    ├── broadcast WebSocket event (async task)
-    └── return JSON response
+    ▼
+Service (services/requirements.py)
+    ├── refuse while the tree has merge conflicts      409 conflict
+    ├── fetch the artefact                              404 not_found
+    ├── check the version, the workflow, approval rules 409 version_conflict / workflow_guard / ...
+    ├── call the store (create/update/delete)
+    │       └── storage.write(...)
+    └── publish the event (webhooks, WebSocket, automation)
+    │
+    ▼
+Result returned, or ServiceError -> one handler -> {"detail": {"error", "message", ...}}
 ```
+
+`RequirementService` is built with a `publish` function and a `git` module, so a test can run every rule above with a recorder and a fake git and no HTTP. Other routers still call the store directly; moving them over follows the same pattern.
 
 ### 7.3 Endpoint groups
 
@@ -564,7 +590,7 @@ reqtool wraps git via subprocess rather than through a library. This keeps the d
 |-----------|-------------|---------|
 | Stage file | `git add <rel_path>` | commit endpoints |
 | Commit | `git commit -m <msg>` | commit endpoints |
-| SHA lookup | `git rev-parse HEAD` | post-commit SHA writeback |
+| SHA lookup | `git rev-parse HEAD` | the SHA shown in item history |
 | File log | `git log --pretty=format:... -- <path>` | history endpoint |
 | Status | `git status --porcelain` | status endpoint, conflict check |
 | Tag create | `git tag -a <name> -m <msg>` | baseline create |
@@ -572,16 +598,11 @@ reqtool wraps git via subprocess rather than through a library. This keeps the d
 | Diff tree | `git diff --name-status <ref> HEAD` | baseline diff |
 | Show file | `git show <ref>:<path>` | baseline diff, history |
 
-### 10.3 Commit SHA writeback
+### 10.3 Committing one artefact
 
-After `git commit`, the resulting SHA is written back into the last history entry of the committed artefact:
+`services/commit.py` commits one artefact: it refuses while there are merge conflicts, requires a non-empty message, bumps the version and history entry, stages and commits only that file, and reports the new SHA and version. If git fails, the version bump is undone and the file is unstaged, so a failed commit leaves the item as it was.
 
-```
-req.history[-1].commit_sha = sha[:7]
-save_yaml(path, req)
-```
-
-This creates a bidirectional link: the YAML file records its own commit SHA, and the git log records the file path.
+Nothing is written after the commit, so the working tree stays clean. The history entry carries the commit message and the SHA is found in git: `GET /requirements/{uid}/history` pairs the two by message for display.
 
 ### 10.4 Baselines
 
@@ -746,22 +767,25 @@ stateDiagram-v2
 ```mermaid
 sequenceDiagram
     participant C as Client
-    participant API as API endpoint
+    participant R as Router
+    participant S as RequirementService
     participant Store
-    participant Disk
+    participant Disk as Storage
 
-    C->>API: PUT /requirements/{uid}
-    API->>Store: validate_transition (if status changing)
-    Store-->>API: ok or 409 guard error
-    API->>Store: update_requirement(uid, fields)
-    Store->>Store: _sanitise · deep merge
-    Store->>Store: recompute hash · bump version
+    C->>R: PUT /requirements/{uid}
+    R->>S: update(uid, changes, if_version)
+    S->>S: merge-conflict and version checks
+    S->>Store: validate_transition (if status changing)
+    Store-->>S: ok or guard error
+    S->>Store: update_requirement(uid, fields)
+    Store->>Store: sanitise and deep merge
+    Store->>Store: recompute hash and bump version
     Store->>Store: append history entry
-    Store->>Disk: save_yaml(path, data)
-    Store-->>API: updated dict
-    API->>API: _fire_webhook (async thread)
-    API->>API: _broadcast_sync (WebSocket)
-    API-->>C: 200 JSON
+    Store->>Disk: write(path, data)
+    Store-->>S: updated dict
+    S->>S: publish event (webhooks, WebSocket, automation)
+    S-->>R: updated dict
+    R-->>C: 200 JSON
 ```
 
 ### 13.3 Tree construction

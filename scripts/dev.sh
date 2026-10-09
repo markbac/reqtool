@@ -147,29 +147,23 @@ cmd_test() {
 
     case "$subset" in
         core)
-            _bold "Running core tests (store, validation, CLI) ..."
-            pytest tests/test_store.py tests/test_validation.py tests/test_cli.py \
+            _bold "Running core tests (unit and acceptance tiers) ..."
+            pytest tests/unit tests/acceptance \
                 --timeout=30 -v --tb=short
             ;;
         features)
-            _bold "Running v0.3.0 feature tests ..."
-            pytest tests/test_features_v03.py \
+            _bold "Running integration tests (without the API and regression files) ..."
+            pytest tests/integration --ignore=tests/integration/test_api.py --ignore=tests/integration/test_regression.py \
                 --timeout=30 -v --tb=short
             ;;
         api)
             _bold "Running API + regression tests ..."
-            pytest tests/test_api.py tests/test_regression.py \
+            pytest tests/integration/test_api.py tests/integration/test_regression.py \
                 --timeout=60 -v --tb=short
             ;;
         all|"")
             _bold "Running full test suite ..."
-            pytest \
-                tests/test_store.py \
-                tests/test_validation.py \
-                tests/test_cli.py \
-                tests/test_features_v03.py \
-                tests/test_api.py \
-                tests/test_regression.py \
+            pytest tests --ignore=tests/e2e \
                 --timeout=60 -v --tb=short
             ;;
         *)

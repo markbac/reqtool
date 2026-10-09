@@ -58,7 +58,7 @@ def strategic_summary(uid: ReqUid, store: Store = Depends(get_store)):
 
 @router.get("/overview", tags=["overview"])
 def product_overview(product: Optional[str] = None, store: Store = Depends(get_store)):
-    if product and product not in store.products:
+    if product and product not in store.product_map():
         raise not_found(product)
     return insight.overview(store, product)
 
@@ -80,7 +80,7 @@ def impact_preview(uid: ReqUid, body: dict[str, Any], store: Store = Depends(get
 @router.get("/gate", tags=["validation"])
 def release_gate(product: Optional[str] = None, store: Store = Depends(get_store)):
     """Release readiness: ``ready`` is false when any policy finding exists."""
-    if product and product not in store.products:
+    if product and product not in store.product_map():
         raise not_found(product)
     return insight.release_readiness(store, product)
 
@@ -107,7 +107,7 @@ def requirement_quality(uid: ReqUid, store: Store = Depends(get_store)):
 def run_query(q: str = "", store: Store = Depends(get_store)):
     """Search with the query language, for example ``status:approved type:safety no:verification``."""
     try:
-        found = query.run(store.requirements, q)
+        found = query.run(store.requirement_map(), q)
     except query.QueryError as exc:
         raise _bad(str(exc))
     return {"query": q, "count": len(found), "results": [insight._ref(r) for r in found]}
@@ -187,7 +187,7 @@ def request_review(uid: ReqUid, body: dict[str, Any], store: Store = Depends(get
     by = resolve_author(str(body.get("requested_by") or "reqtool"))
     created = reviews.request_review(store, uid, [r for r in reviewers if isinstance(r, str)], by)
     for row in created:
-        publish_event(store, "review_requested", {"uid": uid, "id": store.requirements[uid].get("id"),
+        publish_event(store, "review_requested", {"uid": uid, "id": store.requirement_map()[uid].get("id"),
                                                   "reviewer": row["reviewer"], "by": by})
     return created
 

@@ -294,7 +294,7 @@ def test_dat23_empty_commit_message_is_rejected_before_anything_changes(repo_roo
 
 
 def test_dat23_failed_git_commit_rolls_the_item_back(repo_root, monkeypatch):
-    import reqtool.routers.deps as rr
+    from reqtool import git_ops
     c = TestClient(create_app(repo_root))
     uid = make_req(c)["uid"]
     _seed_git(repo_root)
@@ -302,7 +302,7 @@ def test_dat23_failed_git_commit_rolls_the_item_back(repo_root, monkeypatch):
 
     def boom(*a, **k):
         raise RuntimeError("git commit failed: simulated")
-    monkeypatch.setattr(rr, "git_commit", boom)
+    monkeypatch.setattr(git_ops, "commit", boom)
     assert c.post(f"/requirements/{uid}/commit", json={"message": "m"}).status_code == 500
     assert c.get(f"/requirements/{uid}").json() == before
     assert _git(repo_root, "status", "--porcelain") == ""

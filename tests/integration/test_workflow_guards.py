@@ -53,7 +53,7 @@ def test_approve_respects_workflow_guard(client):
 
 def test_mutations_blocked_while_merge_conflicts(client, monkeypatch):
     uid = make_req(client, title="A")["uid"]
-    monkeypatch.setattr("reqtool.routers.requirements.has_conflicts", lambda root: True)
+    monkeypatch.setattr("reqtool.git_ops.has_conflicts", lambda root: True)
     assert client.post("/requirements/bulk", json={"uids": [uid], "fields": {"owner": "x"}}).status_code == 409
     assert client.post(f"/requirements/{uid}/clone").status_code == 409
     assert client.post(f"/requirements/{uid}/approve", json={"approved_by": "a"}).status_code == 409

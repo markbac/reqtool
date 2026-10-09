@@ -13,7 +13,7 @@ title and description.
 from __future__ import annotations
 
 import shlex
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
 FIELD_ALIASES = {"type": "req_type", "owner": "owner", "id": "id", "status": "status", "priority": "priority",
                  "tag": "tags", "tags": "tags", "module": "module", "safety": "safety_related"}
@@ -75,6 +75,6 @@ def parse(query: str) -> Callable[[dict[str, Any]], bool]:
     return lambda req: all(t(req) for t in tests)
 
 
-def run(requirements: dict[str, dict], query: str) -> list[dict]:
+def run(requirements: Mapping[str, dict], query: str) -> list[dict]:
     match = parse(query)
     return [r for r in requirements.values() if not r.get("deleted") and match(r)]

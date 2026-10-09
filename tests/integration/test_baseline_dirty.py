@@ -3,7 +3,7 @@ import subprocess
 
 
 from tests.conftest import make_req
-from tests.test_baseline_diff import _commit_all, _setup
+from tests.integration.test_baseline_diff import _commit_all, _setup
 
 
 def test_dirty_tree_is_409_with_ids_then_clean_tree_succeeds(repo_root):

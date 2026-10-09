@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from reqtool.git_ops import _run_git, dirty_paths, ensure_git_config, is_git_repo
+from reqtool.git_ops import run_git, dirty_paths, ensure_git_config, is_git_repo
 from .diff import ref_diff
 
 PREFIX = "changeset/"
@@ -22,7 +22,7 @@ class ChangeSetError(ValueError):
 
 
 def _git(store, *args: str) -> str:
-    code, out, err = _run_git(list(args), store.root)
+    code, out, err = run_git(list(args), store.root)
     if code != 0:
         raise ChangeSetError((err or out).strip() or f"git {args[0]} failed")
     return out.strip()
@@ -39,7 +39,7 @@ def current_branch(store) -> str:
 
 
 def _base_of(store, branch: str) -> str:
-    code, out, _ = _run_git(["config", f"branch.{branch}.reqtool-base"], store.root)
+    code, out, _ = run_git(["config", f"branch.{branch}.reqtool-base"], store.root)
     return out.strip() if code == 0 and out.strip() else "main"
 
 
@@ -104,9 +104,9 @@ def merge(store, name: str, reviewed_by: str) -> dict[str, Any]:
         raise ChangeSetError("Commit or discard your changes before merging")
     ensure_git_config(store.root, store.config.git.commit_name, store.config.git.commit_email)
     _git(store, "checkout", base)
-    code, out, err = _run_git(["merge", "--no-ff", branch, "-m", f"Merge change set {name} (reviewed by {reviewed_by.strip()})"], store.root)
+    code, out, err = run_git(["merge", "--no-ff", branch, "-m", f"Merge change set {name} (reviewed by {reviewed_by.strip()})"], store.root)
     if code != 0:
-        _run_git(["merge", "--abort"], store.root)
+        run_git(["merge", "--abort"], store.root)
         _git(store, "checkout", branch)
         store.load()
         raise ChangeSetError("Merge conflict: " + (err or out).strip()[:300])

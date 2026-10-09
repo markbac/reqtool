@@ -85,7 +85,7 @@ def _validate_rows(store: Store, rows: list[dict[str, str]], keep_status: bool) 
     """Check every row before anything is written. Returns ([(index, fields, parent_ref)], errors)."""
     from reqtool.fileio import validate_id, InvalidId
     plan, errors, seen_ids = [], [], set()
-    existing_ids = {r.get("id") for r in store.requirements.values() if not r.get("deleted")}
+    existing_ids = {r.get("id") for r in store.requirement_map().values() if not r.get("deleted")}
     for i, normed in enumerate(rows):
         if not normed:
             continue  # structural error already reported
@@ -167,12 +167,12 @@ async def import_csv_upload(
                 try:
                     store.req_path(uid).unlink(missing_ok=True)
                 finally:
-                    store.requirements.pop(uid, None)
+                    store.forget_requirement(uid)
             raise HTTPException(status_code=422, detail={
                 "error": "import_failed", "message": f"Import rolled back: {exc}",
                 "errors": [{"row": 0, "id": "", "error": str(exc)}]})
     for uid in created:
-        publish_event(store, "requirement_created", {"uid": uid, "id": store.requirements[uid].get("id")})
+        publish_event(store, "requirement_created", {"uid": uid, "id": store.requirement_map()[uid].get("id")})
     return {"imported": len(created), "errors": [], "uids": created}
 
 
@@ -184,8 +184,8 @@ def _describe_dirty(store: Store, paths: list[str]) -> list[str]:
     out = []
     for rel in paths:
         stem = Path(rel).stem
-        item = (store.requirements.get(stem) or store.principles.get(stem)
-                or store.decisions.get(stem) or store.modules.get(stem))
+        item = (store.requirement_map().get(stem) or store.principle_map().get(stem)
+                or store.decision_map().get(stem) or store.module_map().get(stem))
         out.append((item or {}).get("id") or rel)
     return sorted(set(out))
 

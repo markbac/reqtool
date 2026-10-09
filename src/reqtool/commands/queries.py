@@ -174,7 +174,7 @@ def show(id_or_uid: str, repo: Optional[str]):
     from ..store import Store
     store = Store(root)
     store.load()
-    for collection in (store.requirements, store.principles, store.decisions):
+    for collection in (store.requirement_map(), store.principle_map(), store.decision_map()):
         for uid, item in collection.items():
             if uid == id_or_uid or item.get("id") == id_or_uid:
                 click.echo(json.dumps(item, indent=2, default=str))
@@ -207,7 +207,7 @@ def history(id_or_uid: str, repo: Optional[str]):
     store.load()
 
     uid = None
-    for collection in (store.requirements, store.principles, store.decisions):
+    for collection in (store.requirement_map(), store.principle_map(), store.decision_map()):
         for item_uid, item in collection.items():
             if item_uid == id_or_uid or item.get("id") == id_or_uid:
                 uid = item_uid

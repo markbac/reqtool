@@ -1088,9 +1088,9 @@ def populate_demo_data(root: Path, store) -> None:
             "content": d["content"],
         })
 
-    r_count = len(store.requirements)
-    t_count = len(store.decisions)
-    p_count = len(store.principles)
+    r_count = len(store.requirement_map())
+    t_count = len(store.decision_map())
+    p_count = len(store.principle_map())
 
     # -----------------------------------------------------------------------
     # Add agile items (epics -> stories/tasks) linked to systems requirements
@@ -1116,7 +1116,7 @@ def populate_demo_data(root: Path, store) -> None:
 
     def req(id_):
         """Look up uid by id."""
-        for v in store.requirements.values():
+        for v in store.requirement_map().values():
             if v.get("id") == id_:
                 return v["uid"]
         return None
@@ -1249,7 +1249,7 @@ def populate_demo_data(root: Path, store) -> None:
             {"id": "AC-2", "text": "ADR created recording the decision and trade-offs before end of Sprint-2.", "uid": "ac-sp001-2"},
         ]})
 
-    agile_count = len(store.requirements) - r_count
+    agile_count = len(store.requirement_map()) - r_count
 
     # -----------------------------------------------------------------------
     # Module: comms-security-baseline
@@ -1370,10 +1370,10 @@ def populate_demo_data(root: Path, store) -> None:
     })
 
     store.reload_modules()
-    for pid, prod in list(store.products.items()):
+    for pid, prod in list(store.product_map().items()):
         for mod_ref in prod.get("modules", []):
             mod_id = mod_ref.get("id")
-            if mod_id and mod_id in store.modules:
+            if mod_id and mod_id in store.module_map():
                 try:
                     store.import_module(pid, mod_id)
                 except Exception:

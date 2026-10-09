@@ -288,7 +288,7 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     story = []
 
     # Map requirement UIDs to IDs for internal link resolution
-    uid_to_id = {r["uid"]: r.get("id", "") for r in store.requirements.values()}
+    uid_to_id = {r["uid"]: r.get("id", "") for r in store.requirement_map().values()}
 
     repo_title = store.config.repo_title or store.config.repo_id or "Requirements Repository"
     repo_desc = (
@@ -315,12 +315,12 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     story.append(Spacer(1, 15))
 
     # Executive Summary Metadata Grid
-    req_list = [r for r in store.requirements.values() if not r.get("deleted")]
-    principle_list = [p for p in store.principles.values() if not p.get("deleted")]
+    req_list = store.live_requirements()
+    principle_list = store.live_principles()
     decision_list = store.live_decision_records()
     tbd_list = store.live_tbds()
-    module_list = list(store.modules.values())
-    product_list = list(store.products.values())
+    module_list = list(store.module_map().values())
+    product_list = list(store.product_map().values())
 
     meta_grid_data = [
         [Paragraph("<b>Export Date:</b>", style_meta_label), Paragraph(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"), style_meta_val),
