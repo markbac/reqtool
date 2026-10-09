@@ -72,6 +72,9 @@ graph TB
 | Models | `models/`, `artefacts.py` | Pydantic models that mirror the stored shape; `new_requirement` builds a new item, checked against a golden file |
 | Gateways | `storage.py`, `vcs.py` | The only code that touches the file system and git on the store's behalf; an in-memory pair lets tests run without either |
 | Validation | `validation.py`, `validation_context.py` | Rules run over a `ValidationContext` snapshot, so they need no store |
+| Permissions | `permissions.py`, `security.py` | One table maps a method and path to the action it needs (`delete`, `manage_workflow`, ...) and each role to the actions it may take. The auth middleware applies it; `GET /permissions` hands it to the UI |
+| Workflow tools | `workflows.py`, `services/workflows.py`, `routers/workflows.py` | Pure checks, normalisation and Mermaid output for a workflow definition, and the use cases that save them to `.reqtool/hierarchy.yaml` |
+| Writing check | `doclint/`, `services/lint.py`, `routers/lint.py`, `commands/lint.py` | Text extraction, rules, Vale integration and the settings in `.reqtool/lint.yaml` |
 
 ### 2.2 Module dependency graph
 
@@ -314,6 +317,8 @@ Legend: ◀─── = can transition back
 
 Terminal states are `done`, `cancelled`, `deprecated`. No transitions out.
 
+Workflows live in the repository's own `.reqtool/hierarchy.yaml` (written in full by `req init`, with the bundled copy as the fallback for a repository that has none). `workflows.py` normalises a definition to its explicit shape, checks it (unknown states, unreachable states, dead ends, bad ids and colours) and draws it. State ids are prefixed `s_` in the diagram because `end` is reserved in Mermaid, and labels are cleaned so they contain no quotes or semicolons. `WorkflowService` validates through `parse_hierarchy` before it writes, so a bad file is never saved, and refuses to delete a workflow an item type still uses. `GET /requirements/{uid}/transitions` returns, for each possible move, the fields, acceptance criteria and child states it needs and whether the item has them. An update guards the transition against the item as it will be after the update, but from the status it has now, so a request can supply the missing data and change status in one call without skipping a state.
+
 ### 5.2 Guard mechanics
 
 Guards are pre-conditions on entering a target state. They are defined per workflow, per target state:
@@ -482,7 +487,10 @@ Result returned, or ServiceError -> one handler -> {"detail": {"error", "message
 | Baselines | `/baselines` | list, create (tag), diff |
 | Filter presets | `/filter-presets` | save, list, delete |
 | Enums | `/enums` | merged, core, repo, update |
-| Workflow | `/workflow` | get, update |
+| Workflow | `/workflow` | get, update, mermaid (the global fallback) |
+| Workflows | `/workflows`, `/hierarchy/types/{type}/workflow` | list, preview, create, get, mermaid, save, delete, assign to a type |
+| Writing check | `/lint`, `/lint/config`, `/lint/text`, `/requirements/{uid}/lint` | results, settings, live text check |
+| Permissions | `/permissions` | the signed-in role and what it may do |
 | Templates | `/templates` | get, save |
 | Help | `/help` | full, by topic |
 | Badge | `/badge/validated` | Shields.io SVG |

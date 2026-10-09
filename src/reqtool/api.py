@@ -28,7 +28,7 @@ from .store import UnknownParent, ParentCycle, HierarchyViolation, RelationshipV
 from .routers import (
     system, requirements, principles, decisions, modules,
     comments, attachments, analysis, features, exports, git_ops,
-    imports, ws, auth, iterations, github, automation,
+    imports, ws, auth, iterations, github, automation, workflows, lint,
 )
 
 log = logging.getLogger(__name__)
@@ -146,6 +146,8 @@ def create_app(repo_root: Path, auth_mode: str | None = None, enable_watcher: bo
         return JSONResponse(status_code=409, content={"detail": {"error": "relationship_violation", "message": str(exc)}})
 
     app.include_router(system.router)
+    app.include_router(workflows.router)
+    app.include_router(lint.router)
     app.include_router(requirements.router)
     app.include_router(principles.router)
     app.include_router(decisions.router)

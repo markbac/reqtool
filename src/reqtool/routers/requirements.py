@@ -255,6 +255,12 @@ def transition_requirement(uid: ReqUid, body: dict, service: RequirementService 
     return service.transition(uid, body.get("to_state", ""))
 
 
+@router.get("/requirements/{uid}/transitions")
+def requirement_transitions(uid: ReqUid, service: RequirementService = Depends(get_service)):
+    """Where the item can move next, what each move needs, and which of those needs are still unmet."""
+    return service.transitions(uid)
+
+
 @router.get("/requirements/{uid}/rollup")
 def estimate_rollup(uid: ReqUid, store: Store = Depends(get_store)):
     """Return the rolled-up estimate sum for all direct children."""

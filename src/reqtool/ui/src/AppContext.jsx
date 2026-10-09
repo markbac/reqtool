@@ -8,6 +8,7 @@ import { createContext, useContext, useReducer, useMemo } from 'react';
 const initialState = {
   products: [], activeProduct: null, activeVariant: null,
   enums: {}, workflow: null, hierarchy: null, templates: [],
+  permissions: null, role: null,
   selectedUid: null, selectedType: null,
   panel: 'requirements',
   dirtyUids: new Set(),
@@ -17,7 +18,7 @@ const initialState = {
   _showBaselines: false, _showMetrics: false, _showImport: false,
   _showWorkflow: false, _showTemplates: false, _showTraceability: false,
   _showCmdPalette: false, _showCustomFields: false, _showWebhooks: false,
-  _showHelp: false,
+  _showHelp: false, _showWorkflowEditor: false, _showWritingCheck: false,
   pendingTemplate: null,
   _lastCommit: 0,
   theme: 'dark',
@@ -32,6 +33,7 @@ function reducer(state, action) {
     case 'SET_ENUMS':         return { ...state, enums: action.payload };
     case 'SET_WORKFLOW':      return { ...state, workflow: action.payload };
     case 'SET_HIERARCHY':     return { ...state, hierarchy: action.payload };
+    case 'SET_PERMISSIONS':   return { ...state, permissions: action.payload.permissions, role: action.payload.role };
     case 'SET_TEMPLATES':     return { ...state, templates: action.payload };
     case 'SELECT':            return { ...state, selectedUid: action.uid, selectedType: action.artefactType };
     case 'DESELECT':          return { ...state, selectedUid: null, selectedType: null };
@@ -83,4 +85,15 @@ export function AppProvider({ children }) {
 
 export function useApp() {
   return useContext(AppContext);
+}
+
+/**
+ * can(action): whether the signed-in role may do ``action`` (read, write, delete, manage_workflow, manage_lint,
+ * manage_config, manage_repo, manage_modules, manage_webhooks, manage_users). The server is what enforces this;
+ * the UI only hides what would be refused. Until /permissions has answered everything is shown.
+ */
+export function useCan() {
+  const { state } = useContext(AppContext);
+  const granted = state.permissions;
+  return (action) => granted === null || granted === undefined || granted.includes(action);
 }

@@ -76,6 +76,8 @@ export const api = {
     approve:       (uid, body)   => post(`/requirements/${uid}/approve`, body),
     history:       (uid)           => get(`/requirements/${uid}/history`),
     transition:    (uid, status)   => post(`/requirements/${uid}/transition`, { to_state: status }),
+    transitions:   (uid)           => get(`/requirements/${uid}/transitions`),
+    lint:          (uid)           => get(`/requirements/${uid}/lint`),
     relationships: (uid)         => get(`/requirements/${uid}/relationships`),
     addAc:         (uid, body)   => post(`/requirements/${uid}/ac`, body),
     updateAc:      (uid, acUid, body) => put(`/requirements/${uid}/ac/${acUid}`, body),
@@ -212,6 +214,21 @@ export const api = {
   workflow: {
     get:    ()     => get('/workflow'),
     update: (body) => put('/workflow', body),
+    mermaid: ()    => get('/workflow/mermaid'),
+  },
+  permissions: () => get('/permissions'),
+  workflows: {
+    list:    ()               => get('/workflows'),
+    preview: (definition, id) => post('/workflows/preview', { definition, id }),
+    create:  (body)           => post('/workflows', body),
+    save:    (id, definition) => put(`/workflows/${encodeURIComponent(id)}`, definition),
+    remove:  (id)             => del(`/workflows/${encodeURIComponent(id)}`),
+    assign:  (typeId, workflow) => put(`/hierarchy/types/${encodeURIComponent(typeId)}/workflow`, { workflow }),
+  },
+  lint: {
+    config:     ()     => get('/lint/config'),
+    saveConfig: (body) => put('/lint/config', body),
+    all:        (severity = 'info') => get('/lint?severity=' + severity),
   },
   templates: {
     list:   ()     => get('/templates'),

@@ -744,3 +744,10 @@
   transition: all 0.1s;
 }
 .copy-uid-btn:hover { color: var(--text-primary); background: var(--bg-elevated); }
+
+/* A viewer's role may look but not change: the fieldset disables every input inside it. */
+.editor-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.editor-readonly-bar {
+  padding: 4px 12px; font-size: 11px; color: var(--text-secondary);
+  background: var(--bg-elevated); border-bottom: 1px solid var(--border);
+}

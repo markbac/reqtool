@@ -26,6 +26,8 @@ DELETE /tbds/{uid}:
   status: surfaced
 DELETE /webhooks/{idx}:
   status: surfaced
+DELETE /workflows/{workflow_id}:
+  status: surfaced
 GET /analysis/detect-duplicates:
   status: surfaced
 GET /artefacts/{uid}/attachments:
@@ -112,6 +114,10 @@ GET /iterations/{iteration_id}/metrics:
   status: surfaced
 GET /kanban:
   status: surfaced
+GET /lint:
+  status: surfaced
+GET /lint/config:
+  status: surfaced
 GET /metrics:
   status: surfaced
 GET /modules:
@@ -129,6 +135,8 @@ GET /notifications:
 GET /notifications/preferences/{user}:
   status: surfaced
 GET /overview:
+  status: surfaced
+GET /permissions:
   status: surfaced
 GET /principles:
   status: surfaced
@@ -172,6 +180,8 @@ GET /requirements/{uid}/impact:
   status: surfaced
 GET /requirements/{uid}/lifecycle:
   status: surfaced
+GET /requirements/{uid}/lint:
+  status: surfaced
 GET /requirements/{uid}/progress:
   status: surfaced
 GET /requirements/{uid}/quality:
@@ -185,6 +195,8 @@ GET /requirements/{uid}/rollup:
 GET /requirements/{uid}/summary:
   status: surfaced
 GET /requirements/{uid}/trace:
+  status: surfaced
+GET /requirements/{uid}/transitions:
   status: surfaced
 GET /reviews:
   status: surfaced
@@ -217,6 +229,16 @@ GET /webhooks:
   status: surfaced
 GET /workflow:
   status: surfaced
+GET /workflow/mermaid:
+  status: surfaced
+GET /workflows:
+  status: surfaced
+GET /workflows/{workflow_id}:
+  status: backend-only
+  reason: the editor reads every workflow from GET /workflows
+GET /workflows/{workflow_id}/mermaid:
+  status: backend-only
+  reason: the editor draws the diagram returned by GET /workflows and POST /workflows/preview
 POST /analysis/generate-ac:
   status: surfaced
 POST /analysis/generate-tests/{uid}:
@@ -268,6 +290,9 @@ POST /import/csv/upload:
   status: surfaced
 POST /iterations:
   status: surfaced
+POST /lint/text:
+  status: backend-only
+  reason: for API clients and editors that check text as it is typed; the UI shows results from GET /requirements/{uid}/lint
 POST /modules:
   status: surfaced
 POST /modules/{module_id}/clone:
@@ -275,8 +300,6 @@ POST /modules/{module_id}/clone:
 POST /modules/{module_id}/fetch-remote:
   status: surfaced
 POST /modules/{module_id}/import:
-  status: surfaced
-POST /products/{product_id}/modules:
   status: surfaced
 POST /modules/{module_id}/pin:
   status: surfaced
@@ -289,6 +312,8 @@ POST /principles:
 POST /principles/{uid}/commit:
   status: surfaced
 POST /products:
+  status: surfaced
+POST /products/{product_id}/modules:
   status: surfaced
 POST /quality/check:
   status: surfaced
@@ -342,6 +367,10 @@ POST /webhooks:
 POST /webhooks/github:
   status: backend-only
   reason: called by GitHub with an HMAC signature
+POST /workflows:
+  status: surfaced
+POST /workflows/preview:
+  status: surfaced
 PUT /artefacts/{uid}/comments/{comment_uid}:
   status: surfaced
 PUT /automation/rules:
@@ -356,6 +385,10 @@ PUT /decisions/{uid}:
 PUT /enums/repo:
   status: surfaced
 PUT /filter-presets/{preset_id}:
+  status: surfaced
+PUT /hierarchy/types/{type_id}/workflow:
+  status: surfaced
+PUT /lint/config:
   status: surfaced
 PUT /notifications/preferences/{user}:
   status: surfaced
@@ -373,4 +406,6 @@ PUT /tbds/{uid}:
 PUT /templates:
   status: surfaced
 PUT /workflow:
+  status: surfaced
+PUT /workflows/{workflow_id}:
   status: surfaced

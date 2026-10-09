@@ -34,6 +34,16 @@ def health(store: Store = Depends(get_store)):
     return {"status": "ok", "version": __version__, "requirements": len(store.requirement_map())}
 
 
+@router.get("/permissions", tags=["meta"])
+def get_permissions(request: Request):
+    """What the caller may do. In local mode the single user on this machine is an administrator."""
+    from reqtool.actor import current_actor, current_role
+    from reqtool.permissions import permissions_for
+    mode = getattr(request.app.state, "auth_mode", "local")
+    role = current_role.get() if mode == "required" else "admin"
+    return {"mode": mode, "role": role, "username": current_actor.get(), "permissions": permissions_for(role)}
+
+
 @router.get("/version", tags=["meta"])
 def get_version(store: Store = Depends(get_store)):
     return {
@@ -223,8 +233,6 @@ def init_repo(body: dict[str, Any], request: Request, store: Store = Depends(get
             cfg = load_yaml(cfg_p) or {}
             cfg["workflow"] = load_yaml(defaults_dir / "workflow.yaml")
             save_yaml(cfg_p, cfg)
-        if (defaults_dir / "hierarchy.yaml").exists():
-            save_yaml(target_path / ".reqtool" / "hierarchy.yaml", load_yaml(defaults_dir / "hierarchy.yaml"))
         if (defaults_dir / "templates.yaml").exists():
             save_yaml(target_path / ".reqtool" / "templates.yaml", load_yaml(defaults_dir / "templates.yaml"))
 

@@ -17,6 +17,19 @@ paths:
           content:
             application/json:
               schema: {}
+  /permissions:
+    get:
+      tags:
+      - meta
+      summary: Get Permissions
+      description: What the caller may do. In local mode the single user on this machine is an administrator.
+      operationId: get_permissions_permissions_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
   /version:
     get:
       tags:
@@ -726,6 +739,354 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /workflows:
+    get:
+      tags:
+      - workflows
+      summary: List Workflows
+      description: Every workflow with the item types that use it, its problems and its Mermaid diagram.
+      operationId: list_workflows_workflows_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    post:
+      tags:
+      - workflows
+      summary: Create Workflow
+      operationId: create_workflow_workflows_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /workflows/preview:
+    post:
+      tags:
+      - workflows
+      summary: Preview Workflow
+      description: Check and draw a definition without saving it (for the editor's live preview).
+      operationId: preview_workflow_workflows_preview_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /workflows/{workflow_id}:
+    get:
+      tags:
+      - workflows
+      summary: Get Workflow Definition
+      operationId: get_workflow_definition_workflows__workflow_id__get
+      parameters:
+      - name: workflow_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workflow Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - workflows
+      summary: Save Workflow
+      operationId: save_workflow_workflows__workflow_id__put
+      parameters:
+      - name: workflow_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workflow Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - workflows
+      summary: Delete Workflow
+      operationId: delete_workflow_workflows__workflow_id__delete
+      parameters:
+      - name: workflow_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workflow Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /workflows/{workflow_id}/mermaid:
+    get:
+      tags:
+      - workflows
+      summary: Workflow Mermaid
+      operationId: workflow_mermaid_workflows__workflow_id__mermaid_get
+      parameters:
+      - name: workflow_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Workflow Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /hierarchy/types/{type_id}/workflow:
+    put:
+      tags:
+      - workflows
+      summary: Assign Workflow
+      operationId: assign_workflow_hierarchy_types__type_id__workflow_put
+      parameters:
+      - name: type_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Type Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /workflow/mermaid:
+    get:
+      tags:
+      - workflows
+      summary: Global Workflow Mermaid
+      description: The repository-wide fallback workflow (config.yaml), used for item types with no workflow of their 
+        own.
+      operationId: global_workflow_mermaid_workflow_mermaid_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /lint/config:
+    get:
+      tags:
+      - lint
+      summary: Get Lint Config
+      description: The repository's lint settings (every setting, defaults filled in), rule list and Vale status.
+      operationId: get_lint_config_lint_config_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    put:
+      tags:
+      - lint
+      summary: Save Lint Config
+      operationId: save_lint_config_lint_config_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /lint/text:
+    post:
+      tags:
+      - lint
+      summary: Lint Text
+      description: Check a piece of Markdown, for example what is being typed in the editor.
+      operationId: lint_text_lint_text_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /lint:
+    get:
+      tags:
+      - lint
+      summary: Lint All
+      description: Check every item. ``severity`` is the least serious level to include.
+      operationId: lint_all_lint_get
+      parameters:
+      - name: severity
+        in: query
+        required: false
+        schema:
+          enum:
+          - error
+          - warning
+          - info
+          type: string
+          default: info
+          title: Severity
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 5000
+          minimum: 1
+          default: 500
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/lint:
+    get:
+      tags:
+      - lint
+      summary: Lint Requirement
+      operationId: lint_requirement_requirements__uid__lint_get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /requirements:
     get:
       tags:
@@ -1392,6 +1753,32 @@ paths:
               type: object
               additionalProperties: true
               title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/transitions:
+    get:
+      tags:
+      - requirements
+      summary: Requirement Transitions
+      description: Where the item can move next, what each move needs, and which of those needs are still unmet.
+      operationId: requirement_transitions_requirements__uid__transitions_get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
       responses:
         '200':
           description: Successful Response

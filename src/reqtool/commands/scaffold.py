@@ -94,7 +94,6 @@ def init_defaults(repo: Optional[str], title: str, repo_id: str):
     default_principles_path = defaults_dir / "principles.yaml"
     default_workflow_path = defaults_dir / "workflow.yaml"
     default_templates_path = defaults_dir / "templates.yaml"
-    default_hierarchy_path = defaults_dir / "hierarchy.yaml"
 
     enums_to_write: dict = {}
 
@@ -130,9 +129,6 @@ def init_defaults(repo: Optional[str], title: str, repo_id: str):
         config_data = load_yaml(config_path) or {}
         config_data["workflow"] = workflow_data
         save_yaml(config_path, config_data)
-
-    if default_hierarchy_path.exists():
-        shutil.copy(str(default_hierarchy_path), str(root / ".reqtool" / "hierarchy.yaml"))
 
     if default_templates_path.exists():
         shutil.copy(str(default_templates_path), str(root / ".reqtool" / "templates.yaml"))
@@ -270,10 +266,6 @@ def init_agile(repo: Optional[str], title: str, repo_id: str):
     }
     save_yaml(root / ".reqtool" / "enums.yaml", enums)
 
-    hierarchy_src = defaults_dir / "hierarchy.yaml"
-    if hierarchy_src.exists():
-        shutil.copy(str(hierarchy_src), str(root / ".reqtool" / "hierarchy.yaml"))
-
     templates_src = defaults_dir / "templates.yaml"
     if templates_src.exists():
         shutil.copy(str(templates_src), str(root / ".reqtool" / "templates.yaml"))
@@ -332,10 +324,6 @@ def init_systems(repo: Optional[str], title: str, repo_id: str):
         config_data = load_yaml(config_path) or {}
         config_data["workflow"] = workflow_data
         save_yaml(config_path, config_data)
-
-    hierarchy_src = defaults_dir / "hierarchy.yaml"
-    if hierarchy_src.exists():
-        shutil.copy(str(hierarchy_src), str(root / ".reqtool" / "hierarchy.yaml"))
 
     for fname in ("templates.yaml",):
         src = defaults_dir / fname

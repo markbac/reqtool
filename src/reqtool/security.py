@@ -28,6 +28,7 @@ from starlette.responses import JSONResponse
 
 from .actor import current_actor, current_role
 from .auth import CSRF_HEADER, SESSION_COOKIE
+from .permissions import can, changes_data, required_action
 
 log = logging.getLogger(__name__)
 
@@ -40,19 +41,6 @@ PUBLIC_PATHS = {"/health", "/version", "/auth/login", "/auth/refresh", "/auth/lo
 SIGNED_PATHS = {"/webhooks/github"}
 PUBLIC_PREFIXES = ("/badge/", "/assets/")
 STATIC_SUFFIXES = (".js", ".css", ".map", ".ico", ".png", ".svg", ".jpg", ".jpeg", ".gif", ".webp", ".woff", ".woff2", ".ttf")
-
-# (method, path prefix) pairs that need the admin role in `required` mode.
-ADMIN_ONLY: tuple[tuple[Optional[str], str], ...] = (
-    (None, "/repo/"),
-    ("PUT", "/config"),
-    ("PUT", "/workflow"),
-    ("PUT", "/enums/repo"),
-    ("PUT", "/custom-fields"),
-    ("POST", "/webhooks"),
-    ("DELETE", "/webhooks"),
-    ("POST", "/auth/users"),
-)
-
 
 def resolve_mode(explicit: Optional[str] = None) -> str:
     mode = (explicit or os.environ.get("REQTOOL_AUTH") or "local").strip().lower()
@@ -191,12 +179,11 @@ def install(app, mode: str) -> None:
             # Browser sessions ride on a cookie, so a state-changing request must also carry the custom header
             # that only our own pages can add. Bearer-token clients are not affected.
             return _deny(403, "csrf", f"Cookie sessions need the {CSRF_HEADER} header on {method} requests")
-        if user["role"] == "viewer" and method not in ("GET", "HEAD"):
+        if user["role"] == "viewer" and changes_data(method, path):
             return _deny(403, "forbidden", "Your role is read-only")
-        if user["role"] != "admin":
-            for m, prefix in ADMIN_ONLY:
-                if (m is None or m == method) and (path == prefix.rstrip("/") or path.startswith(prefix)):
-                    return _deny(403, "forbidden", "Administrator role required")
+        action = required_action(method, path)
+        if action and not can(user["role"], action):
+            return _deny(403, "forbidden", "Administrator role required")
         # Record who is acting so history, comments and attachments carry the real user.
         actor_token = current_actor.set(user["username"])
         role_token = current_role.set(user["role"])

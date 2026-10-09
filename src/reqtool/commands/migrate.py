@@ -38,12 +38,29 @@ def migrate_tbds(root: Path) -> dict[str, int]:
     return {"moved": moved, "skipped": skipped}
 
 
+def migrate_settings(root: Path) -> list[str]:
+    """Give an older repository its own workflow and writing-check files. Existing files are never changed."""
+    from ..repo_init import write_hierarchy_file, write_lint_file
+    written = []
+    reqtool_dir = root / ".reqtool"
+    if reqtool_dir.is_dir():
+        if not (reqtool_dir / "hierarchy.yaml").exists():
+            write_hierarchy_file(root)
+            written.append(".reqtool/hierarchy.yaml")
+        if not (reqtool_dir / "lint.yaml").exists():
+            write_lint_file(root)
+            written.append(".reqtool/lint.yaml")
+    return written
+
+
 @cli.command()
 @click.option("--repo", default=None, help="Path to the requirements repository root.")
 def migrate(repo: Optional[str]):
-    """Migrate legacy layouts: TBDs move from tbds/ into decisions/."""
+    """Migrate legacy layouts: TBDs move into decisions/, and the repository gets its own workflow and lint files."""
     root = Path(repo).resolve() if repo else _repo_root()
     result = migrate_tbds(root)
     click.echo(f"TBDs moved to decisions/: {result['moved']}")
     if result["skipped"]:
         click.echo(f"{result['skipped']} file(s) differ from the copy in decisions/ and were left in tbds/ -- reconcile them by hand.")
+    for name in migrate_settings(root):
+        click.echo(f"Wrote {name} (the repository now owns these settings).")

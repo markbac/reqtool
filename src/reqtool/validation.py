@@ -8,11 +8,7 @@ Rules follow spec §13.1.
 from __future__ import annotations
 
 import hashlib
-import json
 import logging
-import shutil
-import subprocess
-import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -36,15 +32,10 @@ def run_vale_lint(
     text: str, repo_root: Optional[Path] = None, uid: str = "", field: str = ""
 ) -> list[dict[str, str]]:
     """
-    Run Vale CLI prose linter on text.
+    Run Vale CLI prose linter on text with the repository's ``.vale.ini`` (or the bundled one).
     Returns list of warning dicts for any prose style violations.
     """
-    if not text or not text.strip():
-        return []
-
-    vale_bin = shutil.which("vale")
-    if not vale_bin:
-        return []
+    from .doclint import ValeSettings, vale
 
     config_path = None
     if repo_root and (repo_root / ".vale.ini").exists():
@@ -53,60 +44,14 @@ def run_vale_lint(
         bundled = Path(__file__).parent / "defaults" / ".vale.ini"
         if bundled.exists():
             config_path = bundled
-
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".txt", delete=False, encoding="utf-8"
-        ) as tmp:
-            tmp.write(text)
-            tmp_path = Path(tmp.name)
-    except Exception:
-        return []
-
-    try:
-        cmd = [vale_bin, "--output=JSON"]
-        if config_path:
-            cmd.append(f"--config={config_path}")
-        cmd.append(str(tmp_path))
-
-        try:
-            res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
-                                 timeout=VALE_TIMEOUT_SECONDS)
-        except subprocess.TimeoutExpired:
-            log.warning("Vale did not finish within %ss; skipping the prose check for this field", VALE_TIMEOUT_SECONDS)
-            return []
-        if not res.stdout or not res.stdout.strip():
-            return []
-
-        try:
-            data = json.loads(res.stdout)
-        except Exception:
-            return []
-
-        warnings: list[dict[str, str]] = []
-        for alert_list in data.values():
-            if not isinstance(alert_list, list):
-                continue
-            for alert in alert_list:
-                severity = alert.get("Severity", "warning").lower()
-                msg = alert.get("Message", "")
-                rule = alert.get("Check", "vale.rule")
-                line = alert.get("Line", 1)
-                code = "VALE_PROSE_ERROR" if severity == "error" else "VALE_PROSE_WARNING"
-                warnings.append({
-                    "code": code,
-                    "message": f"[Line {line}] {msg} ({rule})",
-                    "uid": uid,
-                    "field": field,
-                })
-        return warnings
-    except Exception:
-        return []
-    finally:
-        try:
-            tmp_path.unlink()
-        except Exception:
-            pass
+    settings = ValeSettings(enabled=True, config_file=str(config_path) if config_path else None,
+                            timeout_seconds=VALE_TIMEOUT_SECONDS)
+    warnings: list[dict[str, str]] = []
+    for alert in vale.run(text, settings, repo_root):
+        code = "VALE_PROSE_ERROR" if alert["severity"] == "error" else "VALE_PROSE_WARNING"
+        warnings.append({"code": code, "message": f"[Line {alert['line']}] {alert['message']} ({alert['rule']})",
+                         "uid": uid, "field": field})
+    return warnings
 
 
 def _err(code: str, message: str, uid: str = "", field: str = "") -> dict[str, str]:
@@ -160,8 +105,17 @@ def check_workflow_graph(hierarchy) -> list[tuple[str, str, str]]:
 
 
 def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
-    """Run full validation. Returns {"errors": [...], "warnings": [...]}."""
-    return validate_context(ValidationContext.from_store(store))
+    """Run full validation. Returns {"errors": [...], "warnings": [...]}.
+
+    When ``.reqtool/lint.yaml`` sets ``include_in_validation``, writing-check findings are added: those with
+    severity ``error`` as errors, the rest as warnings.
+    """
+    result = validate_context(ValidationContext.from_store(store))
+    from .services.lint import LintService
+    for finding in LintService(store).validation_findings():
+        entry = {k: finding[k] for k in ("code", "message", "uid", "field")}
+        result["errors" if finding["severity"] == "error" else "warnings"].append(entry)
+    return result
 
 
 def validate_context(ctx: ValidationContext) -> dict[str, list[dict[str, str]]]:

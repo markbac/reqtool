@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useApp } from '../AppContext';
+import { useApp, useCan } from '../AppContext';
 import { api } from '../api';
 import './Header.css';
 
@@ -57,6 +57,7 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
                                onAutomation, onDuplicateDetector, onTemplates,
                                onOverview, onRoadmap, onDecisions, onModules, onChangeSets, onInbox, onQuery }) {
   const { state, dispatch, toast } = useApp();
+  const can = useCan();
   const { products, activeProduct, activeVariant } = state;
   const [gitStatus, setGitStatus] = useState(null);
   const [showNewProduct, setShowNewProduct] = useState(false);
@@ -189,7 +190,7 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
         <button className="btn btn-ghost header-action-btn" onClick={onExport}   title="Export requirements">↓ Export</button>
         <button className="btn btn-ghost header-action-btn" onClick={onMetrics}  title="Metrics dashboard">⊕ Metrics</button>
         {/* Overflow menu */}
-        <OverflowMenu items={[
+        <OverflowMenu items={([
           { label: '◔ Overview & release gate', action: onOverview },
           { label: '🗺 Roadmap', action: onRoadmap },
           { label: '⚖ Decisions & ADRs', action: onDecisions },
@@ -202,18 +203,20 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
           { label: '🤖 Automation Rules', action: onAutomation },
           { label: '✨ Duplicate Detector', action: onDuplicateDetector },
           { label: '🔐 Login / Server',action: onLogin },
-          { label: '📦 Repository',   action: onRepo },
+          { label: '📦 Repository',   action: onRepo, needs: 'manage_repo' },
           { label: '⊞ Coverage',     action: onCoverage },
           { label: '⊗ Traceability', action: onTraceability },
           { label: '◎ Baselines',    action: onBaselines },
-          { label: '≡ Bulk update',  action: onBulk },
-          { label: '⊙ Vocabularies', action: onVocabularies },
-          { label: '⊚ Custom fields',action: onCustomFields },
-          { label: '⇌ Webhooks',     action: onWebhooks },
-          { label: '⬡ Workflow',     action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showWorkflow', value: true }) },
-          { label: '▤ Templates',     action: onTemplates },
-          { label: '↑ Import CSV',   action: onImport },
-        ]} />
+          { label: '≡ Bulk update',  action: onBulk, needs: 'write' },
+          { label: '⊙ Vocabularies', action: onVocabularies, needs: 'manage_config' },
+          { label: '⊚ Custom fields',action: onCustomFields, needs: 'manage_config' },
+          { label: '⇌ Webhooks',     action: onWebhooks, needs: 'manage_webhooks' },
+          { label: '⬡ Workflows',    action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showWorkflowEditor', value: true }) },
+          { label: '⬡ Fallback workflow', action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showWorkflow', value: true }), needs: 'manage_workflow' },
+          { label: '✎ Writing check', action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showWritingCheck', value: true }) },
+          { label: '▤ Templates',     action: onTemplates, needs: 'manage_config' },
+          { label: '↑ Import CSV',   action: onImport, needs: 'write' },
+        ]).filter(item => !item.needs || can(item.needs))} />
         <button
           className="btn btn-ghost header-action-btn"
           onClick={toggleTheme}

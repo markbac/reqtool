@@ -63,6 +63,8 @@ def write_base_repo(root: Path, repo_id: str, title: str, theme: str = "dark") -
         gitignore.write_text("exports/\n*.pyc\n__pycache__/\n")
     from .auth import ensure_secrets_ignored
     ensure_secrets_ignored(root)  # never commit .reqtool/.secret_key or users.yaml
+    write_hierarchy_file(root)
+    write_lint_file(root)
 
     gitattributes = root / ".gitattributes"
     if not gitattributes.exists():
@@ -121,3 +123,43 @@ def write_product(root: Path, product_id: str, title: str) -> None:
         "modules": [], "root_requirements": [], "display_order": [],
         "content_hash": "", "created": now, "last_modified": now, "history": [],
     })
+
+
+_HIERARCHY_HEADER = (
+    "# reqtool hierarchy: this repository's item types, which types may nest, workflows, checklists and rules.\n"
+    "# It is copied here from the tool's defaults when the repository is created, so this project owns it.\n"
+    "# Edit it by hand or use the Workflow editor (administrators). Every workflow setting is written out:\n"
+    "# states (id, label, colour, terminal), transitions (state: [states it may move to]) and guards\n"
+    "# (requires_fields, requires_ac, requires_children_in, children_enforce, message) for each state.\n"
+    "# Saving from the editor rewrites the file and does not keep comments.\n"
+)
+
+_LINT_HEADER = (
+    "# reqtool writing check: glossary, wordy phrases, acronyms and vague terms in requirement text.\n"
+    "# Every setting is written out so it can be changed here or in the editor's Writing check panel (administrators).\n"
+    "# Run it with `req lint`. Rules: DOC001 glossary, DOC002 wordy phrase, DOC003 acronym, REQ001 vague term,\n"
+    "# REQ002 'shall' statement (off until removed from disabled_rules).\n"
+    "# Vale (https://vale.sh) is optional: set vale.enabled to true once the vale program is installed.\n"
+    "# Saving from the editor rewrites the file and does not keep comments.\n"
+)
+
+
+def _write_with_header(path: Path, data: dict, header: str) -> None:
+    from .fileio import save_yaml
+    save_yaml(path, data)
+    path.write_text(header + path.read_text(encoding="utf-8"), encoding="utf-8")
+
+
+def write_hierarchy_file(root: Path) -> None:
+    """Copy the bundled hierarchy into the repository with every workflow setting spelt out."""
+    from .fileio import load_yaml
+    from .workflows import normalise
+    data = load_yaml(Path(__file__).parent / "defaults" / "hierarchy.yaml")
+    data["workflows"] = {wid: normalise(wf) for wid, wf in (data.get("workflows") or {}).items()}
+    _write_with_header(root / ".reqtool" / "hierarchy.yaml", data, _HIERARCHY_HEADER)
+
+
+def write_lint_file(root: Path) -> None:
+    """Write the writing-check settings with every setting at its default."""
+    from .doclint import default_settings
+    _write_with_header(root / ".reqtool" / "lint.yaml", default_settings(), _LINT_HEADER)

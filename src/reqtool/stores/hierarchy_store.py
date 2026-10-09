@@ -19,6 +19,12 @@ from reqtool.models import (
 log = logging.getLogger(__name__)
 
 
+def default_hierarchy_data() -> dict:
+    """The hierarchy file shipped with reqtool, as plain data."""
+    data = load_yaml(Path(__file__).parent.parent / "defaults" / "hierarchy.yaml")
+    return data if isinstance(data, dict) else {}
+
+
 def load_hierarchy(repo_root: Path) -> HierarchyConfig:
     project_path = repo_root / ".reqtool" / "hierarchy.yaml"
     default_path = Path(__file__).parent.parent / "defaults" / "hierarchy.yaml"
@@ -193,6 +199,63 @@ def check_transition_guard(
                     f"{'/'.join(guard.requires_children_in)}: {', '.join(blocking)}")
 
     return None
+
+
+def _field_value(req: dict[str, Any], path: str) -> Any:
+    val: Any = req
+    for part in path.split("."):
+        val = val.get(part) if isinstance(val, dict) else None
+    return val
+
+
+def transition_options(
+    hierarchy: HierarchyConfig,
+    fallback_workflow: Any,
+    req: dict[str, Any],
+    requirements: Optional[dict[str, dict[str, Any]]] = None,
+) -> list[dict[str, Any]]:
+    """Every state ``req`` may move to, with what entering it needs and whether that is met now.
+
+    ``requires.fields`` lists each required field with whether it is filled, so a UI can ask for just the gaps.
+    """
+    from reqtool.workflows import field_label
+    req_type = req.get("req_type", "functional")
+    current = req.get("status", "draft")
+    wf = get_workflow_for_type(hierarchy, req_type)
+    if wf:
+        states = {s.id: s for s in wf.states}
+        targets = wf.transitions.get(current, [])
+    else:
+        states = {s.id: s for s in fallback_workflow.states}
+        targets = fallback_workflow.transitions.get(current, [])
+    options = []
+    for to in targets:
+        state = states.get(to)
+        guard = wf.guards.get(to) if wf else None
+        fields = [{"path": f, "label": field_label(f), "filled": bool(_field_value(req, f))}
+                  for f in (guard.requires_fields if guard else [])]
+        children = open_children(hierarchy, requirements, req, to) if requirements is not None and guard else []
+        problem = check_transition_guard(hierarchy, req, to, requirements)
+        options.append({
+            "to": to,
+            "label": state.label if state else to,
+            "colour": state.colour if state else DEFAULT_STATE_COLOUR,
+            "terminal": bool(state.terminal) if state else False,
+            "problem": problem,
+            "requires": {
+                "fields": fields,
+                "acceptance_criteria": bool(guard and guard.requires_ac),
+                "has_acceptance_criteria": bool(req.get("acceptance_criteria")),
+                "children_in": list(guard.requires_children_in) if guard else [],
+                "children_enforce": guard.children_enforce if guard else "off",
+                "open_children": children,
+                "message": guard.message if guard else "",
+            },
+        })
+    return options
+
+
+DEFAULT_STATE_COLOUR = "#8b949e"
 
 
 def validate_transition(

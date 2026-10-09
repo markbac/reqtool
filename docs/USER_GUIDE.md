@@ -80,6 +80,15 @@ reqtool validate --json           # Machine-readable JSON output
 reqtool validate --strict         # Treat warnings as blocking errors
 ```
 
+### `reqtool lint` -- Writing Check
+Checks the wording of requirements, principles and decisions with the rules in `.reqtool/lint.yaml` (see section 4.4):
+```bash
+reqtool lint                          # list findings, exit 1 if any is a warning or worse
+reqtool lint --fail-on error          # only errors fail the run
+reqtool lint --fail-on never          # report only
+reqtool lint --format json            # machine-readable
+```
+
 ### `reqtool export` — Export Artefacts
 Exports requirements to various standard formats:
 ```bash
@@ -247,6 +256,25 @@ A TBD is a decision record with `type: tbd`; both live in one collection and in 
 
 Resolving a TBD needs a decision text. The **Resolve** dialog (and `POST /tbds/{uid}/resolve` with `decision`, `rationale` and `linked_decision`) records the decision, the rationale, an optional linked ADR, the resolver (the logged-in user, or the name supplied in local mode) and the time. Older clients that send only `resolution` still work. To refuse approval of requirements that link to an open TBD, set `validation.block_approval_on_open_tbds: true` in `config.yaml`; approval then answers `409 open_tbd` listing the TBDs. Without it the existing `open_tbd_on_approved` warning is all you get.
 
+### 4.0 Where workflows live and how to edit them
+
+`req init` copies the workflows into the repository as `.reqtool/hierarchy.yaml`, written out in full: every state, the states each one can move to, and every guard setting (`requires_fields`, `requires_ac`, `requires_children_in`, `children_enforce`, `message`). From then on the repository owns them, and an older repository gets the file from `req migrate`. You can edit the file by hand or use the workflow editor.
+
+**Workflow editor** (More > Workflows, administrators only; other roles can look but not change):
+
+1. Pick a workflow, or create a new one or a copy of an existing one. A workflow in use by an item type cannot be deleted.
+2. Add states, set labels and colours, mark end states and choose the start state. Ids are lower case letters, digits and underscores.
+3. Tick the moves allowed in the table (row: from, column: to).
+4. Open a state under "What a move into each state needs" to require fields, acceptance criteria, or that children are already in certain states (and whether that only warns, blocks, or is off).
+5. The diagram above redraws as you edit. It is drawn by the server. Errors (an unreachable state, a move to a state that does not exist) stop **Save**, and warnings (items whose status the new workflow no longer has) are shown.
+6. **Which workflow each item type uses** changes the type's workflow at once.
+
+The workflow in `.reqtool/config.yaml` stays as the fallback for item types with no workflow of their own (More > Fallback workflow).
+
+### 4.0a Moving an item on
+
+The status buttons in the item editor move the item to the next state. If the move needs data the item does not have yet, a pop-up asks for it: the needed fields are highlighted and **Change other fields** shows every other field (title, description, rationale, owner, priority, tags and the rest) in case you want to change any of them on the way. **Apply to draft** stages the change and **Apply and save** writes it. A move that needs nothing happens at once. The server applies the same rules, so the same changes can be sent in one `PUT /requirements/{uid}`.
+
 ### 4.1 Parent/child type rules
 
 `hierarchy.yaml` lists which item types may sit under which (`allowed_children`). The top-level `enforce` key controls how strictly this is applied:
@@ -289,6 +317,24 @@ On a new repository the panel shows two example rules from memory. Nothing is wr
 Rules run synchronously when the matching event is published (see the event list in the README). Conditions are compared with the event payload and the requirement's current fields, so `{status: approved}` on `requirement_approved` matches. Actions are idempotent (a field already holding the value, or a tag already present, is left alone), each execution is logged and recorded in the requirement's history, and changes made by rules do not publish events, so rules cannot trigger each other. Only the events listed above can trigger rules.
 
 ---
+
+### 4.4 Writing check
+
+The writing check reads the description, rationale and extended description of each item (plus acceptance criteria) and reports:
+
+| Rule | What it finds | Default |
+|---|---|---|
+| DOC001 | A term spelled differently from the glossary (for example `api` instead of `API`) | warning |
+| DOC002 | A wordy phrase with a shorter form (`in order to`) | warning |
+| DOC003 | An acronym used before it is defined (`Real Time Operating System (RTOS)`) | info |
+| REQ001 | A vague term that cannot be verified (`fast`, `user-friendly`, `etc`) | warning |
+| REQ002 | A requirement description without "shall" | off |
+
+Code blocks, inline code, URLs and HTML are not checked. Findings show under the item in the editor, for the whole repository in More > Writing check, and from `reqtool lint`. They are not part of `reqtool validate` unless `include_in_validation` is true.
+
+**Settings** are in `.reqtool/lint.yaml` (every setting is written out when the repository is created) and administrators can edit them in More > Writing check > Settings: switch rules on and off, set each rule's severity, choose the fields, and edit the glossary, wordy phrases, vague terms and acronyms that need no definition.
+
+**Vale.** [Vale](https://vale.sh) is an optional prose linter. Install it yourself, then turn on "Use Vale". reqtool generates a Vale configuration from the settings (styles, checks to turn off, lowest alert level, time limit), or uses your own `.vale.ini` if you give its path. Styles go in `.reqtool/vale/styles` unless you set another folder. If Vale is missing or fails, the built-in rules still run and the settings page says Vale was not found.
 
 ## 5. Modules, Variant Overlays & Parameter Substitution
 
@@ -334,9 +380,11 @@ There is no default account. Older repositories that still contain the `admin` /
 
 | Role | Can do |
 |---|---|
-| `viewer` | Read everything. Cannot change anything. |
-| `editor` | Read and write requirements, principles, TBDs, comments and approvals. |
-| `admin` | Everything an editor can, plus users, repository switching, configuration, workflow, enums, custom fields and webhooks. |
+| `viewer` | Read everything. Cannot change anything (the editor is read-only and the buttons are hidden). |
+| `editor` | Add and change requirements, principles, TBDs, comments, attachments, approvals and status. Cannot delete, and has none of the administrator functions. |
+| `admin` | Everything an editor can, plus deleting items, workflows, writing-check settings, configuration, vocabularies, custom fields, templates, automation rules, repository creation and switching, modules, products, baselines, webhooks and users. |
+
+The rules are in one table (`src/reqtool/permissions.py`) and are enforced by the server in `required` mode, so the buttons the UI hides are also refused if called directly. `GET /permissions` tells a client what the signed-in role may do. In `local` mode there is one user, who is an administrator.
 
 Only a logged-in administrator can create users through the API. While no accounts exist, the first account can be created from the local machine (`POST /auth/users` or `reqtool user add`) and is always an administrator.
 

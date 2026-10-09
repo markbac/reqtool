@@ -4,11 +4,12 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useApp } from '../AppContext';
+import { useApp, useCan } from '../AppContext';
 import { api } from '../api';
 
 export function IterationsPanel({ onClose }) {
   const { toast } = useApp();
+  const can = useCan();
   const [iterations, setIterations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIt, setSelectedIt] = useState(null);
@@ -221,7 +222,7 @@ export function IterationsPanel({ onClose }) {
             )}
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-              {selectedIt && (
+              {selectedIt && can('delete') && (
                 <button type="button" className="btn btn-danger" style={{ fontSize: 11 }} onClick={() => handleDelete(selectedIt.id)}>
                   Delete
                 </button>

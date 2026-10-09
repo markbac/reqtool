@@ -21,6 +21,8 @@ import {
   TraceabilityPanel, CmdPalette, WorkflowPanel, TemplatesPanel,
   CustomFieldsPanel, WebhooksPanel, AutomationRulesPanel, DuplicateDetectorPanel,
 } from './components/Advanced';
+import { WorkflowEditor } from './components/WorkflowEditor';
+import { WritingCheckPanel } from './components/WritingCheck';
 import { RepoModal } from './components/RepoModal';
 import { LoginModal } from './components/LoginModal';
 import { DiagramPanel } from './components/DiagramPanel';
@@ -53,13 +55,15 @@ function AppShell() {
       api.enums.all(),
       api.config.get(),
       api.workflow.get().catch(() => null),
+      api.permissions().catch(() => null),
       api.hierarchy.get().catch(() => null),
       api.templates.list().catch(() => []),
       api.customFields.schema().catch(() => []),
-    ]).then(([products, enums, config, workflow, hierarchy, templates, customFieldSchema]) => {
+    ]).then(([products, enums, config, workflow, permissions, hierarchy, templates, customFieldSchema]) => {
       dispatch({ type: 'SET_PRODUCTS',  payload: products });
       dispatch({ type: 'SET_ENUMS',     payload: { ...enums, _customFieldSchema: customFieldSchema, _current_user: localStorage.getItem('reqtool:username') || 'user' } });
       dispatch({ type: 'SET_WORKFLOW',  payload: workflow });
+      if (permissions) dispatch({ type: 'SET_PERMISSIONS', payload: permissions });
       dispatch({ type: 'SET_HIERARCHY', payload: hierarchy });
       dispatch({ type: 'SET_TEMPLATES', payload: templates });
 
@@ -217,6 +221,8 @@ function AppShell() {
       {state._showImport       && <ImportPanel        onClose={() => toggle('_showImport',       false)} onDone={() => window.location.reload()} />}
       {state._showTraceability && <TraceabilityPanel  onClose={() => toggle('_showTraceability', false)} />}
       {state._showWorkflow     && <WorkflowPanel      onClose={() => toggle('_showWorkflow',     false)} />}
+      {state._showWorkflowEditor && <WorkflowEditor   onClose={() => toggle('_showWorkflowEditor', false)} />}
+      {state._showWritingCheck && <WritingCheckPanel  onClose={() => toggle('_showWritingCheck', false)} />}
       {state._showTemplates    && <TemplatesPanel     onClose={() => toggle('_showTemplates',    false)} />}
       {state._showCustomFields && <CustomFieldsPanel  onClose={() => toggle('_showCustomFields', false)} />}
       {state._showWebhooks     && <WebhooksPanel      onClose={() => toggle('_showWebhooks',     false)} />}

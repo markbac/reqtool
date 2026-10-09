@@ -130,7 +130,7 @@ def test_webhook_add_list_and_delete(page):
 
 def test_workflow_panel_shows_states_and_saves(page):
     open_app(page)
-    open_menu_item(page, "⬡ Workflow")
+    open_menu_item(page, "⬡ Fallback workflow")
     expect(page.get_by_text("Workflow").first).to_be_visible()
     page.get_by_role("button", name="Save").first.click()
     expect(page.locator(".toast", has_text="Workflow saved")).to_be_visible()

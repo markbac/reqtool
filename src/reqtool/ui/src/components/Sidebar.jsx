@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useApp } from '../AppContext';
+import { useApp, useCan } from '../AppContext';
 import { api } from '../api';
 import ResolveDialog from './ResolveDialog';
 import { parentOf, candidateParents, canMoveUnder } from '../treeMove';
@@ -58,14 +58,15 @@ function ContextMenu({ x, y, node, onClose, onAction }) {
     return () => document.removeEventListener('mousedown', h);
   }, [onClose]);
 
+  const can = useCan();
   const items = [
-    { label: '+ Add child',   action: 'add_child' },
-    { label: '+ Add sibling', action: 'add_sibling' },
-    { label: '⧉ Clone',       action: 'clone' },
-    { label: '⇄ Move to...',  action: 'move' },
+    { label: '+ Add child',   action: 'add_child', needs: 'write' },
+    { label: '+ Add sibling', action: 'add_sibling', needs: 'write' },
+    { label: '⧉ Clone',       action: 'clone', needs: 'write' },
+    { label: '⇄ Move to...',  action: 'move', needs: 'write' },
     { label: '⟳ History',     action: 'history' },
-    { label: '✕ Delete',      action: 'delete', danger: true },
-  ];
+    { label: '✕ Delete',      action: 'delete', danger: true, needs: 'delete' },
+  ].filter(i => !i.needs || can(i.needs));
   return (
     <div ref={ref} className="ctx-menu" style={{ top: y, left: x }}>
       {items.map(i => (

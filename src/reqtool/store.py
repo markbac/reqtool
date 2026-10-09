@@ -171,6 +171,22 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
         """Load hierarchy.yaml from project, falling back to bundled defaults."""
         self.hierarchy = hierarchy_store.load_hierarchy(self.root)
 
+    def hierarchy_data(self) -> dict[str, Any]:
+        """The hierarchy file as plain data: the repository's own copy, else the bundled default."""
+        path = self.root / ".reqtool" / "hierarchy.yaml"
+        if self.storage.exists(path):
+            data = self.storage.read(path)
+            if isinstance(data, dict):
+                return data
+        return hierarchy_store.default_hierarchy_data()
+
+    @_locked
+    def write_hierarchy(self, data: dict[str, Any]) -> None:
+        """Save ``data`` as the repository's ``.reqtool/hierarchy.yaml`` and use it from now on."""
+        hierarchy_store.parse_hierarchy(data)  # refuse a file that would not load
+        self.storage.write(self.root / ".reqtool" / "hierarchy.yaml", data)
+        self._load_hierarchy()
+
     def _parse_hierarchy(self, data: dict) -> HierarchyConfig:
         """Parse hierarchy YAML into HierarchyConfig, handling nested guards."""
         from .models import (
@@ -974,6 +990,10 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
                 return
             parts = rel.parts
 
+            # The writing-check settings are read when they are used, so changing them reloads nothing.
+            if parts == (".reqtool", "lint.yaml"):
+                return
+
             # Config or enums changes require full reload
             if parts and parts[0] == ".reqtool":
                 log.info("Config file changed, full reload: %s", changed_path)
@@ -1285,6 +1305,9 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
         self, req: dict[str, Any], to_state: str
     ) -> Optional[str]:
         return hierarchy_store.validate_transition(self.hierarchy, self.config.workflow, req, to_state, self.requirements)
+
+    def transition_options(self, req: dict[str, Any]) -> list[dict[str, Any]]:
+        return hierarchy_store.transition_options(self.hierarchy, self.config.workflow, req, self.requirements)
 
     @_locked
     def next_id_for_type(self, req_type: str) -> str:

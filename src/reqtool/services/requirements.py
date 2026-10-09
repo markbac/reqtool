@@ -37,6 +37,17 @@ _NOT_COPIED_ON_CLONE = ("uid", "content_hash", "created", "last_modified", "hist
                         "version", "schema_version", "tool_version", "type")
 
 
+def merged_view(existing: Mapping[str, Any], changes: Mapping[str, Any]) -> dict[str, Any]:
+    """``existing`` with ``changes`` applied the way an update applies them (one level of nested fields merges)."""
+    out = copy.deepcopy(dict(existing))
+    for key, value in changes.items():
+        if isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = {**out[key], **value}
+        else:
+            out[key] = value
+    return out
+
+
 def changed_fields(sent: Mapping[str, Any]) -> dict[str, Any]:
     """The fields a PUT changes: those the client sent, where an explicit null clears a clearable field."""
     return {k: v for k, v in sent.items() if v is not None or k in CLEARABLE_FIELDS}
@@ -87,7 +98,8 @@ class RequirementService:
         old_status = existing.get("status")
         new_status = changes.get("status")
         if new_status and new_status != old_status:
-            self._guard_transition(existing, new_status)
+            # Guard on the item as it will be, so one request can fill the required fields and move the status.
+            self._guard_transition({**merged_view(existing, changes), "status": old_status}, new_status)
         result = self.store.update_requirement(uid, changes, summary="Updated via API")
         if result is None:
             raise NotFound(uid)
@@ -100,6 +112,12 @@ class RequirementService:
             raise NotFound(uid)
         self.publish("requirement_deleted", {"uid": uid, "id": result.get("id")})
         return result
+
+    def transitions(self, uid: str) -> dict[str, Any]:
+        """Where the item can go next and what each move needs."""
+        req = self._existing(uid)
+        return {"uid": req["uid"], "id": req.get("id"), "req_type": req.get("req_type"),
+                "status": req.get("status"), "transitions": self.store.transition_options(req)}
 
     def transition(self, uid: str, to_state: str) -> dict[str, Any]:
         """Move to a new status with workflow guard enforcement."""

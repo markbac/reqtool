@@ -27,7 +27,9 @@ const oneLight = EditorView.theme({
   '.cm-activeLine': { background: '#fffbdd' },
   '.cm-line': { padding: '0 4px' },
 }, { dark: false });
-import { useApp } from '../AppContext';
+import { useApp, useCan } from '../AppContext';
+import { TransitionDialog, getPath, isFilled } from './TransitionDialog';
+import { WritingStrip } from './WritingCheck';
 import { api } from '../api';
 import CommitModal from './CommitModal';
 import ResolveDialog from './ResolveDialog';
@@ -819,12 +821,35 @@ function CustomFieldsValueEditor({ schema, values, onChange }) {
 }
 
 // ---------------------------------------------------------------------------
-export function WorkflowStateWidget({ uid, status, reqType, onTransition }) {
+/** Whether moving to ``option`` needs anything the draft does not yet have (so a pop-up is worth showing). */
+export function needsInput(option, draft) {
+  const r = option?.requires || {};
+  if (option?.problem) return true;
+  if ((r.fields || []).some(f => f.path !== 'acceptance_criteria' && !isFilled(getPath(draft, f.path)))) return true;
+  if (r.acceptance_criteria && !(draft?.acceptance_criteria || []).length) return true;
+  return (r.open_children || []).length > 0 && r.children_enforce !== 'off';
+}
+
+export function WorkflowStateWidget({ uid, status, reqType, draft, onTransition }) {
   const { state } = useApp();
+  const can = useCan();
+  const [dialog, setDialog] = useState(null);
 
   const wf = resolveWorkflow(reqType, state.hierarchy, state.workflow);
   if (!wf) return null;
   const { states, transitions } = wf;
+
+  // One click moves the item on. When the move needs data the item lacks, ask for it in a pop-up first.
+  const move = async (id) => {
+    if (!draft) { onTransition(id); return; }
+    let option = null;
+    try {
+      const listed = await api.requirements.transitions(uid);
+      option = (listed.transitions || []).find(t => t.to === id) || null;
+    } catch { option = null; }
+    if (option && needsInput(option, draft)) setDialog(option);
+    else onTransition(id);
+  };
 
   const currentState = states.find(s => s.id === status);
   const nextTransitions = (transitions[status] || [])
@@ -848,18 +873,23 @@ export function WorkflowStateWidget({ uid, status, reqType, onTransition }) {
         <span style={{ width: 7, height: 7, borderRadius: '50%', background: currentState.colour, flexShrink: 0 }} />
         {currentState.label}
       </span>
-      {nextTransitions.length > 0 && (
+      {can('write') && nextTransitions.length > 0 && (
         <span style={{ fontSize: 10, color: 'var(--text-muted)', marginRight: 2 }}>Move to:</span>
       )}
-      {nextTransitions.map(t => (
+      {can('write') && nextTransitions.map(t => (
         <button
           key={t.id}
           className="wf-transition-btn"
           style={{ color: t.colour, borderColor: t.colour + '55', background: t.colour + '12' }}
-          onClick={() => onTransition(t.id)}
+          onClick={() => move(t.id)}
           title={`Change status to ${t.label}`}
         >{t.label}</button>
       ))}
+      {dialog && (
+        <TransitionDialog option={dialog} draft={draft}
+          onCancel={() => setDialog(null)}
+          onApply={(next, save) => { const d = dialog; setDialog(null); onTransition(d.to, next, save); }} />
+      )}
     </div>
   );
 }
@@ -869,6 +899,7 @@ export function WorkflowStateWidget({ uid, status, reqType, onTransition }) {
 // ---------------------------------------------------------------------------
 function RequirementEditor({ uid }) {
   const { state, dispatch, toast } = useApp();
+  const can = useCan();
   const { enums } = state;
   const [req, setReq] = useState(null);
   const [draft, setDraft] = useState(null);
@@ -952,17 +983,19 @@ function RequirementEditor({ uid }) {
   const patchContent = useCallback((field, value) => setDraft(d => ({ ...d, content: { ...d.content, [field]: value } })), []);
   const patchBlock = useCallback((block, field, value) => setDraft(d => ({ ...d, [block]: { ...d[block], [field]: value } })), []);
 
-  const handleSave = async () => {
+  // ``next`` lets the transition pop-up save its own changes at once instead of waiting for the draft state.
+  const handleSave = async (next) => {
+    const toSave = next && next.uid ? next : draft;
     setSaving(true);
     try {
       // Show what the edit would affect before it is written (FEAT-03).
-      const changed = Object.fromEntries(Object.keys(draft).filter(k => JSON.stringify(draft[k]) !== JSON.stringify(req?.[k])).map(k => [k, draft[k]]));
+      const changed = Object.fromEntries(Object.keys(toSave).filter(k => JSON.stringify(toSave[k]) !== JSON.stringify(req?.[k])).map(k => [k, toSave[k]]));
       const preview = await api.requirements.impactPreview(uid, changed).catch(() => null);
       if (preview?.would_become_suspect?.length) {
         const names = preview.would_become_suspect.map(s => s.id).join(', ');
         if (!confirm(`Saving this change will mark links from ${names} as suspect for review.${preview.affects_baselines?.length ? `\n\nIt touches baselines: ${preview.affects_baselines.join(', ')}.` : ''}\n\nSave anyway?`)) return;
       }
-      const updated = await api.requirements.update(uid, draft);
+      const updated = await api.requirements.update(uid, toSave);
       setReq(updated); setDraft(updated);
       dispatch({ type: 'MARK_CLEAN', uid });
       window.dispatchEvent(new Event('reqtool:tree-changed'));   // the tree shows title and status
@@ -1038,12 +1071,17 @@ function RequirementEditor({ uid }) {
           <span className="editor-version mono text-muted">v{draft.version}</span>
           <DomainBadge domain={draft.domain} />
           <TypeBadge reqType={draft.req_type} />
-          <WorkflowStateWidget uid={uid} status={draft.status} reqType={draft.req_type} onTransition={v => patch('status', v)} />
+          <WorkflowStateWidget uid={uid} status={draft.status} reqType={draft.req_type} draft={draft}
+            onTransition={(to, next, save) => {
+              const staged = { ...(next || draft), status: to };
+              setDraft(staged);
+              if (save) handleSave(staged);
+            }} />
           {isDirty && <span className="editor-dirty-badge" title="You have unsaved changes -- press Ctrl+S or click Save">● Unsaved changes</span>}
         </div>
         <div className="editor-header-right">
 
-          <button className="btn btn-danger" style={{ fontSize: 12, padding: '4px 8px' }}
+          {can('delete') && <button className="btn btn-danger" style={{ fontSize: 12, padding: '4px 8px' }}
             title={`Delete ${draft.id}`}
             onClick={async () => {
               if (!confirm(`Delete ${draft.id}?\n"${draft.title}"\n\nThis cannot be undone.`)) return;
@@ -1053,12 +1091,12 @@ function RequirementEditor({ uid }) {
                 window.dispatchEvent(new Event('reqtool:tree-changed'));
                 toast(`Deleted ${draft.id}`, 'info');
               } catch (err) { toast(err.message, 'error'); }
-            }}>Delete</button>
-          <button className="btn btn-secondary" onClick={handleSave} disabled={!isDirty || saving}
+            }}>Delete</button>}
+          <button className="btn btn-secondary" onClick={() => handleSave()} disabled={!isDirty || saving || !can('write')}
             title={isDirty ? "Save changes (Ctrl+S)" : "No unsaved changes"}>
             {saving ? <span className="spinner" /> : isDirty ? 'Save' : 'Saved ✓'}
           </button>
-          <button className="btn btn-primary" onClick={() => setShowCommit(true)} disabled={saving}
+          <button className="btn btn-primary" onClick={() => setShowCommit(true)} disabled={saving || !can('write')}
             title="Save and create a versioned git commit">
             Save &amp; Commit
           </button>
@@ -1079,9 +1117,12 @@ function RequirementEditor({ uid }) {
       {/* Validation summary -- always visible */}
       {validationIssues && <div className="editor-validation-bar"><ValidationSummary issues={validationIssues} /></div>}
       <StatusStrip uid={uid} isDirty={isDirty} version={draft.version} />
+      <WritingStrip uid={uid} version={req?.version} />
+      {!can('write') && <div className="editor-readonly-bar" role="status">Read-only: your role can view this item but not change it.</div>}
 
       {/* Tab panels */}
       <div className="editor-body">
+      <fieldset className="editor-fieldset" disabled={!can('write')}>
 
         {activeTab === 'insight' && <ItemInsight uid={uid} draft={draft} version={draft.version} />}
 
@@ -1372,6 +1413,7 @@ function RequirementEditor({ uid }) {
           </>
         )}
 
+      </fieldset>
       </div>{/* end editor-body */}
 
       {showCommit && (
@@ -1392,6 +1434,7 @@ function RequirementEditor({ uid }) {
 // ---------------------------------------------------------------------------
 function PrincipleEditor({ uid }) {
   const { state, dispatch, toast } = useApp();
+  const can = useCan();
   const { enums } = state;
   const [data, setData]       = useState(null);
   const [draft, setDraft]     = useState(null);
@@ -1465,7 +1508,7 @@ function PrincipleEditor({ uid }) {
           {isDirty && <span className="editor-dirty-badge" title="You have unsaved changes -- press Ctrl+S or click Save">● Unsaved changes</span>}
         </div>
         <div className="editor-header-right">
-          <button className="btn btn-danger" style={{ fontSize: 12, padding: '4px 8px' }}
+          {can('delete') && <button className="btn btn-danger" style={{ fontSize: 12, padding: '4px 8px' }}
             onClick={async () => {
               if (!confirm(`Delete ${draft.id}?\n"${draft.title}"\n\nThis cannot be undone.`)) return;
               try {
@@ -1473,7 +1516,7 @@ function PrincipleEditor({ uid }) {
                 dispatch({ type: 'DESELECT' });
                 toast(`Deleted ${draft.id}`, 'info');
               } catch (err) { toast(err.message, 'error'); }
-            }}>Delete</button>
+            }}>Delete</button>}
           <button className="btn btn-secondary" onClick={handleSave} disabled={!isDirty || saving}
             title={isDirty ? "Save changes (Ctrl+S)" : "No unsaved changes"}>
             {saving ? <span className="spinner" /> : isDirty ? 'Save' : 'Saved ✓'}
@@ -1548,6 +1591,7 @@ function PrincipleEditor({ uid }) {
 // ---------------------------------------------------------------------------
 function TBDEditor({ uid }) {
   const { state, dispatch, toast } = useApp();
+  const can = useCan();
   const { enums } = state;
   const [data, setData]       = useState(null);
   const [draft, setDraft]     = useState(null);
@@ -1641,7 +1685,7 @@ function TBDEditor({ uid }) {
               ✓ Resolve
             </button>
           )}
-          <button className="btn btn-danger" style={{ fontSize: 12, padding: '4px 8px' }}
+          {can('delete') && <button className="btn btn-danger" style={{ fontSize: 12, padding: '4px 8px' }}
             onClick={async () => {
               if (!confirm(`Delete ${draft.id}?\n"${draft.title}"\n\nThis cannot be undone.`)) return;
               try {
@@ -1649,7 +1693,7 @@ function TBDEditor({ uid }) {
                 dispatch({ type: 'DESELECT' });
                 toast(`Deleted ${draft.id}`, 'info');
               } catch (err) { toast(err.message, 'error'); }
-            }}>Delete</button>
+            }}>Delete</button>}
           <button className="btn btn-secondary" onClick={handleSave} disabled={!isDirty || saving}
             title={isDirty ? "Save changes (Ctrl+S)" : "No unsaved changes"}>
             {saving ? <span className="spinner" /> : isDirty ? 'Save' : 'Saved ✓'}
