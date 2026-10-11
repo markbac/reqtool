@@ -346,7 +346,7 @@ def flow(store, stuck_days: Optional[int] = None, type_filter: Optional[str] = N
 
 def _points(req: dict) -> float:
     try:
-        value = float(req.get("estimate"))
+        value = float(req.get("estimate") or 0)
     except (TypeError, ValueError):
         return 1.0
     return value if value > 0 else 1.0
