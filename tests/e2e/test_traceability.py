@@ -77,7 +77,7 @@ def test_request_review_lists_it_for_the_reviewer_and_in_the_inbox(page):
     assert sorted(r["reviewer"] for r in reviews) == ["bob", "user"]
 
     from .helpers import open_menu_item, panel, close_panel
-    open_menu_item(page, "🔔 Inbox")
+    open_menu_item(page, "✉ Inbox")
     inbox = panel(page, "Inbox")
     expect(inbox.get_by_text("EP-001").first).to_be_visible()
     close_panel(page)

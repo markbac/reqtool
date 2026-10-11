@@ -47,7 +47,7 @@ def test_roadmap_board_moves_a_card_to_another_release(page):
     items = seed_tree(page.server)
     page.server.put(f"/requirements/{items['initiative']['uid']}", {"target_release": "R1"})
     open_app(page)
-    open_menu_item(page, "🗺 Roadmap")
+    open_menu_item(page, "⇢ Roadmap")
     p = panel(page, "Roadmap")
     p.get_by_role("tab", name="Board").click()
     card = p.get_by_test_id(f"rb-card-{items['initiative']['id']}")

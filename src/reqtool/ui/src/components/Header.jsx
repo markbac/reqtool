@@ -26,25 +26,53 @@ function UserIdentityWidget({ onLogin }) {
   );
 }
 
-function OverflowMenu({ items }) {
+/** The "More" menu: grouped under headings, searchable, and operable from the keyboard (arrows, Home, End, Esc). */
+function OverflowMenu({ groups }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const ref = useRef(null);
+  const search = useRef(null);
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+  useEffect(() => { if (open) search.current?.focus(); else setQuery(''); }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const shown = groups
+    .map(g => ({ ...g, items: g.items.filter(i => !q || i.label.toLowerCase().includes(q) || g.heading.toLowerCase().includes(q)) }))
+    .filter(g => g.items.length);
+
+  const items = () => Array.from(ref.current?.querySelectorAll('[role="menuitem"]') || []);
+  const onKey = (e) => {
+    const list = items();
+    const at = list.indexOf(document.activeElement);
+    if (e.key === 'Escape') { setOpen(false); ref.current?.querySelector('button')?.focus(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); list[Math.min(list.length - 1, at + 1)]?.focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (at <= 0) search.current?.focus(); else list[at - 1]?.focus(); }
+    else if (e.key === 'Home' && at >= 0) { e.preventDefault(); list[0]?.focus(); }
+    else if (e.key === 'End' && at >= 0) { e.preventDefault(); list[list.length - 1]?.focus(); }
+  };
+  const run = (item) => { item.action?.(); setOpen(false); };
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button className="btn btn-ghost header-action-btn" onClick={() => setOpen(v => !v)} title="More tools">⋯ More</button>
+    <div ref={ref} style={{ position: 'relative' }} onKeyDown={open ? onKey : undefined}>
+      <button className="btn btn-ghost header-action-btn" onClick={() => setOpen(v => !v)} title="More tools"
+        aria-haspopup="menu" aria-expanded={open}>⋯ More</button>
       {open && (
-        <div className="overflow-menu">
-          {items.map(item => (
-            <button key={item.label} className="overflow-menu-item"
-              onClick={() => { item.action?.(); setOpen(false); }}>
-              {item.label}
-            </button>
+        <div className="overflow-menu" role="menu" aria-label="More tools">
+          <input ref={search} className="overflow-menu-search" type="search" placeholder="Find a tool…" aria-label="Find a tool"
+            value={query} onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && shown[0]) { e.preventDefault(); run(shown[0].items[0]); } }} />
+          {shown.map(g => (
+            <div key={g.heading} role="group" aria-label={g.heading}>
+              <div className="overflow-menu-heading" role="presentation">{g.heading}</div>
+              {g.items.map(item => (
+                <button key={item.label} role="menuitem" className="overflow-menu-item" onClick={() => run(item)}>{item.label}</button>
+              ))}
+            </div>
           ))}
+          {!shown.length && <div className="overflow-menu-empty">Nothing matches "{query}".</div>}
         </div>
       )}
     </div>
@@ -129,12 +157,6 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
           onClick={() => setShowNewProduct(v => !v)}
           title="Create a new product"
         >+ Product</button>}
-        {can('manage_repo') && <button
-          className="btn btn-ghost"
-          style={{ fontSize: 11, padding: '3px 8px', marginLeft: 2 }}
-          onClick={onRepo}
-          title="Switch or initialize requirements repository"
-        >📦 Repo</button>}
         {variants.length > 0 && (
           <select
             className="header-select header-select-sm"
@@ -190,34 +212,45 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
         <button className="btn btn-ghost header-action-btn" onClick={onExport}   title="Export requirements">↓ Export</button>
         <button className="btn btn-ghost header-action-btn" onClick={onMetrics}  title="Metrics dashboard">⊕ Metrics</button>
         {/* Overflow menu */}
-        <OverflowMenu items={([
-          { label: '◔ Overview & release gate', action: onOverview },
-          { label: '🗺 Roadmap', action: onRoadmap },
-          { label: '◫ Views', action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showViews', value: true }) },
-          { label: '⚖ Decisions & ADRs', action: onDecisions },
-          { label: '🧩 Modules', action: onModules },
-          { label: '⎇ Change sets', action: onChangeSets },
-          { label: '🔔 Inbox', action: onInbox },
-          { label: '🔎 Query & saved views', action: onQuery },
-          { label: '⏱ Iterations & Gates',action: onIterations },
-          { label: '🎨 Diagram Canvas',action: onDiagram },
-          { label: '🤖 Automation Rules', action: onAutomation },
-          { label: '✨ Duplicate Detector', action: onDuplicateDetector },
-          { label: '🔐 Login / Server',action: onLogin },
-          { label: '📦 Repository',   action: onRepo, needs: 'manage_repo' },
-          { label: '⊞ Coverage',     action: onCoverage },
-          { label: '⊗ Traceability', action: onTraceability },
-          { label: '◎ Baselines',    action: onBaselines },
-          { label: '≡ Bulk update',  action: onBulk, needs: 'write' },
-          { label: '⊙ Vocabularies', action: onVocabularies, needs: 'manage_config' },
-          { label: '⊚ Custom fields',action: onCustomFields, needs: 'manage_config' },
-          { label: '⇌ Webhooks',     action: onWebhooks, needs: 'manage_webhooks' },
-          { label: '⬡ Workflows',    action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showWorkflowEditor', value: true }) },
-          { label: '⬡ Fallback workflow', action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showWorkflow', value: true }), needs: 'manage_workflow' },
-          { label: '✎ Writing check', action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showWritingCheck', value: true }) },
-          { label: '▤ Templates',     action: onTemplates, needs: 'manage_config' },
-          { label: '↑ Import CSV',   action: onImport, needs: 'write' },
-        ]).filter(item => !item.needs || can(item.needs))} />
+        <OverflowMenu groups={[
+          { heading: 'View', items: [
+            { label: '◔ Overview & release gate', action: onOverview },
+            { label: '⇢ Roadmap', action: onRoadmap },
+            { label: '◫ Views', action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showViews', value: true }) },
+            { label: '⊞ Coverage', action: onCoverage },
+            { label: '⊗ Traceability', action: onTraceability },
+            { label: '⚖ Decisions & ADRs', action: onDecisions },
+            { label: '⌕ Query & saved views', action: onQuery },
+            { label: '✉ Inbox', action: onInbox },
+          ] },
+          { heading: 'Create and import', items: [
+            { label: '≡ Bulk update', action: onBulk, needs: 'write' },
+            { label: '⇪ Import CSV', action: onImport, needs: 'write' },
+            { label: '⏱ Iterations & Gates', action: onIterations },
+            { label: '⎇ Change sets', action: onChangeSets },
+            { label: '✐ Diagram Canvas', action: onDiagram },
+          ] },
+          { heading: 'Quality', items: [
+            { label: '✎ Writing check', action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showWritingCheck', value: true }) },
+            { label: '⧉ Duplicate Detector', action: onDuplicateDetector },
+          ] },
+          { heading: 'Configure', items: [
+            { label: '⬡ Workflows', action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showWorkflowEditor', value: true }) },
+            { label: '⊙ Vocabularies', action: onVocabularies, needs: 'manage_config' },
+            { label: '⊚ Custom fields', action: onCustomFields, needs: 'manage_config' },
+            { label: '▤ Templates', action: onTemplates, needs: 'manage_config' },
+            { label: '⚙ Automation Rules', action: onAutomation },
+          ] },
+          { heading: 'Admin', items: [
+            { label: '▦ Modules', action: onModules },
+            { label: '◎ Baselines', action: onBaselines },
+            { label: '⇌ Webhooks', action: onWebhooks, needs: 'manage_webhooks' },
+            { label: '⌂ Repository', action: onRepo, needs: 'manage_repo' },
+          ] },
+          { heading: 'Account', items: [
+            { label: '⚿ Login / Server', action: onLogin },
+          ] },
+        ].map(g => ({ ...g, items: g.items.filter(item => !item.needs || can(item.needs)) })).filter(g => g.items.length)} />
         <button
           className="btn btn-ghost header-action-btn"
           onClick={toggleTheme}

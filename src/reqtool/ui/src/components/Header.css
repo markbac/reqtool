@@ -164,9 +164,9 @@
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  min-width: 160px;
+  min-width: 220px; max-height: 80vh;
   box-shadow: 0 4px 16px rgba(0,0,0,.35);
-  overflow: hidden;
+  overflow-y: auto;
   animation: slideInDown .1s ease;
 }
 .overflow-menu-item {
@@ -174,7 +174,10 @@
   padding: 8px 14px; font-size: var(--font-size-sm);
   background: none; color: var(--text-primary); cursor: pointer;
 }
-.overflow-menu-item:hover { background: var(--bg-hover); }
+.overflow-menu-item:hover, .overflow-menu-item:focus-visible { background: var(--bg-hover); outline: none; }
+.overflow-menu-search { display: block; width: calc(100% - 16px); margin: 8px; box-sizing: border-box; font-size: var(--font-size-sm); }
+.overflow-menu-heading { padding: 6px 14px 2px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); border-top: 1px solid var(--border); }
+.overflow-menu-empty { padding: 8px 14px; font-size: var(--font-size-sm); color: var(--text-muted); }
 
 /* ── Search hint ─────────────────────────────────────────────────────────── */
 .header-search-hint {

@@ -46,7 +46,7 @@ def test_login_then_the_app_loads_and_logout_returns_to_the_gate(page):
 
     log_in(page, "admin")
     expect(page.locator("select.header-select").first).to_contain_text("Product One")
-    open_menu_item(page, "🔐 Login / Server")
+    open_menu_item(page, "⚿ Login / Server")
     p = panel(page, "Server Login")
     expect(p).to_contain_text("Active User: Ada Admin")
     expect(p).to_contain_text("admin")

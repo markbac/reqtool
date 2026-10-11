@@ -299,7 +299,7 @@ Resolving a TBD needs a decision text. The **Resolve** dialog (and `POST /tbds/{
 5. The diagram above redraws as you edit. It is drawn by the server. Errors (an unreachable state, a move to a state that does not exist) stop **Save**, and warnings (items whose status the new workflow no longer has) are shown.
 6. **Which workflow each item type uses** changes the type's workflow at once.
 
-The workflow in `.reqtool/config.yaml` stays as the fallback for item types with no workflow of their own (More > Fallback workflow).
+The workflow in `.reqtool/config.yaml` stays as the fallback for item types with no workflow of their own (More > Workflows, then **Edit the fallback workflow**).
 
 ### 4.0a Moving an item on
 

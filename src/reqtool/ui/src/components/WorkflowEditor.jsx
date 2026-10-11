@@ -307,6 +307,8 @@ export function WorkflowEditor({ onClose }) {
         <div className="metrics-section-title">Fallback workflow</div>
         <div className="text-muted" style={{ fontSize: 11 }}>Item types with no workflow of their own use the one in <code>.reqtool/config.yaml</code>.</div>
         {fallback ? <MermaidView source={fallback} title="Fallback workflow diagram" /> : <button className="btn btn-secondary" onClick={showFallback}>Show its diagram</button>}
+        {can('manage_workflow') && <button className="btn btn-secondary" style={{ marginLeft: 6 }}
+          onClick={() => { onClose(); dispatch({ type: 'TOGGLE_PANEL', key: '_showWorkflow', value: true }); }}>Edit the fallback workflow</button>}
       </section>
     </Panel>
   );
