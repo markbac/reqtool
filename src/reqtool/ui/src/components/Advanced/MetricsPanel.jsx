@@ -28,7 +28,7 @@ export function MetricsPanel({ onClose }) {
             { label: 'Requirements', value: data.totals.requirements },
             { label: 'Principles',   value: data.totals.principles },
             { label: 'TBDs',         value: data.totals.tbds, warn: data.totals.open_tbds > 0 },
-            { label: 'Open TBDs',    value: data.totals.open_tbds, warn: data.totals.open_tbds > 0 },
+            { label: 'Open questions (TBD)',    value: data.totals.open_tbds, warn: data.totals.open_tbds > 0 },
           ].map(({ label, value, warn }) => (
             <div key={label} className="metrics-headline-card">
               <div className={`metrics-headline-value ${warn ? 'metrics-warn' : ''}`}>{value}</div>

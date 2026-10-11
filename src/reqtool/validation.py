@@ -558,7 +558,7 @@ def _validate_requirement(
             if link.get("type") == "tbd" and link.get("ref") in open_tbd_uids:
                 warnings.append(_warn(
                     "open_tbd_on_approved",
-                    f"Approved requirement links to open TBD {link.get('ref', '')[:8]}...",
+                    f"Approved requirement links to open question (TBD) {link.get('ref', '')[:8]}...",
                     uid, "links",
                 ))
 

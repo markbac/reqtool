@@ -163,14 +163,41 @@ def test_principles_list_creates_and_filters(page):
     expect(page.locator(".list-item")).to_have_count(1)
 
 
-def test_tbd_list_creates_and_resolves(page):
+def test_decisions_list_creates_filters_and_resolves(page):
     open_app(page)
-    page.locator(".sidebar-tab", has_text="TBDs").click()
+    page.locator(".sidebar-tab", has_text="Decisions").click()
+    expect(page.locator(".sidebar-tab", has_text="TBDs")).to_have_count(0)      # one area, not two
+    page.get_by_label("New kind").select_option("tbd")
     page.get_by_role("button", name="+ New", exact=True).click()
-    wait_until(lambda: page.server.get("/tbds"), what="the new TBD")
-    expect(page.locator(".list-item", has_text="New TBD")).to_be_visible()
+    wait_until(lambda: page.server.get("/tbds"), what="the new open question")
+    expect(page.locator(".list-item", has_text="New open question")).to_be_visible()
+    expect(page.get_by_test_id("decision-kind")).to_contain_text("Open question (TBD)")   # the same editor opens
+
+    page.get_by_label("New kind").select_option("decision")
+    page.get_by_role("button", name="+ New", exact=True).click()
+    wait_until(lambda: page.server.get("/decisions?status=proposed"), what="the new decision")
+    expect(page.locator(".list-item")).to_have_count(2)
+    page.get_by_label("Kind", exact=True).select_option("tbd")
+    expect(page.locator(".list-item")).to_have_count(1)
+    page.get_by_label("Kind", exact=True).select_option("decision")
+    expect(page.locator(".list-item", has_text="New decision")).to_have_count(1)
+
+    page.get_by_label("Kind", exact=True).select_option("tbd")
     page.locator(".list-item").get_by_role("button", name="✓ Resolve").click()
     expect(page.locator(".modal, [role=dialog]").first).to_be_visible()
+
+
+def test_a_resolved_question_and_its_decision_link_to_each_other(page):
+    q = page.server.post("/tbds", {"title": "Which database?", "content": {"description": "Pick one."}})
+    d = page.server.post("/decisions", {"title": "Use Postgres", "content": {"description": "Postgres."}})
+    page.server.post(f"/tbds/{q['uid']}/resolve", {"decision": "Postgres", "linked_decision": d["uid"]}, expect=200)
+    open_app(page)
+    page.locator(".sidebar-tab", has_text="Decisions").click()
+    page.get_by_label("Kind", exact=True).select_option("tbd")
+    page.locator(".list-item", has_text="Which database?").click()
+    expect(page.get_by_test_id("decision-links")).to_contain_text(d["id"])
+    page.get_by_test_id("decision-links").get_by_role("button").click()
+    expect(page.get_by_test_id("decision-links")).to_contain_text(q["id"])           # and the link shows from the other end
 
 
 # --- Re-parenting from the tree (#320) --------------------------------------------------------------
@@ -285,3 +312,10 @@ def test_moving_the_open_item_updates_its_editor(page):
     drag_and_drop(page, tree_node(page, "US-001"), tree_node(page, "EP-002"))
     wait_until(lambda: parent_of(page.server, ids["story"]) == ids["epic2"]["uid"], what="the move")
     expect(page.locator(".editor-breadcrumb")).to_contain_text("EP-002")
+
+
+def test_a_deep_link_with_type_tbd_opens_the_decision_editor(page):
+    q = page.server.post("/tbds", {"title": "Which queue?", "content": {"description": "Pick one."}})
+    page.goto(f"{page.server.url}/?uid={q['uid']}&type=tbd")
+    expect(page.get_by_test_id("decision-kind")).to_contain_text("Open question (TBD)")
+    expect(page.locator(".editor-id")).to_contain_text(q["id"])

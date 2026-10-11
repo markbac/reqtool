@@ -87,7 +87,7 @@ export function OverviewPanel({ onClose }) {
         {overview.data && <>
           <div className="ins-grid">
             <Stat label="Requirements" value={overview.data.counts.requirements} />
-            <Stat label="Open TBDs" value={overview.data.counts.open_tbds} />
+            <Stat label="Open questions (TBD)" value={overview.data.counts.open_tbds} />
             <Stat label="Decisions" value={overview.data.counts.decisions} />
             <Stat label="Modules" value={overview.data.counts.modules} />
             <Stat label="Validation errors" value={overview.data.validation.errors} />
@@ -295,7 +295,7 @@ export function DecisionsPanel({ onClose }) {
   const [resolving, setResolving] = useState(null);
   const done = () => { setEditing(null); list.reload(); };
   return (
-    <Panel title="Decisions, ADRs and TBDs" onClose={onClose} width={640}>
+    <Panel title="Decisions" onClose={onClose} width={640}>
       {resolving && <ResolveDialog tbd={resolving} onClose={() => setResolving(null)}
         onResolved={async (body) => { await api.decisions.resolve(resolving.uid, body); setResolving(null); toast('Resolved to a decision', 'success'); list.reload(); }} />}
       {editing ? <DecisionForm item={editing.uid ? editing : null} onSaved={done} onCancel={() => setEditing(null)} /> : <>

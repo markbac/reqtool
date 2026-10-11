@@ -56,6 +56,12 @@ def _build(prefix: str, kind: Optional[str], tag: str) -> None:
     def get_item(uid: str, store: Store = Depends(get_store)):
         result = dict(fetch(store, uid))
         result["affected_requirements"] = store.compute_affected_requirements(uid)
+        # The link between an open question and the decision it became, shown from both ends.
+        brief = lambda d: {"uid": d["uid"], "id": d.get("id"), "title": d.get("title", ""), "type": d.get("type", "decision")}  # noqa: E731
+        target = store.get_decision(result["resolution_ref"]) if result.get("resolution_ref") else None
+        result["resolved_into"] = brief(target) if target and not target.get("deleted") else None
+        result["resolves"] = [brief(d) for d in store.decision_map().values()
+                              if not d.get("deleted") and d.get("resolution_ref") == uid]
         return result
 
     @router.post(prefix, status_code=201, tags=[tag], name=f"create_{tag}")

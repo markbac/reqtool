@@ -1,5 +1,5 @@
 /**
- * Editor.jsx -- Main panel: requirement / principle / TBD editor.
+ * Editor.jsx -- Main panel: requirement / principle / decision editor.
  * All field sections from spec §10.4.
  */
 
@@ -1656,9 +1656,9 @@ function PrincipleEditor({ uid }) {
 }
 
 // ---------------------------------------------------------------------------
-// TBD editor
+// Decision editor: decisions, ADRs and open questions (TBDs) share one editor
 // ---------------------------------------------------------------------------
-function TBDEditor({ uid }) {
+function DecisionEditor({ uid }) {
   const { state, dispatch, toast } = useApp();
   const can = useCan();
   const { enums } = state;
@@ -1670,7 +1670,7 @@ function TBDEditor({ uid }) {
 
   useEffect(() => {
     setLoading(true);
-    api.tbds.get(uid)
+    api.decisions.get(uid)
       .then(d => { setData(d); setDraft(d); })
       .catch(err => toast(err.message, 'error'))
       .finally(() => setLoading(false));
@@ -1688,7 +1688,7 @@ function TBDEditor({ uid }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updated = await api.tbds.update(uid, draft);
+      const updated = await api.decisions.update(uid, draft);
       setData(updated); setDraft(updated);
       dispatch({ type: 'MARK_CLEAN', uid });
       toast('Saved', 'success');
@@ -1700,14 +1700,14 @@ function TBDEditor({ uid }) {
     setSaving(true);
     try {
       if (isDirty) {
-        const updated = await api.tbds.update(uid, draft);
+        const updated = await api.decisions.update(uid, draft);
         setData(updated); setDraft(updated);
       }
-      const result = await api.tbds.commit(uid, { message, increment });
+      const result = await api.decisions.commit(uid, { message, increment });
       toast(`Committed: ${result.commit_sha?.slice(0, 7)}`, 'success');
       setShowCommit(false);
       dispatch({ type: 'COMMITTED' });
-      const updated = await api.tbds.get(uid);
+      const updated = await api.decisions.get(uid);
       setData(updated); setDraft(updated);
     } catch (err) { toast(err.message, 'error'); }
     finally { setSaving(false); }
@@ -1716,10 +1716,10 @@ function TBDEditor({ uid }) {
   const [showResolve, setShowResolve] = useState(false);
   const handleResolve = async (body) => {
     await api.tbds.resolve(uid, body);
-    const updated = await api.tbds.get(uid);
+    const updated = await api.decisions.get(uid);
     setData(updated); setDraft(updated);
     setShowResolve(false);
-    toast('TBD resolved', 'success');
+    toast('Resolved into a decision', 'success');
   };
 
   useEffect(() => {
@@ -1731,15 +1731,19 @@ function TBDEditor({ uid }) {
   }, [isDirty, saving, draft]);
 
   if (loading) return <div className="editor-loading"><div className="spinner" /></div>;
-  if (!draft) return <div className="editor-empty">Could not load TBD.</div>;
+  if (!draft) return <div className="editor-empty">Could not load this decision.</div>;
 
-  const STATUS_COLOURS = { open: 'var(--accent-red)', in_progress: 'var(--accent-orange)', resolved: 'var(--accent-green)', cancelled: 'var(--text-muted)' };
+  const isQuestion = draft.type === 'tbd';
+  const STATUS_COLOURS = { open: 'var(--accent-red)', in_progress: 'var(--accent-orange)', resolved: 'var(--accent-green)', cancelled: 'var(--text-muted)',
+    proposed: 'var(--accent-orange)', accepted: 'var(--accent-green)', rejected: 'var(--accent-red)', superseded: 'var(--text-muted)' };
+  const statuses = isQuestion ? ['open', 'in_progress', 'resolved', 'cancelled'] : ['proposed', 'accepted', 'rejected', 'superseded'];
 
   return (
     <div className="editor">
       <div className="editor-header">
         <div className="editor-header-left">
           <span className="editor-id mono">{draft.id}</span>
+          <span className="badge" data-testid="decision-kind" style={{ fontSize: 10 }}>{isQuestion ? 'Open question (TBD)' : 'Decision'}</span>
           <span className="editor-version mono text-muted">v{draft.version}</span>
           <span className="badge" style={{
             background: STATUS_COLOURS[draft.status] + '20',
@@ -1749,7 +1753,7 @@ function TBDEditor({ uid }) {
           {isDirty && <span className="editor-dirty-badge" title="You have unsaved changes -- press Ctrl+S or click Save">● Unsaved changes</span>}
         </div>
         <div className="editor-header-right">
-          {(draft.status === 'open' || draft.status === 'in_progress') && (
+          {isQuestion && (draft.status === 'open' || draft.status === 'in_progress') && can('write') && (
             <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setShowResolve(true)}>
               ✓ Resolve
             </button>
@@ -1758,7 +1762,7 @@ function TBDEditor({ uid }) {
             onClick={async () => {
               if (!confirm(`Delete ${draft.id}?\n"${draft.title}"\n\nThis cannot be undone.`)) return;
               try {
-                await api.tbds.delete(uid);
+                await api.decisions.delete(uid);
                 dispatch({ type: 'DESELECT' });
                 toast(`Deleted ${draft.id}`, 'info');
               } catch (err) { toast(err.message, 'error'); }
@@ -1779,7 +1783,7 @@ function TBDEditor({ uid }) {
           <Field label="Title"><input value={draft.title ?? ''} onChange={e => patch('title', e.target.value)} /></Field>
           <div className="field-row">
             <Field label="Status">
-              <EnumSelect value={draft.status} options={['open', 'in_progress', 'resolved', 'cancelled']}
+              <EnumSelect value={draft.status} options={statuses}
                 onChange={v => patch('status', v)} nullable={false} />
             </Field>
             <Field label="Priority">
@@ -1804,12 +1808,32 @@ function TBDEditor({ uid }) {
           <Field label="Description">
             <MarkdownEditor value={draft.content?.description} onChange={v => patchContent('description', v)} rows={4} />
           </Field>
-          <Field label="Impact">
-            <MarkdownEditor value={draft.content?.impact} onChange={v => patchContent('impact', v)} rows={3} />
-          </Field>
-          <Field label="Resolution Criteria">
-            <MarkdownEditor value={draft.content?.resolution_criteria} onChange={v => patchContent('resolution_criteria', v)} rows={3} />
-          </Field>
+          {isQuestion ? (<>
+            <Field label="Impact">
+              <MarkdownEditor value={draft.content?.impact} onChange={v => patchContent('impact', v)} rows={3} />
+            </Field>
+            <Field label="Resolution Criteria">
+              <MarkdownEditor value={draft.content?.resolution_criteria} onChange={v => patchContent('resolution_criteria', v)} rows={3} />
+            </Field>
+          </>) : (<>
+            <Field label="Context">
+              <MarkdownEditor value={draft.content?.context} onChange={v => patchContent('context', v)} rows={3} />
+            </Field>
+            <Field label="Rationale">
+              <MarkdownEditor value={draft.content?.rationale} onChange={v => patchContent('rationale', v)} rows={3} />
+            </Field>
+            <Field label="Chosen option">
+              <input value={draft.content?.chosen_option ?? ''} onChange={e => patchContent('chosen_option', e.target.value || null)} />
+            </Field>
+          </>)}
+          {(draft.resolved_into || draft.resolves?.length > 0) && (
+            <div className="field" data-testid="decision-links">
+              {draft.resolved_into && <div>Resolved into <button className="rel-target-link"
+                onClick={() => dispatch({ type: 'SELECT', uid: draft.resolved_into.uid, artefactType: draft.resolved_into.type })}>{draft.resolved_into.id}: {draft.resolved_into.title}</button></div>}
+              {draft.resolves?.map(q => <div key={q.uid}>Resolves <button className="rel-target-link"
+                onClick={() => dispatch({ type: 'SELECT', uid: q.uid, artefactType: q.type })}>{q.id}: {q.title}</button></div>)}
+            </div>
+          )}
           {draft.content?.resolution && (
             <Field label="Resolution">
               <MarkdownEditor value={draft.content?.resolution} onChange={v => patchContent('resolution', v)} rows={3} />
@@ -1819,7 +1843,7 @@ function TBDEditor({ uid }) {
 
         <Section title="Affected Requirements" defaultOpen={draft.affected_requirements?.length > 0}>
           <div style={{ marginBottom: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-            Requirements that are blocked by or depend on this TBD.
+            Requirements that are blocked by or depend on this {isQuestion ? 'open question' : 'decision'}.
           </div>
           {(draft.affected_requirements ?? []).map((reqUid, i) => (
             <div key={reqUid} className="rel-row">
@@ -1968,6 +1992,6 @@ export default function Editor() {
   }
   if (selectedType === 'requirement') return <RequirementEditor uid={selectedUid} />;
   if (selectedType === 'principle')   return <PrincipleEditor uid={selectedUid} />;
-  if (selectedType === 'tbd')         return <TBDEditor uid={selectedUid} />;
+  if (selectedType === 'tbd' || selectedType === 'decision') return <DecisionEditor key={selectedUid} uid={selectedUid} />;
   return <EditorEmpty />;
 }

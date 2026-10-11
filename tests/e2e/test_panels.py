@@ -143,7 +143,7 @@ def test_roadmap_nests_theme_initiative_epic_and_opens_items(page):
 def test_create_edit_and_export_a_decision(page):
     open_app(page, product=None)
     open_menu_item(page, "⚖ Decisions & ADRs")
-    p = panel(page, "Decisions, ADRs and TBDs")
+    p = panel(page, "Decisions")
     p.get_by_role("button", name="+ New decision").click()
     p.get_by_label("Decision title").fill("Use PostgreSQL")
     p.get_by_label("Options").fill("PostgreSQL | + mature; relational | - heavier\nSQLite | + simple | - one writer")
@@ -167,7 +167,7 @@ def test_create_edit_and_export_a_decision(page):
 def test_atam_fields_round_trip(page):
     open_app(page, product=None)
     open_menu_item(page, "⚖ Decisions & ADRs")
-    p = panel(page, "Decisions, ADRs and TBDs")
+    p = panel(page, "Decisions")
     p.get_by_role("button", name="+ New decision").click()
     p.get_by_label("Decision title").fill("Message broker")
     p.get_by_label("ATAM analysis").check()
@@ -185,7 +185,7 @@ def test_a_tbd_is_resolved_into_a_decision(page):
     tbd = page.server.post("/tbds", {"title": "Pick a queue", "content": {"description": "Undecided"}})
     open_app(page, product=None)
     open_menu_item(page, "⚖ Decisions & ADRs")
-    p = panel(page, "Decisions, ADRs and TBDs")
+    p = panel(page, "Decisions")
     p.get_by_role("button", name="Resolve").click()
     page.get_by_role("dialog").get_by_role("textbox").first.fill("Use the managed queue")
     page.get_by_role("dialog").get_by_role("button", name="Resolve").click()
