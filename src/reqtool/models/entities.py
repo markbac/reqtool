@@ -244,7 +244,9 @@ class Principle(BaseModel):
 
     content: PrincipleContent = Field(default_factory=PrincipleContent)
 
-    domain: Optional[str] = None
+    area: Optional[str] = None        # top-level group, for example architecture
+    category: Optional[str] = None    # second level inside the area, for example security
+    domain: Optional[str] = None      # the old single grouping, still read
     tags: list[str] = Field(default_factory=list)
     owner: Optional[str] = None
     links: list[Link] = Field(default_factory=list)

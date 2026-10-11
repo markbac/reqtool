@@ -21,6 +21,8 @@ from reqtool.validation import validate_all
 from reqtool.repo_init import write_base_repo, write_enums
 from reqtool.watcher import restart_watcher
 from reqtool.fileio import load_yaml, save_yaml
+from reqtool.principles import FLAVOUR_PACKS, pack_areas
+from reqtool.services.principles import PrincipleService
 from reqtool.models import RepoEnums, WorkflowConfig
 from .deps import get_store
 
@@ -222,6 +224,13 @@ def init_repo(body: dict[str, Any], request: Request, store: Store = Depends(get
     if (target_path / ".reqtool" / "config.yaml").exists():
         raise HTTPException(status_code=409, detail=f"Repository already initialised at '{target_path}'")
 
+    packs = body.get("principle_packs")
+    if packs is None:
+        packs = list(FLAVOUR_PACKS["defaults"])
+    unknown = [a for a in packs if a not in pack_areas()]
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Unknown principle pack(s): {', '.join(unknown)}")
+
     write_base_repo(target_path, repo_id, title)
 
     if mode == "defaults":
@@ -238,22 +247,7 @@ def init_repo(body: dict[str, Any], request: Request, store: Store = Depends(get
 
         store.root = target_path
         store.load()
-
-        if (defaults_dir / "principles.yaml").exists():
-            p_data = load_yaml(defaults_dir / "principles.yaml")
-            principles_list = p_data if isinstance(p_data, list) else p_data.get("principles", [])
-            for p in principles_list:
-                store.create_principle({
-                    "id": p.get("id", ""),
-                    "title": p.get("title", ""),
-                    "domain": p.get("domain"),
-                    "content": {
-                        "description": p.get("description", ""),
-                        "rationale": p.get("rationale", ""),
-                        "implications": p.get("implications", ""),
-                        "exceptions": p.get("exceptions", ""),
-                    },
-                })
+        PrincipleService(store).install_packs(packs)
     else:
         write_enums(target_path, domains=[])
         store.root = target_path
@@ -394,12 +388,13 @@ def get_kanban(
     assignee: Optional[str] = None,
     store: Store = Depends(get_store),
 ):
-    return store.build_kanban(
+    from reqtool.features.visuals import kanban_details
+    return kanban_details(store, store.build_kanban(
         req_type=req_type,
         iteration=iteration,
         owner=owner,
         assignee=assignee,
-    )
+    ))
 
 
 @router.get("/filter-presets", tags=["filter-presets"])

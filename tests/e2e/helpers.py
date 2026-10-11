@@ -61,7 +61,7 @@ def field(page: Page, label: str):
 
 def open_menu_item(page: Page, label: str) -> None:
     page.get_by_role("button", name="⋯ More").click()
-    page.get_by_role("button", name=label).click()
+    page.get_by_role("menuitem", name=label).click()
 
 
 def panel(page: Page, title: str):

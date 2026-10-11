@@ -96,7 +96,7 @@ def lifecycle(store, uid: str) -> Optional[dict[str, Any]]:
         stage = "baselined"
     blockers = []
     for tbd in store.open_tbds_for(req):
-        blockers.append({"code": "open_tbd", "message": f"Open TBD {tbd}"})
+        blockers.append({"code": "open_tbd", "message": f"Open question (TBD) {tbd}"})
     if not is_verified(req) and status in APPROVED_STATES:
         blockers.append({"code": "not_verified", "message": "Verification has not passed"})
     trace = requirement_trace(store, uid)
@@ -222,7 +222,7 @@ def release_readiness(store, product_id: Optional[str] = None) -> dict[str, Any]
         approved = r.get("status") in APPROVED_STATES
         if approved:
             for tbd in store.open_tbds_for(r):
-                add("open_tbd_on_approved", r, f"Approved item has open TBD {tbd}")
+                add("open_tbd_on_approved", r, f"Approved item has open question (TBD) {tbd}")
         if r.get("safety_related") and not is_verified(r):
             add("unverified_safety", r, "Safety-related item is not verified")
         for rel in r.get("relationships") or []:

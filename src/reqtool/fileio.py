@@ -45,7 +45,7 @@ _REQ_HASHED_FIELDS: set[str] = {
 }
 
 _PRINCIPLE_HASHED_FIELDS: set[str] = {
-    "id", "title", "content", "status", "domain",
+    "id", "title", "content", "status", "domain", "area", "category",
 }
 
 _TBD_HASHED_FIELDS: set[str] = {

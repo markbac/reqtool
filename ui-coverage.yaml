@@ -140,6 +140,12 @@ GET /permissions:
   status: surfaced
 GET /principles:
   status: surfaced
+GET /principles/areas:
+  status: surfaced
+GET /principles/packs:
+  status: surfaced
+GET /principles/vocabulary:
+  status: surfaced
 GET /principles/{uid}:
   status: surfaced
 GET /products:
@@ -231,6 +237,10 @@ GET /workflow:
   status: surfaced
 GET /workflow/mermaid:
   status: surfaced
+GET /rules:
+  status: surfaced
+GET /rules/overrides:
+  status: surfaced
 GET /workflows:
   status: surfaced
 GET /workflows/{workflow_id}:
@@ -309,6 +319,8 @@ POST /notifications/{item_id}/read:
   status: surfaced
 POST /principles:
   status: surfaced
+POST /principles/packs/{area}:
+  status: surfaced
 POST /principles/{uid}/commit:
   status: surfaced
 POST /products:
@@ -367,6 +379,10 @@ POST /webhooks:
 POST /webhooks/github:
   status: backend-only
   reason: called by GitHub with an HMAC signature
+POST /requirements/{uid}/raise:
+  status: surfaced
+POST /rules/preview:
+  status: surfaced
 POST /workflows:
   status: surfaced
 POST /workflows/preview:
@@ -392,6 +408,8 @@ PUT /lint/config:
   status: surfaced
 PUT /notifications/preferences/{user}:
   status: surfaced
+PUT /principles/vocabulary:
+  status: surfaced
 PUT /principles/{uid}:
   status: surfaced
 PUT /requirements/{uid}:
@@ -405,7 +423,31 @@ PUT /tbds/{uid}:
   status: surfaced
 PUT /templates:
   status: surfaced
+PUT /rules:
+  status: surfaced
 PUT /workflow:
   status: surfaced
 PUT /workflows/{workflow_id}:
+  status: surfaced
+GET /roadmap/board:
+  status: surfaced
+GET /traceability/grid:
+  status: surfaced
+GET /views/burnup/{iteration_id}:
+  status: surfaced
+GET /views/coverage:
+  status: surfaced
+GET /views/decisions:
+  status: surfaced
+GET /views/flow:
+  status: surfaced
+GET /views/hierarchy:
+  status: surfaced
+GET /views/impact/{uid}:
+  status: surfaced
+GET /views/principles:
+  status: surfaced
+GET /views/principles/{uid}/citations:
+  status: surfaced
+GET /views/type-structure:
   status: surfaced

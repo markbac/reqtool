@@ -128,7 +128,7 @@ def test_trend_tab_after_two_baselines(page):
 def test_roadmap_nests_theme_initiative_epic_and_opens_items(page):
     seed_tree(page.server)
     open_app(page)
-    open_menu_item(page, "🗺 Roadmap")
+    open_menu_item(page, "⇢ Roadmap")
     p = panel(page, "Roadmap")
     rows = p.locator(".ins-row")
     expect(rows).to_have_count(3)  # stories are delivery work, not roadmap items
@@ -143,7 +143,7 @@ def test_roadmap_nests_theme_initiative_epic_and_opens_items(page):
 def test_create_edit_and_export_a_decision(page):
     open_app(page, product=None)
     open_menu_item(page, "⚖ Decisions & ADRs")
-    p = panel(page, "Decisions, ADRs and TBDs")
+    p = panel(page, "Decisions")
     p.get_by_role("button", name="+ New decision").click()
     p.get_by_label("Decision title").fill("Use PostgreSQL")
     p.get_by_label("Options").fill("PostgreSQL | + mature; relational | - heavier\nSQLite | + simple | - one writer")
@@ -167,7 +167,7 @@ def test_create_edit_and_export_a_decision(page):
 def test_atam_fields_round_trip(page):
     open_app(page, product=None)
     open_menu_item(page, "⚖ Decisions & ADRs")
-    p = panel(page, "Decisions, ADRs and TBDs")
+    p = panel(page, "Decisions")
     p.get_by_role("button", name="+ New decision").click()
     p.get_by_label("Decision title").fill("Message broker")
     p.get_by_label("ATAM analysis").check()
@@ -185,7 +185,7 @@ def test_a_tbd_is_resolved_into_a_decision(page):
     tbd = page.server.post("/tbds", {"title": "Pick a queue", "content": {"description": "Undecided"}})
     open_app(page, product=None)
     open_menu_item(page, "⚖ Decisions & ADRs")
-    p = panel(page, "Decisions, ADRs and TBDs")
+    p = panel(page, "Decisions")
     p.get_by_role("button", name="Resolve").click()
     page.get_by_role("dialog").get_by_role("textbox").first.fill("Use the managed queue")
     page.get_by_role("dialog").get_by_role("button", name="Resolve").click()
@@ -200,7 +200,7 @@ def test_module_lifecycle_create_bump_clone_import(page):
     open_app(page)
     answers = iter(["safety-lib", "safety-lib-copy"])
     page.on("dialog", lambda d: d.accept(next(answers)))
-    open_menu_item(page, "🧩 Modules")
+    open_menu_item(page, "▦ Modules")
     p = panel(page, "Modules")
     p.get_by_role("button", name="+ New module").click()
     expect(p.get_by_role("heading", name="safety-lib")).to_be_visible()
@@ -223,7 +223,7 @@ def test_module_lifecycle_create_bump_clone_import(page):
     page.locator(".module-include-item", has_text="safety-lib").first.get_by_role("button", name="⊕ Include").click()
     expect(page.locator(".toast-success").last).to_contain_text("included")
 
-    open_menu_item(page, "🧩 Modules")
+    open_menu_item(page, "▦ Modules")
     p = panel(page, "Modules")
     p.locator(".ins-clickable", has_text="safety-lib").first.click()
     p.get_by_role("button", name="Import into p1").click()
@@ -267,7 +267,7 @@ def test_change_set_start_review_and_merge(page):
 
 def test_inbox_preferences_persist(page):
     open_app(page, product=None)
-    open_menu_item(page, "🔔 Inbox")
+    open_menu_item(page, "✉ Inbox")
     p = panel(page, "Inbox")
     box = p.get_by_label("status changed")
     expect(box).to_be_checked()
@@ -283,7 +283,7 @@ def test_a_mention_reaches_the_inbox(page):
     ids = seed_tree(page.server)
     page.server.post(f"/requirements/{ids['epic']['uid']}/comments", {"author": "bob", "text": "Over to you @user please"})
     open_app(page)
-    open_menu_item(page, "🔔 Inbox")
+    open_menu_item(page, "✉ Inbox")
     p = panel(page, "Inbox")
     note = p.locator(".ins-row", has_text="bob")
     expect(note.first).to_be_visible()
@@ -296,7 +296,7 @@ def test_a_mention_reaches_the_inbox(page):
 def test_query_runs_saves_and_reapplies_a_view(page):
     seed_tree(page.server)
     open_app(page)
-    open_menu_item(page, "🔎 Query & saved views")
+    open_menu_item(page, "⌕ Query & saved views")
     p = panel(page, "Query and saved views")
     p.get_by_label("Query").fill("type:story")
     p.get_by_role("button", name="Run").click()
@@ -307,7 +307,7 @@ def test_query_runs_saves_and_reapplies_a_view(page):
 
     page.reload()
     page.locator("select.header-select").first.select_option("p1")
-    open_menu_item(page, "🔎 Query & saved views")
+    open_menu_item(page, "⌕ Query & saved views")
     p = panel(page, "Query and saved views")
     p.get_by_role("button", name="My stories", exact=True).click()
     expect(p.get_by_text("1 match(es)")).to_be_visible()
@@ -318,7 +318,7 @@ def test_query_runs_saves_and_reapplies_a_view(page):
 @pytest.mark.expect_http(422)
 def test_a_bad_query_shows_the_error(page):
     open_app(page, product=None)
-    open_menu_item(page, "🔎 Query & saved views")
+    open_menu_item(page, "⌕ Query & saved views")
     p = panel(page, "Query and saved views")
     p.get_by_label("Query").fill("status:")
     p.get_by_role("button", name="Run").click()
@@ -328,7 +328,7 @@ def test_a_bad_query_shows_the_error(page):
 def test_clicking_a_query_result_opens_the_item(page):
     seed_tree(page.server)
     open_app(page)
-    open_menu_item(page, "🔎 Query & saved views")
+    open_menu_item(page, "⌕ Query & saved views")
     p = panel(page, "Query and saved views")
     p.get_by_label("Query").fill("Epic")
     p.get_by_role("button", name="Run").click()

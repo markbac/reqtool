@@ -93,14 +93,14 @@ describe('Sidebar', () => {
     ).not.toThrow();
   });
 
-  it('renders Requirements, Principles, TBDs tabs', () => {
+  it('renders Requirements, Principles, Decisions tabs', () => {
     render(<AppProvider>
       <Sidebar tree={[]} principles={[]} tbds={[]} onRefresh={() => {}} />
     </AppProvider>);
     // Use getAllByText since "Requirements" may appear in both tab and empty-state text
     expect(screen.getAllByText(/requirements/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/principles/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/tbd/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/decisions/i).length).toBeGreaterThan(0);
   });
 
   it('shows non-empty DOM when tree is empty', () => {

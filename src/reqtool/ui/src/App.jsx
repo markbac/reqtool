@@ -4,6 +4,7 @@
  * global Ctrl+K command palette, and all overlay panel wiring.
  */
 
+import { ViewsPanel } from './components/Views';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { useEffect, useState, useCallback } from 'react';
 import { AppProvider, useApp } from './AppContext';
@@ -31,6 +32,7 @@ import {
   OverviewPanel, RoadmapPanel, DecisionsPanel, ModulesPanel, ChangeSetsPanel, InboxPanel, QueryPanel,
 } from './components/Insight';
 import { api } from './api';
+import { createAndOpen, templateBody } from './createItem';
 import './index.css';
 
 function AppShell() {
@@ -200,6 +202,7 @@ function AppShell() {
       {state._showAutomation   && <AutomationRulesPanel onClose={() => toggle('_showAutomation', false)} />}
       {state._showDuplicateDetector && <DuplicateDetectorPanel onClose={() => toggle('_showDuplicateDetector', false)} />}
       {state._showOverview     && <OverviewPanel     onClose={() => toggle('_showOverview',     false)} />}
+      {state._showViews        && <ViewsPanel        onClose={() => toggle('_showViews',        false)} />}
       {state._showRoadmap      && <RoadmapPanel      onClose={() => toggle('_showRoadmap',      false)} />}
       {state._showDecisions    && <DecisionsPanel    onClose={() => toggle('_showDecisions',    false)} />}
       {state._showModules      && <ModulesPanel      onClose={() => toggle('_showModules',      false)} />}
@@ -210,7 +213,7 @@ function AppShell() {
       {state._showRepo         && <RepoModal         onClose={() => toggle('_showRepo',         false)} />}
       {state._showHelp         && <HelpPanel initialTab="about"
         onClose={() => toggle('_showHelp', false)}
-        onApplyTemplate={t => { dispatch({ type: 'APPLY_TEMPLATE', payload: t }); toggle('_showHelp', false); }} />}
+        onApplyTemplate={async t => { const item = await createAndOpen(templateBody(t), { dispatch, toast, hasProduct: !!state.activeProduct }); if (item) toggle('_showHelp', false); }} />}
       {state._showValidation   && <ValidationPanel   onClose={() => toggle('_showValidation',   false)} />}
       {state._showExport       && <ExportPanel        onClose={() => toggle('_showExport',        false)} />}
       {state._showCoverage     && <CoveragePanel      onClose={() => toggle('_showCoverage',     false)} />}

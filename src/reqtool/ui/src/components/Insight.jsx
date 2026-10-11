@@ -4,7 +4,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { useApp } from '../AppContext';
+import { useApp, useCan } from '../AppContext';
+import { RoadmapBoard } from './Views';
 import { api } from '../api';
 import { Panel } from './Advanced/Panel';
 import ResolveDialog from './ResolveDialog';
@@ -26,7 +27,7 @@ export function Bar({ value, label }) {
   );
 }
 
-function useLoad(fn, deps = []) {
+export function useLoad(fn, deps = []) {
   const [state, setState] = useState({ data: null, error: null, loading: true });
   const reload = useCallback(() => {
     setState(s => ({ ...s, loading: true, error: null }));
@@ -37,7 +38,7 @@ function useLoad(fn, deps = []) {
   return { ...state, reload };
 }
 
-function Tabs({ tabs, value, onChange }) {
+export function Tabs({ tabs, value, onChange }) {
   return (
     <div className="ins-tabs" role="tablist">
       {tabs.map(([id, label]) => (
@@ -47,7 +48,7 @@ function Tabs({ tabs, value, onChange }) {
   );
 }
 
-function Status({ loading, error }) {
+export function Status({ loading, error }) {
   if (loading) return <div className="panel-loading"><div className="spinner" /></div>;
   if (error) return <div className="ins-error" role="alert">{error}</div>;
   return null;
@@ -86,7 +87,7 @@ export function OverviewPanel({ onClose }) {
         {overview.data && <>
           <div className="ins-grid">
             <Stat label="Requirements" value={overview.data.counts.requirements} />
-            <Stat label="Open TBDs" value={overview.data.counts.open_tbds} />
+            <Stat label="Open questions (TBD)" value={overview.data.counts.open_tbds} />
             <Stat label="Decisions" value={overview.data.counts.decisions} />
             <Stat label="Modules" value={overview.data.counts.modules} />
             <Stat label="Validation errors" value={overview.data.validation.errors} />
@@ -200,13 +201,19 @@ function RoadmapNode({ node, depth, onOpen }) {
 
 export function RoadmapPanel({ onClose }) {
   const { dispatch } = useApp();
+  const can = useCan();
+  const [mode, setMode] = useState('list');
   const road = useLoad(() => api.roadmap(), []);
   const open = (uid) => { dispatch({ type: 'SELECT', uid, artefactType: 'requirement' }); onClose(); };
   return (
-    <Panel title="Roadmap" onClose={onClose} width={720}>
-      <Status {...road} />
-      {road.data && !road.data.length && <div className="ins-muted">No themes, initiatives or epics yet.</div>}
-      {road.data?.map(n => <RoadmapNode key={n.uid} node={n} depth={0} onOpen={open} />)}
+    <Panel title="Roadmap" onClose={onClose} width={mode === 'board' ? 1000 : 720}>
+      <Tabs tabs={[['list', 'List'], ['board', 'Board']]} value={mode} onChange={setMode} />
+      {mode === 'board' && <RoadmapBoard open={open} canEdit={can('write')} />}
+      {mode === 'list' && <>
+        <Status {...road} />
+        {road.data && !road.data.length && <div className="ins-muted">No themes, initiatives or epics yet.</div>}
+        {road.data?.map(n => <RoadmapNode key={n.uid} node={n} depth={0} onOpen={open} />)}
+      </>}
     </Panel>
   );
 }
@@ -288,7 +295,7 @@ export function DecisionsPanel({ onClose }) {
   const [resolving, setResolving] = useState(null);
   const done = () => { setEditing(null); list.reload(); };
   return (
-    <Panel title="Decisions, ADRs and TBDs" onClose={onClose} width={640}>
+    <Panel title="Decisions" onClose={onClose} width={640}>
       {resolving && <ResolveDialog tbd={resolving} onClose={() => setResolving(null)}
         onResolved={async (body) => { await api.decisions.resolve(resolving.uid, body); setResolving(null); toast('Resolved to a decision', 'success'); list.reload(); }} />}
       {editing ? <DecisionForm item={editing.uid ? editing : null} onSaved={done} onCancel={() => setEditing(null)} /> : <>

@@ -62,12 +62,20 @@ types:
     id_prefix: TK
 
   bug:
-    label: Bug
+    label: Defect
     icon: "🐛"
     color: "#ff7b72"
-    description: A defect, linked to what it affects.
+    description: A confirmed defect, linked to what it affects. The type id stays `bug`.
     workflow: sprint
     id_prefix: BG
+
+  issue:
+    label: Issue
+    icon: "📥"
+    color: "#f0883e"
+    description: Something reported as wrong or missing, before anyone knows why. Triage decides if it is a defect, user error, an enhancement request, a duplicate or not reproducible.
+    workflow: triage
+    id_prefix: ISS
 
   spike:
     label: Spike
@@ -179,6 +187,8 @@ hierarchy:
     allowed_children: []
   bug:
     allowed_children: []
+  issue:
+    allowed_children: []
   spike:
     allowed_children: []
   stakeholder_need:
@@ -275,6 +285,58 @@ workflows:
         requires_children_in: [done, cancelled]
         children_enforce: warn      # off | warn | error
 
+  triage:
+    # Intake for anything reported as wrong: raise an issue, triage it, and only a confirmed defect becomes defect work.
+    initial: reported
+    states:
+      - {id: reported, label: Reported, colour: "#8b949e", terminal: false}
+      - {id: in_triage, label: In triage, colour: "#1f6feb", terminal: false}
+      - {id: needs_info, label: Needs info, colour: "#e3b341", terminal: false}
+      - {id: defect, label: Defect, colour: "#da3633", terminal: false}
+      - {id: fixing, label: Being fixed, colour: "#1f6feb", terminal: false}
+      - {id: fixed, label: Fixed, colour: "#2ea043", terminal: false}
+      - {id: enhancement, label: Enhancement request, colour: "#a371f7", terminal: false}
+      - {id: planned, label: Planned, colour: "#8957e5", terminal: false}
+      - {id: user_error, label: User error, colour: "#768390", terminal: true}
+      - {id: duplicate, label: Duplicate, colour: "#768390", terminal: true}
+      - {id: not_reproducible, label: Not reproducible, colour: "#768390", terminal: true}
+      - {id: closed, label: Closed, colour: "#238636", terminal: true}
+    transitions:
+      reported: [in_triage, duplicate, closed]
+      in_triage: [defect, user_error, enhancement, duplicate, not_reproducible, needs_info]
+      needs_info: [in_triage, not_reproducible, closed]
+      defect: [fixing, in_triage, closed]
+      fixing: [fixed, defect]
+      fixed: [closed, fixing]
+      enhancement: [planned, in_triage, closed]
+      planned: [closed, enhancement]
+      user_error: [in_triage, closed]
+      duplicate: [in_triage]
+      not_reproducible: [in_triage, needs_info]
+      closed: [in_triage]
+    guards:
+      in_triage:
+        requires_fields: [assignee]
+        message: Someone has to own the triage. Set the assignee.
+      needs_info:
+        requires_fields: [custom_fields.triage_note]
+        message: Say what you need from the reporter (triage note).
+      defect:
+        requires_fields: [priority, custom_fields.triage_note]
+        message: Say why this is a defect and how serious it is (triage note and priority).
+      user_error:
+        requires_fields: [custom_fields.triage_note]
+        message: Say what the reporter should do instead (triage note).
+      enhancement:
+        requires_fields: [custom_fields.triage_note]
+        message: Say what is being asked for and why it is not a defect (triage note).
+      duplicate:
+        requires_fields: [custom_fields.duplicate_of]
+        message: Name the issue this duplicates (duplicate of).
+      not_reproducible:
+        requires_fields: [custom_fields.triage_note]
+        message: Say what was tried (triage note).
+
   formal:
     initial: draft
     states:
@@ -361,6 +423,11 @@ dor:
     - item: Expected vs actual behaviour described
     - item: Affected version/environment noted
     - item: Severity and priority set
+
+  issue:
+    - item: What was seen is described (not a guess at the cause)
+    - item: What was expected is described
+    - item: Steps to reproduce, version and environment noted where known
 
   spike:
     - item: Question or hypothesis clearly stated
@@ -482,6 +549,15 @@ dod:
 
 # Type-specific fields shown in the editor and stored under ``custom_fields``.
 type_fields:
+  issue:
+    - {key: reporter, label: Reported by, type: text}
+    - {key: observed, label: What was seen, type: text, description: "What actually happened"}
+    - {key: expected, label: What was expected, type: text}
+    - {key: steps, label: Steps to reproduce, type: list}
+    - {key: affected_version, label: Affected version, type: text}
+    - {key: environment, label: Environment, type: text}
+    - {key: triage_note, label: Triage note, type: text, description: "The reason for the triage decision"}
+    - {key: duplicate_of, label: Duplicate of, type: text, description: "Id of the issue this repeats"}
   theme: &strategic_fields
     - {key: outcome, label: Outcome, type: text, description: "The result the theme should achieve"}
     - {key: success_measures, label: Success measures, type: list, description: "How success is judged"}

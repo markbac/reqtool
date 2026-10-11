@@ -51,6 +51,14 @@ reqtool init defaults     # Combined Agile + Systems types with pre-populated pr
 reqtool init demo         # Full IoT sensor demo dataset
 ```
 
+`init defaults`, `init agile` and `init systems` also load engineering principles as *packs*, one per area (see section 3.9). Choose them with `--principles`:
+```bash
+reqtool init agile --principles all                    # every area
+reqtool init agile --principles none                   # no principles
+reqtool init systems --principles security,operations  # a list
+```
+Without the option, a terminal asks (the answer defaults to a set suited to the variant) and a script gets that default. An unknown area stops the command before anything is written. Later, `req principles packs` lists the packs and how many of their principles you have, `req principles add-pack <area>...` (or `all`) adds more without duplicating anything, and `req principles place` gives older principles an area and category (`req migrate` does this too).
+
 ### `reqtool serve` — Start API & Web Workstation
 Launches the FastAPI backend and serves the embedded React UI workstation:
 ```bash
@@ -78,6 +86,7 @@ Runs full schema, enum, hierarchy, safety, and INCOSE prose quality validation:
 reqtool validate                  # Pretty console output (exits 1 on errors)
 reqtool validate --json           # Machine-readable JSON output
 reqtool validate --strict         # Treat warnings as blocking errors
+reqtool validate --rules          # Also check the parent and child rules (section 4.0b); forced items are shown, not failed
 ```
 
 ### `reqtool tools` -- Check and Install Tools
@@ -155,7 +164,7 @@ Launching `reqtool serve` opens the interactive web workstation in your browser 
 - Located in the left sidebar.
 - Displays nested requirement hierarchies (Themes → Initiatives → Epics → Features → Stories).
 - **Add child:** right-click a node and choose **+ Add child**. The type of the new item comes from the parent's allowed child types (`GET /hierarchy/children/{type}`): if only one is allowed it is created straight away, otherwise a small menu lets you pick. Types with no allowed children (for example a task) say so instead of creating an item. **+ Add sibling** creates an item of the same type as the one you clicked.
-- **Quick create:** the task sidebar and the empty editor offer Theme, Initiative, Epic, Feature, Story, Task, Bug and Spike. Theme, Initiative and Feature also have templates.
+- **Quick create:** the empty editor (nothing selected) lists every item type your repository defines in `.reqtool/hierarchy.yaml`, top-level types first, and creates the item at once, opens it and adds it to the tree. Select a product first. The **From template** cards beside it do the same with a template's fields filled in, as do **Use** in **⋯ More > Templates** and the templates in Help. Viewers see no create buttons.
 - **Move to...:** right-click a node and choose **⇄ Move to...** to pick a new parent from a searchable list (or **(top level)** for no parent). Only parents the hierarchy allows can be chosen: the others are greyed out, and hovering shows why (for example "A story cannot go under a theme"). It works with the keyboard and screen readers.
 - **Drag and drop:** drag a node onto the parent you want, or onto the empty part of the tree to make it a top-level item. The target is outlined green when the move is allowed and red when it is not. Moving an item onto itself or one of its own descendants is refused with a message (the server also refuses it with `409 parent_cycle`). Unsaved changes to the item must be saved or discarded first. If a loop already exists in the files, validation reports `parent_cycle` and the tree shows each item once.
 
@@ -163,24 +172,51 @@ Launching `reqtool serve` opens the interactive web workstation in your browser 
 
 Saving a change to a requirement marks every relationship that points at it as *suspect* in the items that depend on it. Suspect links show as a warning count (`⚠ n`) on the tree node and as a `⚠ suspect` tag on the relationship row in the editor's Relations tab. The flag spreads transitively: if A changes, items that depend on A are flagged, and so are items that depend on those. Each newly flagged item gets a history entry ("Link to A became suspect") but no version bump, and the flag is not part of the content hash, so it never triggers `hash_mismatch` or makes an approval stale. Use **Review** to open the linked item, and **Clear suspect** once you have checked that the dependant is still correct. `req validate` warns (`suspect_link`) for approved items that still have suspect links, and `GET /metrics` reports `totals.suspect_links`.
 
-### 3.2 High-Density Bulk Grid View (Spreadsheet Mode)
-- Access via **Tools** → **Bulk Editing Grid**.
-- Enables rapid inline editing of titles, statuses, priorities, owners, and disciplines across hundreds of requirements simultaneously.
-- Batch save changes with one click.
+### 3.2 Bulk update
+- Access via **⋯ More > Bulk update** (editors and administrators).
+- Select several requirements and set a field on all of them in one commit.
 
-### 3.3 Interactive D3/Cytoscape Network Graph
-- Access via **Traceability** → **Graph View**.
-- Renders an interactive node graph visualizing bidirectional relationships between requirements, principles, and verification items.
-- Zoom, pan, and click nodes to open detailed inspectors.
+### 3.3 Traceability grid and matrix
+- Access via **⋯ More > Traceability**. It has two tabs.
+- **Requirements × links** is the grid. Pick what runs across the top (**Tests**, **Modules** or **Decisions**), tick **Only requirements with no link** to list the gaps, page through long lists, and use **Download CSV** to take the grid away. A cell is ticked when the requirement is linked and the tooltip gives the state of what it is linked to. A requirement with no link carries a red **no link** tag. Only the 40 most used columns are drawn, and the header says how many were left out. `GET /traceability/grid` returns the same data (`columns`, `gaps`, `offset`, `limit`, `format=csv`).
+- **Requirements × teams** is the older matrix of the `Allocated To` teams.
+- Tests are the test-case links on an item's acceptance criteria. Modules are its `Allocated To` list. Decisions are the decisions that name it in their affected requirements.
+
+### 3.3a Views
+**⋯ More > Views** draws the work in eight ways. Each picture has a table or text form beside it, and every item in it opens in the editor when clicked.
+- **Hierarchy:** the tree of items with their status colour. Filter by type and by status (parents of matches are kept so the shape stays readable), collapse or expand all, and see "Showing N of M" when a very large tree is cut at 400 items.
+- **Type structure:** which type may sit under which (the rules in `hierarchy.yaml`) as a diagram. **Export Mermaid**, **Save SVG** and **Save PNG** take it away.
+- **Coverage:** a treemap of the hierarchy, each box sized by the items at or below it and striped by status or by verification state. **Show table** gives the same numbers as a table, and the legend names every colour.
+- **Impact:** everything within one to three hops of an item: parent, children, linked items both ways, the decisions that affect it and the modules it is allocated to. It opens on the item you have selected. Filter by type; at most 60 items are drawn, nearest first, and a table lists them.
+- **Flow:** for each workflow, how many items sit in each state, their average and longest time there, and the ones stuck longer than 14 days. Change the limit on the page, or in `.reqtool/hierarchy.yaml`:
+
+```yaml
+flow:
+  stuck_days: 14          # default for every state
+  states:
+    in_review: 5          # a shorter limit for one state
+```
+
+  Time in a state comes from the move recorded in the item's history (`status_from`, `status_to`); items moved before this was recorded count from when they were created.
+- **Burn-up:** for one iteration, the scope and the work done over time, in the repository's estimate unit (an item with no estimate counts as one). Scope is dated by when each item was created or the iteration started, because the tool does not record when an item was assigned to an iteration.
+- **Decision ageing:** open decisions and open questions, those blocking the most items first, with their age and the items they block.
+- **Principles:** a heatmap of area and category against how many requirements cite each principle. Dashed boxes are principles nothing cites; a list shows the requirements that cite none.
+
+The same data is served by `GET /views/hierarchy`, `/views/type-structure`, `/views/coverage`, `/views/impact/{uid}`, `/views/flow`, `/views/burnup/{iteration}`, `/views/decisions` and `/views/principles`.
+
+### 3.3b The More menu
+**⋯ More** groups its tools under headings, and hides a heading when your role can use nothing under it: **View** (Overview, Roadmap, Views, Coverage, Traceability, Decisions & ADRs, Query, Inbox), **Create and import** (Bulk update, Import CSV, Iterations & Gates, Change sets, Diagram Canvas), **Quality** (Writing check, Duplicate Detector), **Configure** (Workflows, Vocabularies, Custom fields, Templates, Automation Rules), **Admin** (Modules, Baselines, Webhooks, Repository) and **Account** (Login / Server). Type in the box at the top to find a tool, press Enter to open the first match, use the arrow keys, Home and End to move and Esc to close. The fallback workflow is edited from **More > Workflows**.
 
 ### 3.4 Side-by-Side Version Diff Inspector & Command Palette (`Ctrl+K`)
 - **Command Palette:** Press `Ctrl+K` (or `Cmd+K`) anywhere in the application to instantly search requirements, trigger action shortcuts, or switch products.
 - **Diff Inspector:** Compare historical git versions side-by-side with color-coded diff highlighting.
 
 ### 3.5 Release Roadmap & Kanban Board
-- Access via **Kanban / Roadmap**.
-- View requirements organized by workflow states or target release milestones (see 3.8 for how columns are chosen).
-- Drag-and-drop cards between columns to transition workflow states.
+- **Roadmap:** **⋯ More > Roadmap** has a **List** (Theme, Initiative, Epic with progress and health) and a **Board**. The board has one lane per theme and one column per target release (or per iteration, from the **Columns** menu), with an **unplanned** column for items with no release. Each card shows its progress. Editors and administrators drag a card to another column, or use the menu on the card, to set its release or iteration; viewers see the board read-only. Dependencies (`depends_on`) between themes and initiatives are listed under the board and the longest chain is marked.
+- **Kanban:** **Task Mgmt** in the sidebar. Columns are workflow states (pick a type to see that type's own workflow). Cards show their parent, what they wait on (⛔), how many children are still open, and a **⚠ rule** marker when they break a parent and child rule.
+- Drag a card to another column, or use the **Move to** menu on the card (keyboard users: Tab to the card, then the menu). A move that needs something the item lacks, or that a rule comments on, opens the same pop-up as the editor so you can fill it in, force it with a reason where your role allows it, or accept suggested moves for the parent. Cancelling leaves the board as it was.
+- Viewers see the board but cannot drag, move or create. **+ New** creates an item of the chosen type through the same path as quick create. The iteration and person filters are lists taken from the repository.
+- See 3.8 for how columns are chosen.
 
 #### Paging and the Coverage panel
 `GET /requirements` accepts `limit` (1 to 10000) and `offset`, sorted by ID, and always returns the number of matching items in the `X-Total-Count` response header. Without `limit` it returns everything, as before. The **Coverage** panel now reads the server-side summary from `GET /metrics` (status, priority and quality gaps) instead of downloading every requirement, so it matches the Metrics dashboard.
@@ -209,6 +245,19 @@ export:
 #### Progress and estimate rollups
 - **Progress** (`GET /requirements/{uid}/progress`) is measured over the leaf items beneath a parent. The parent itself and any `cancelled` items are left out. An item counts as done when it is in a terminal state of its own type's workflow (for example `done`), so `active` does not count. Progress is weighted by estimate when the leaves have estimates, otherwise by item count.
 - **Estimate rollup** (`GET /requirements/{uid}/rollup`) is the sum of the estimates of all leaf descendants, at any depth, excluding cancelled items. A parent's own estimate is never added, so nothing is double counted.
+
+### 3.9 Principles by area and category
+Principles are grouped in two levels: an **area** (Architecture) and a **category** inside it (Security), shown in the **Principles** tab as Area > Category > Principle with counts. Everything starts collapsed; opening a principle opens its own area and category. Search and the status filter open every group that matches.
+
+- **Default areas:** Business, Product, Architecture, Software engineering, Hardware and firmware, Security, Data and privacy, Delivery and process, Operations and support, and Safety and quality. Each has several categories (for example Architecture has Structure and layering, Integration and interfaces, Data, Security, Resilience and availability, Performance and scalability, Observability, and Evolution and technical debt), and about 195 principles in all, each with a statement, a rationale and usually its implications. **Architecture > Security** holds design-level principles (defence in depth, least privilege, trust boundaries, secure defaults, threat modelling). The **Security** area holds engineering practice: credentials, cryptography, supply chain, secure development and vulnerability handling.
+- **Add default principles:** administrators use **+ Defaults** to add packs. The dialog shows how many of each pack's principles the repository already has. Principles already present, including ones you deleted, are never added again, so adding a pack twice is safe.
+- **Move a principle:** change **Area** and **Category** in the editor, or drag its row onto another category. **+** beside a category creates a principle there.
+- **Your own areas and categories:** the list of areas and categories (the *vocabulary*) is `principle_areas` in `.reqtool/enums.yaml`. In the editor, administrators can add a category with **+ New category**. A repository with no `principle_areas` uses the default list. Values that are not in the list still work and are shown, and `req validate` warns (`unknown_principle_area`, `unknown_principle_category`).
+- **IDs:** new principles get `P-<AREA>-<CATEGORY>-<SLUG>` (for example `P-ARCH-SEC-USE-MTLS`). Existing ids never change.
+- **Older repositories:** principles that only have the old `domain` still load, and are shown under the area and category worked out from their id (if they came from the defaults) or their domain (`security` becomes Architecture > Security, `firmware` becomes Hardware and firmware, `comms` becomes Architecture > Integration, and so on). `req migrate` stores the result, adds the vocabulary to `enums.yaml`, and can be run again safely.
+- **API:** `GET /principles?area=&category=&status=&q=`, `GET /principles/areas` (areas and categories with counts), `GET /principles/packs`, `POST /principles/packs/{area}`, `GET` and `PUT /principles/vocabulary`. Adding packs and changing the vocabulary are administrator actions.
+- **Export:** the Markdown export groups `principles.md` by area, then category.
+- Viewers see the tree and the principle read-only.
 
 ### 3.8 Insight Panels, Reviews and Change Sets
 - **Editor, Insight tab:** trace (upstream, downstream and gaps), lifecycle stage and blockers, quality findings and impact. A status strip under the validation bar summarises the same. Saving a change shows an **impact preview** to confirm first.
@@ -261,6 +310,8 @@ Themes and initiatives show a **Strategic Fields** section in the editor: outcom
 
 #### Decisions and TBDs
 
+In the app they are one **Decisions** area: the **Decisions** tab in the sidebar (and **⋯ More > Decisions & ADRs**) lists decisions, ADRs and open questions together, with a **Kind** filter (all, decisions and ADRs, open questions) and a status filter. **+ New** asks which kind first. One editor opens for all of them; an open question shows **Resolve**, and once resolved it says "Resolved into DEC-..." while the decision says "Resolves TBD-...", each a link to the other. A link such as `?uid=...&type=tbd` still opens the item. "TBD" is still the name in the files and in `/tbds`, which stays for existing clients and has no removal date yet; the screens call it an *open question (TBD)*.
+
 A TBD is a decision record with `type: tbd`; both live in one collection and in the `decisions/` folder, served by `/decisions` (everything) and `/tbds` (TBDs only, kept for existing clients). Repositories created before this change keep working with a `tbds/` folder. Run `req migrate` to move those files into `decisions/`; it is safe to run twice and leaves a file in place if `decisions/` already holds a different copy.
 
 Resolving a TBD needs a decision text. The **Resolve** dialog (and `POST /tbds/{uid}/resolve` with `decision`, `rationale` and `linked_decision`) records the decision, the rationale, an optional linked ADR, the resolver (the logged-in user, or the name supplied in local mode) and the time. Older clients that send only `resolution` still work. To refuse approval of requirements that link to an open TBD, set `validation.block_approval_on_open_tbds: true` in `config.yaml`; approval then answers `409 open_tbd` listing the TBDs. Without it the existing `open_tbd_on_approved` warning is all you get.
@@ -278,11 +329,73 @@ Resolving a TBD needs a decision text. The **Resolve** dialog (and `POST /tbds/{
 5. The diagram above redraws as you edit. It is drawn by the server. Errors (an unreachable state, a move to a state that does not exist) stop **Save**, and warnings (items whose status the new workflow no longer has) are shown.
 6. **Which workflow each item type uses** changes the type's workflow at once.
 
-The workflow in `.reqtool/config.yaml` stays as the fallback for item types with no workflow of their own (More > Fallback workflow).
+The workflow in `.reqtool/config.yaml` stays as the fallback for item types with no workflow of their own (More > Workflows, then **Edit the fallback workflow**).
 
 ### 4.0a Moving an item on
 
 The status buttons in the item editor move the item to the next state. If the move needs data the item does not have yet, a pop-up asks for it: the needed fields are highlighted and **Change other fields** shows every other field (title, description, rationale, owner, priority, tags and the rest) in case you want to change any of them on the way. **Apply to draft** stages the change and **Apply and save** writes it. A move that needs nothing happens at once. The server applies the same rules, so the same changes can be sent in one `PUT /requirements/{uid}`.
+
+### 4.0c Issues and triage
+
+Not everything reported as wrong is a defect. The **Issue** type is the intake record for "something looks wrong": it is raised first, triaged, and only a confirmed defect becomes defect work. (The old **Bug** type is now labelled **Defect** everywhere; its id stays `bug`, so existing items and exports do not change.)
+
+Issues use the `triage` workflow:
+
+```mermaid
+stateDiagram-v2
+    [*] --> reported
+    reported --> in_triage
+    in_triage --> defect
+    in_triage --> user_error
+    in_triage --> enhancement
+    in_triage --> duplicate
+    in_triage --> not_reproducible
+    in_triage --> needs_info
+    needs_info --> in_triage
+    defect --> fixing
+    fixing --> fixed
+    fixed --> closed
+    enhancement --> planned
+    planned --> closed
+```
+
+| Decision | What it means | The move asks for |
+|---|---|---|
+| **Defect** | It is wrong and ours to fix | Priority and a triage note |
+| **User error** | Working as designed | A triage note saying what to do instead |
+| **Enhancement request** | Not wrong, but a reasonable ask | A triage note |
+| **Duplicate** | The same as another issue | **Duplicate of** (the other issue's id) |
+| **Not reproducible** | Could not see it happen | A triage note saying what was tried |
+| **Needs info** | Waiting for the reporter | A triage note saying what is needed |
+
+Starting triage (`In triage`) needs an assignee, so someone owns the decision. The pop-up asks for each of these when you press the status button, and the server enforces the same. The issue form has fields for what was seen and expected, steps, version and environment (**Issue Report** in the template list pre-fills them). A decided issue can be reopened with **In triage**.
+
+When an issue is a **Defect** or an **Enhancement request**, **Raise a defect** (or **Raise a story**) in the editor header creates the work item, copies the title, description and priority, links it back with `derived_from`, and opens it (`POST /requirements/{uid}/raise`, optionally with `req_type`). Track the work on the new item; the issue can follow with `fixing`, `fixed` and `closed`. A queue of issues needing triage is the tree or the search filtered to the `issue` type and the `reported` or `in_triage` status.
+
+### 4.0b Parent and child rules
+
+Status moves can be checked against the item's family and can move the family for you. The rules live under `rules:` in `.reqtool/hierarchy.yaml` and are edited in **⋯ More > Workflows**, under **Parent and child rules** (administrators; everyone else can read them). A repository made with `req init` starts with the defaults below. A repository made earlier gets the same rules, all switched off, from `req migrate`, so nothing changes until an administrator turns them on.
+
+| Kind | Does | Modes |
+|---|---|---|
+| `up` | Stops (or warns about) a move into some states while the parent or an ancestor is in others, for example no work can start under a cancelled epic | `off`, `warn`, `error` |
+| `down` | Stops (or warns about) a move into some states until the children or all descendants are in allowed states, for example a feature cannot close while stories are open | `off`, `warn`, `error` |
+| `start` | When a child starts, moves a parent that has not started | `off`, `suggest`, `auto` |
+| `complete` | When every child is finished, finishes the parent | `off`, `suggest`, `auto` |
+| `reopen` | When a child is reopened or a new open child is added, reopens a finished parent | `off`, `suggest`, `auto` |
+| `cancel` | When a parent is cancelled, cancels its open children | `off`, `suggest`, `auto` |
+
+Each rule has a **scope**: `parent` or `ancestors` (grandparent and above) for `up`, `start` and `reopen`, `children` or `descendants` (grandchildren and below) for `down`, `complete` and `cancel`. **Levels** limits how far it looks, and *parent types* and *child types* (in the file) narrow the item types it applies to. States are written as state ids or as tokens that work in any workflow: `@initial`, `@started`, `@terminal`, `@done` and `@cancelled`. A rule that names a state or type the repository does not have is refused when you save, and `req validate --rules` reports it.
+
+A message names the item in the way and how far away it is, for example "epic EP-12, two levels up, is 'cancelled'".
+
+**Roll-up** goes through the same workflow, guards and required fields as a manual move. In `auto` mode the moves are made at once, they repeat up the chain (story, feature, epic, initiative, theme), and they appear in each item's history with the rule as the author. In `suggest` mode the move pop-up lists them with a tick box when it opens anyway, and the editor and the Kanban board offer them in a dialog right after the save or drop. If a parent cannot move (a required field is empty, or its workflow has no such move), the child still saves and you are told which item did not move and why. An item that was forced into its state is left alone by roll-up unless the rule has `reapply: true`. Moves made through a bulk update are checked and rolled up too, but a bulk update cannot force.
+
+**Forcing a move.** A rule in `error` mode can be forced by a person the rule allows. The move pop-up (and the Kanban board, when a drop is refused) shows the blocking rule and a **Force anyway** box that needs a reason. The reason, the person, the rules and the time are saved on the item and in its history. `override` is `editor` (editors and admins; the default), `admin` or `none`, set for the whole repository and per rule. In `--auth required` mode the server enforces it; in local mode you are an administrator. Through the API, send `force: true` with a `reason` on `POST /requirements/{uid}/transition` or `PUT /requirements/{uid}`; without a reason the call is refused with 422. **Forced moves** in the same panel lists every item that is still in a state it was forced into (`GET /rules/overrides`). `req validate --rules` prints those as *Forced* and does not fail on them.
+
+**Try it first.** The panel's **Dry run** (and `POST /rules/preview`) shows what a move would block, warn about and roll up, without changing anything. `GET /requirements/{uid}/transitions` carries the same for each possible move. Responses to a move list `rules.applied`, `rules.suggested`, `rules.blocked` and `rules.warnings` when a rule had something to say.
+
+The defaults are: `up` and `down` as `warn`, `start`, `complete` and `reopen` as `suggest`, `cancel` as `off`.
 
 ### 4.1 Parent/child type rules
 

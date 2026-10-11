@@ -12,7 +12,7 @@ def test_roles_are_ordered():
 
 def test_what_each_role_may_do():
     assert perm.permissions_for("viewer") == ["read"]
-    assert perm.permissions_for("editor") == ["read", "write"]
+    assert perm.permissions_for("editor") == ["read", "write", "override_rules"]
     assert set(perm.permissions_for("admin")) == set(perm.ACTIONS)
     assert perm.permissions_for(None) == []
 

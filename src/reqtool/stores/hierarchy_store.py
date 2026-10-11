@@ -13,7 +13,7 @@ from typing import Any, Optional
 from reqtool.fileio import load_yaml
 from reqtool.models import (
     HierarchyConfig, ItemTypeConfig, HierarchyRule,
-    HierarchyWorkflowDef, WorkflowGuard, CrossLayerRule, RelationshipTypeDef,
+    HierarchyWorkflowDef, WorkflowGuard, CrossLayerRule, RelationshipTypeDef, RulesConfig, FlowConfig,
 )
 
 log = logging.getLogger(__name__)
@@ -83,6 +83,8 @@ def parse_hierarchy(data: dict) -> HierarchyConfig:
         type_fields=data.get("type_fields") or {},
         cross_layer_rules=cross_layer_rules,
         default_relationship_types=default_rel_types,
+        rules=RulesConfig.model_validate(data.get("rules") or {}),
+        flow=FlowConfig.model_validate(data.get("flow") or {}),
     )
 
 

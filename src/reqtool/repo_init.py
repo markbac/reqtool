@@ -131,6 +131,7 @@ _HIERARCHY_HEADER = (
     "# Edit it by hand or use the Workflow editor (administrators). Every workflow setting is written out:\n"
     "# states (id, label, colour, terminal), transitions (state: [states it may move to]) and guards\n"
     "# (requires_fields, requires_ac, requires_children_in, children_enforce, message) for each state.\n"
+    "# `rules:` holds the parent and child rules (checks up and down the tree, roll-up of status, who may force).\n"
     "# Saving from the editor rewrites the file and does not keep comments.\n"
 )
 
@@ -156,6 +157,8 @@ def write_hierarchy_file(root: Path) -> None:
     from .workflows import normalise
     data = load_yaml(Path(__file__).parent / "defaults" / "hierarchy.yaml")
     data["workflows"] = {wid: normalise(wf) for wid, wf in (data.get("workflows") or {}).items()}
+    from .workflow_rules import default_rules
+    data["rules"] = default_rules()
     _write_with_header(root / ".reqtool" / "hierarchy.yaml", data, _HIERARCHY_HEADER)
 
 

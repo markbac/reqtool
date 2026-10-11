@@ -74,6 +74,8 @@ graph TB
 | Validation | `validation.py`, `validation_context.py` | Rules run over a `ValidationContext` snapshot, so they need no store |
 | Permissions | `permissions.py`, `security.py` | One table maps a method and path to the action it needs (`delete`, `manage_workflow`, ...) and each role to the actions it may take. The auth middleware applies it; `GET /permissions` hands it to the UI |
 | Workflow tools | `workflows.py`, `services/workflows.py`, `routers/workflows.py` | Pure checks, normalisation and Mermaid output for a workflow definition, and the use cases that save them to `.reqtool/hierarchy.yaml` |
+| Parent and child rules | `workflow_rules.py`, `routers/rules.py`, `RequirementService` | `workflow_rules.py` is pure: `check_move` (upward and downward checks with scope and levels), `plan_rollups` (start, complete, reopen and cancel through a simulated copy of the tree, so chains, loops and depth are bounded) and `check_config`. The service gates a move (`error` rules need `force` and a `reason`, and the role the rule allows), saves it, records the force on the item, then applies `auto` roll-ups through the normal guards with the rule as the author. The rule set is the `rules:` block of `hierarchy.yaml` |
+| Views | `features/visuals.py`, `routers/visuals.py` | Read-only data for the Views panel, the traceability grid, the roadmap board and the Kanban card detail. Each function takes the store and returns plain data (capped: 400 tree items, 60 graph nodes, 40 grid columns, with `shown`/`total` so the UI can say what was left out). Time in a state comes from `status_from`/`status_to` that `Store.update_requirement` records on the history entry. Nothing here writes |
 | Writing check | `doclint/`, `services/lint.py`, `routers/lint.py`, `commands/lint.py` | Text extraction, rules, Vale integration and the settings in `.reqtool/lint.yaml` |
 
 ### 2.2 Module dependency graph
@@ -295,7 +297,7 @@ The prefix is taken from the type's `id_prefix` in `hierarchy.yaml`. If no match
 
 ### 5.1 Workflow definitions
 
-Four workflow templates ship in `hierarchy.yaml`. Each maps states and transitions.
+Five workflow templates ship in `hierarchy.yaml`. Each maps states and transitions.
 
 ```
 lightweight          sprint              formal              safety_formal
@@ -475,7 +477,7 @@ Result returned, or ServiceError -> one handler -> {"detail": {"error", "message
 | Requirements | `/requirements` | CRUD, bulk, clone, approve, commit, transition, impact, rollup, history, relationships, ACs |
 | Hierarchy | `/hierarchy` | config, types, allowed children |
 | Kanban | `/kanban` | column-per-state board with filters |
-| Principles | `/principles` | CRUD, commit |
+| Principles | `/principles` | CRUD, commit; filter by area/category; `/principles/areas`, `/principles/vocabulary`, `/principles/packs` (taxonomy in `principles.py`, packs in `defaults/principles/`, logic in `services/principles.py`) |
 | TBDs | `/tbds` | CRUD, commit, resolve |
 | Modules | `/modules` | list, get, import, verify |
 | Products | `/products` | CRUD, tree, matrix |

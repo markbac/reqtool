@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useApp } from '../AppContext';
+import { useApp, useCan } from '../AppContext';
 
 /** Every field a person might want to change while moving an item on. `kind` picks the input. */
 export const DIALOG_FIELDS = [
@@ -71,7 +71,16 @@ function FieldInput({ field, value, onChange, options, highlight }) {
  */
 export function TransitionDialog({ option, draft, onApply, onCancel }) {
   const { state } = useApp();
+  const can = useCan();
   const [working, setWorking] = useState(draft);
+  const ruleInfo = option.rules || {};
+  const errorChecks = (ruleInfo.checks || []).filter(c => c.mode === 'error');
+  const warnChecks = (ruleInfo.checks || []).filter(c => c.mode !== 'error');
+  const [force, setForce] = useState(false);
+  const [reason, setReason] = useState('');
+  const [accepted, setAccepted] = useState(() => (ruleInfo.suggested || []).map(s => s.uid));
+  const canForce = can('override_rules');
+  const ruleBlocked = errorChecks.length > 0 && !(force && reason.trim());
   const [more, setMore] = useState(false);
   const requires = option.requires || {};
   const requiredPaths = (requires.fields || []).map(f => f.path);
@@ -95,7 +104,12 @@ export function TransitionDialog({ option, draft, onApply, onCancel }) {
     ...required.filter(f => !isFilled(getPath(working, f.path))).map(f => f.label),
     ...(requires.acceptance_criteria && !criteria.length ? ['acceptance criteria'] : []),
   ];
-  const blocked = (requires.open_children || []).length > 0 && requires.children_enforce === 'error';
+  const childBlocked = (requires.open_children || []).length > 0 && requires.children_enforce === 'error';
+  const blocked = childBlocked || ruleBlocked;
+  const extras = () => ({
+    force: errorChecks.length > 0 && force, reason: reason.trim(),
+    accept: (ruleInfo.suggested || []).filter(s => accepted.includes(s.uid)),
+  });
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
@@ -108,10 +122,43 @@ export function TransitionDialog({ option, draft, onApply, onCancel }) {
         <div className="modal-body" style={{ overflowY: 'auto' }}>
           {requires.message && <div className="td-message">{requires.message}</div>}
           {option.problem && <div className="td-problem" role="alert">{option.problem}</div>}
-          {blocked && (
+          {childBlocked && (
             <div className="td-problem" role="alert">
               Children not yet {requires.children_in.join(' or ')}: {requires.open_children.map(c => c.id || c).join(', ')}
             </div>
+          )}
+          {errorChecks.length > 0 && (
+            <div className="td-problem" role="alert">
+              <div className="td-section">Blocked by a rule</div>
+              <ul className="td-rules">{errorChecks.map(c => <li key={c.rule}><strong>{c.label}</strong>: {c.message}</li>)}</ul>
+              {canForce ? (
+                <>
+                  <label className="td-force"><input type="checkbox" checked={force} onChange={e => setForce(e.target.checked)} /> Force anyway</label>
+                  {force && (
+                    <textarea aria-label="Reason for forcing" rows={2} value={reason} placeholder="Reason (required, saved with the item)"
+                      onChange={e => setReason(e.target.value)} />
+                  )}
+                </>
+              ) : <div className="text-muted">Your role may not go past this rule.</div>}
+            </div>
+          )}
+          {warnChecks.length > 0 && (
+            <div className="td-message" role="status">
+              <ul className="td-rules">{warnChecks.map(c => <li key={c.rule}><strong>{c.label}</strong>: {c.message}</li>)}</ul>
+            </div>
+          )}
+          {(ruleInfo.auto || []).length > 0 && (
+            <div className="td-message">Also moves automatically: {ruleInfo.auto.map(a => `${a.id} to ${a.to}`).join(', ')}</div>
+          )}
+          {(ruleInfo.suggested || []).map(sg => (
+            <label key={sg.uid} className="td-suggest">
+              <input type="checkbox" checked={accepted.includes(sg.uid)}
+                onChange={() => setAccepted(a => (a.includes(sg.uid) ? a.filter(x => x !== sg.uid) : [...a, sg.uid]))} />
+              <span>Also move <strong>{sg.id}</strong> to {sg.to} <span className="text-muted">({sg.label})</span></span>
+            </label>
+          ))}
+          {(ruleInfo.blocked || []).length > 0 && (
+            <div className="td-message">Not moved: {ruleInfo.blocked.map(b => `${b.id} (${b.reason})`).join('; ')}</div>
           )}
           {required.length > 0 && <div className="td-section">Needed for this move</div>}
           {required.map(f => (
@@ -141,9 +188,9 @@ export function TransitionDialog({ option, draft, onApply, onCancel }) {
           {missing.length > 0 && <span className="text-muted" style={{ marginRight: 'auto', fontSize: 11 }}>Still needed: {missing.join(', ')}</span>}
           <button className="btn btn-secondary" onClick={onCancel}>Cancel</button>
           <button className="btn btn-secondary" disabled={missing.length > 0 || blocked}
-            onClick={() => onApply(working, false)}>Apply to draft</button>
+            onClick={() => onApply(working, false, extras())}>Apply to draft</button>
           <button className="btn btn-primary" disabled={missing.length > 0 || blocked}
-            onClick={() => onApply(working, true)}>Apply and save</button>
+            onClick={() => onApply(working, true, extras())}>Apply and save</button>
         </div>
       </div>
     </div>

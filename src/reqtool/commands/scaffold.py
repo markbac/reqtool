@@ -27,6 +27,51 @@ def _print_next_steps(root: Path) -> None:
     click.echo("  req serve")
 
 
+def _parse_packs(value: Optional[str], flavour: str) -> list[str]:
+    """Pack areas from ``--principles``: ``all``, ``none``, or a comma separated list. None means the flavour's default."""
+    from ..principles import FLAVOUR_PACKS, pack_areas
+    available = pack_areas()
+    if value is None:
+        default = [a for a in FLAVOUR_PACKS[flavour] if a in available]
+        if sys.stdin.isatty():
+            click.echo("Principle packs: " + ", ".join(available))
+            value = click.prompt("Packs to include (comma separated, 'all' or 'none')", default=",".join(default))
+        else:
+            return default
+    value = value.strip().lower()
+    if value == "all":
+        return list(available)
+    if value in ("none", ""):
+        return []
+    chosen = [a.strip() for a in value.split(",") if a.strip()]
+    unknown = [a for a in chosen if a not in available]
+    if unknown:
+        raise click.ClickException(f"Unknown principle pack(s): {', '.join(unknown)}. Available: {', '.join(available)}")
+    return chosen
+
+
+def _install_packs(root: Path, areas: list[str]) -> None:
+    """Add the chosen principle packs and print what was added."""
+    if not areas:
+        click.echo("  Principles: none (add later with 'req principles add-pack <area>')")
+        return
+    from ..services.principles import PrincipleService
+    from ..store import Store
+    store = Store(root)
+    store.load()
+    counts = PrincipleService(store).install_packs(areas)
+    categories = {p.get("category") for p in store.principle_map().values()}
+    click.echo(f"  {sum(counts.values())} principles in {len(areas)} areas and {len(categories)} categories:")
+    for area, n in counts.items():
+        click.echo(f"    {area:<22} {n}")
+
+
+_PRINCIPLES_OPTION = click.option(
+    "--principles", "principles", default=None,
+    help="Principle packs to include: 'all', 'none' or a comma separated list of areas. "
+         "Default: a set suited to the variant (asked for when run in a terminal).")
+
+
 @cli.group(invoke_without_command=True)
 @click.option("--repo", default=None, help="Path for the new requirements repository root.")
 @click.option("--title", default="", help="Repository title.")
@@ -67,11 +112,12 @@ def init(ctx, repo: Optional[str], title: str, repo_id: str):
 @click.option("--repo", default=None)
 @click.option("--title", default="", help="Repository title.")
 @click.option("--id", "repo_id", default="", help="Repository ID (slug).")
-def init_defaults(repo: Optional[str], title: str, repo_id: str):
+@_PRINCIPLES_OPTION
+def init_defaults(repo: Optional[str], title: str, repo_id: str, principles: Optional[str]):
     """Initialise with default principles, enums, and full type system.
 
     Loads from src/reqtool/defaults/ -- edit those files to change what
-    gets pre-populated.
+    gets pre-populated. Principles come as packs, one per area (see 'req principles packs').
     """
     from ..fileio import save_yaml, load_yaml
     from ..store import Store
@@ -86,18 +132,18 @@ def init_defaults(repo: Optional[str], title: str, repo_id: str):
     if not title:
         title = click.prompt("Repository title", default=repo_id.replace("-", " ").title())
 
+    packs = _parse_packs(principles, "defaults")
     _write_base_repo(root, repo_id, title)
 
     # Load defaults from the package data files
     defaults_dir = Path(__file__).parent.parent / "defaults"
     default_enums_path = defaults_dir / "enums.yaml"
-    default_principles_path = defaults_dir / "principles.yaml"
     default_workflow_path = defaults_dir / "workflow.yaml"
     default_templates_path = defaults_dir / "templates.yaml"
 
     enums_to_write: dict = {}
 
-    if not default_enums_path.exists() or not default_principles_path.exists():
+    if not default_enums_path.exists():
         click.echo(click.style(
             f"Warning: defaults/ files not found at {defaults_dir} -- "
             "using empty enums. Run 'req init' instead or check your installation.",
@@ -136,35 +182,10 @@ def init_defaults(repo: Optional[str], title: str, repo_id: str):
     store = Store(root)
     store.load()
 
-    principle_count = 0
-    if default_principles_path.exists():
-        principles_data = load_yaml(default_principles_path)
-        if isinstance(principles_data, list):
-            for p in principles_data:
-                store.create_principle({
-                    "id":     p.get("id", ""),
-                    "title":  p.get("title", ""),
-                    "domain": p.get("domain"),
-                    "content": {
-                        "description": p.get("description", ""),
-                        "rationale":   p.get("rationale", ""),
-                        "implications":p.get("implications", ""),
-                        "exceptions":  p.get("exceptions", ""),
-                    },
-                })
-                principle_count += 1
-
-    by_domain: dict[str, int] = {}
-    for p in store.principle_map().values():
-        d = p.get("domain") or "unclassified"
-        by_domain[d] = by_domain.get(d, 0) + 1
-
     type_count = len(store.hierarchy.types)
 
     click.echo(click.style(f"Initialised repository with defaults at {root}", fg="green"))
-    click.echo(f"  {principle_count} principles across {len(by_domain)} categories:")
-    for domain, count in sorted(by_domain.items()):
-        click.echo(f"    {domain:<16} {count} principles")
+    _install_packs(root, packs)
     click.echo(f"  Enums: {len(enums_to_write.get('domain', []))} domains, "
                f"{len(enums_to_write.get('team', []))} teams, "
                f"{len(enums_to_write.get('nfr_keys', []))} NFR keys")
@@ -233,7 +254,8 @@ def init_demo(repo: Optional[str]):
 @click.option("--repo", default=None)
 @click.option("--title", default="", help="Repository title.")
 @click.option("--id", "repo_id", default="", help="Repository ID (slug).")
-def init_agile(repo: Optional[str], title: str, repo_id: str):
+@_PRINCIPLES_OPTION
+def init_agile(repo: Optional[str], title: str, repo_id: str, principles: Optional[str]):
     """Initialise with agile workflow types."""
     from ..fileio import save_yaml
 
@@ -247,6 +269,7 @@ def init_agile(repo: Optional[str], title: str, repo_id: str):
     if not title:
         title = click.prompt("Repository title", default=repo_id.replace("-", " ").title())
 
+    packs = _parse_packs(principles, "agile")
     _write_base_repo(root, repo_id, title)
 
     defaults_dir = Path(__file__).parent.parent / "defaults"
@@ -275,6 +298,7 @@ def init_agile(repo: Optional[str], title: str, repo_id: str):
     click.echo(f"  Workflows: lightweight, sprint")
     click.echo(f"  DoR/DoD: story, task, bug, spike, epic")
     click.echo(f"  Estimate unit: points (change in .reqtool/enums.yaml)")
+    _install_packs(root, packs)
     _print_next_steps(root)
 
 
@@ -282,7 +306,8 @@ def init_agile(repo: Optional[str], title: str, repo_id: str):
 @click.option("--repo", default=None)
 @click.option("--title", default="", help="Repository title.")
 @click.option("--id", "repo_id", default="", help="Repository ID (slug).")
-def init_systems(repo: Optional[str], title: str, repo_id: str):
+@_PRINCIPLES_OPTION
+def init_systems(repo: Optional[str], title: str, repo_id: str, principles: Optional[str]):
     """Initialise with systems engineering defaults and formal review workflow."""
     from ..fileio import load_yaml, save_yaml
 
@@ -296,6 +321,7 @@ def init_systems(repo: Optional[str], title: str, repo_id: str):
     if not title:
         title = click.prompt("Repository title", default=repo_id.replace("-", " ").title())
 
+    packs = _parse_packs(principles, "systems")
     _write_base_repo(root, repo_id, title)
 
     defaults_dir = Path(__file__).parent.parent / "defaults"
@@ -334,4 +360,5 @@ def init_systems(repo: Optional[str], title: str, repo_id: str):
     click.echo(f"  Types: stakeholder_need, functional, performance, security, safety, interface, compliance, constraint, operational, physical")
     click.echo(f"  Workflows: formal, safety_formal")
     click.echo(f"  Safety formal guards: requires ACs + safety_classification for approval")
+    _install_packs(root, packs)
     _print_next_steps(root)

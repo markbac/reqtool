@@ -53,10 +53,37 @@ def migrate_settings(root: Path) -> list[str]:
     return written
 
 
+def migrate_rules(root: Path) -> bool:
+    """Add the parent/child rule set to a repository that has none, with every rule off so behaviour is unchanged."""
+    from ..fileio import load_yaml, save_yaml
+    from ..workflow_rules import default_rules
+    path = root / ".reqtool" / "hierarchy.yaml"
+    if not path.exists():
+        return False
+    data = load_yaml(path)
+    if not isinstance(data, dict) or "rules" in data:
+        return False
+    data["rules"] = default_rules("off", "off")
+    save_yaml(path, data)
+    return True
+
+
+def migrate_principles(root: Path) -> dict:
+    """Give principles an area and category (from the default packs by id, else the old domain). Safe to run again."""
+    from ..services.principles import PrincipleService
+    from ..store import Store
+    if not (root / ".reqtool" / "config.yaml").exists():
+        return {"placed": 0, "unplaced": [], "wrote_vocabulary": False}
+    store = Store(root)
+    store.load()
+    return PrincipleService(store).place_existing()
+
+
 @cli.command()
 @click.option("--repo", default=None, help="Path to the requirements repository root.")
 def migrate(repo: Optional[str]):
-    """Migrate legacy layouts: TBDs move into decisions/, and the repository gets its own workflow and lint files."""
+    """Migrate legacy layouts: TBDs move into decisions/, the repository gets its own workflow and lint files,
+    and principles get an area and category."""
     root = Path(repo).resolve() if repo else _repo_root()
     result = migrate_tbds(root)
     click.echo(f"TBDs moved to decisions/: {result['moved']}")
@@ -64,3 +91,11 @@ def migrate(repo: Optional[str]):
         click.echo(f"{result['skipped']} file(s) differ from the copy in decisions/ and were left in tbds/ -- reconcile them by hand.")
     for name in migrate_settings(root):
         click.echo(f"Wrote {name} (the repository now owns these settings).")
+    if migrate_rules(root):
+        click.echo("Added the parent and child rules to .reqtool/hierarchy.yaml (all off; turn them on in the workflow editor).")
+    placed = migrate_principles(root)
+    click.echo(f"Principles placed in an area and category: {placed['placed']}")
+    if placed["wrote_vocabulary"]:
+        click.echo("Wrote principle_areas to .reqtool/enums.yaml (the repository now owns its principle areas).")
+    if placed["unplaced"]:
+        click.echo("No area could be worked out for: " + ", ".join(sorted(placed["unplaced"])) + " -- set it in the editor.")

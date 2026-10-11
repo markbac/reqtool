@@ -16,7 +16,9 @@ from .common import cli, _repo_root, _get, _server_running
 
 @cli.command()
 @click.option("--repo", default=None, help="Path to the requirements repository root.")
-def validate(repo: Optional[str]):
+@click.option("--rules", "check_rules", is_flag=True,
+              help="Also check the parent and child rules: the rule set itself, and items that break an error-mode rule.")
+def validate(repo: Optional[str], check_rules: bool):
     """Run full validation suite. Exit 1 on errors."""
     root = Path(repo).resolve() if repo else _repo_root()
 
@@ -29,8 +31,23 @@ def validate(repo: Optional[str]):
         store.load()
         result = validate_all(store)
 
-    errors = result.get("errors", [])
-    warnings = result.get("warnings", [])
+    errors = list(result.get("errors", []))
+    warnings = list(result.get("warnings", []))
+    if check_rules:
+        from .. import workflow_rules
+        from ..store import Store
+        store = Store(root)
+        store.load()
+        for problem in workflow_rules.check_config(store.hierarchy):
+            errors.append({"uid": "", "message": f"Rule set: {problem}"})
+        for hit in workflow_rules.audit(store.hierarchy, store.requirement_map()):
+            line = {"uid": hit["uid"], "message": f"{hit['id']}: {hit['message']} (rule {hit['rule']})"}
+            if hit["forced"]:
+                click.echo(f"{click.style('Forced', fg='cyan')}: {line['message']}")
+            elif hit["mode"] == "error":
+                errors.append(line)
+            else:
+                warnings.append(line)
 
     if warnings:
         click.echo(f"\n{click.style('Warnings', fg='yellow')} ({len(warnings)}):")

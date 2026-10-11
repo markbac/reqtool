@@ -28,6 +28,10 @@ vi.mock('../api', () => ({
       remove: vi.fn(async () => ({})),
       assign: vi.fn(async () => ({})),
     },
+    rules: {
+      get: vi.fn(async () => ({ override: 'editor', rules: [], problems: [], modes: { checks: [], changes: [] }, scopes: {} })),
+      overrides: vi.fn(async () => ({ overrides: [] })),
+    },
     workflow: { mermaid: vi.fn(async () => ({ mermaid: 'flowchart LR\n  fallback' })) },
     hierarchy: { get: vi.fn(async () => ({ types: {}, workflows: {} })) },
   },

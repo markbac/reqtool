@@ -214,7 +214,7 @@
         text: "Given [error condition], the system [handles gracefully]."
 
 - id: bug-report
-  label: Bug Report
+  label: Defect Report
   icon: 🐛
   description: Defect with steps to reproduce, expected, and actual. Pre-fills high priority.
   fields:
@@ -293,3 +293,20 @@
     acceptance_criteria:
       - id: AC-1
         text: "Given [precondition], when [action], then [observable outcome]."
+
+- id: issue-report
+  label: Issue Report
+  icon: 📥
+  description: Something looks wrong. Say what was seen and expected; triage decides if it is a defect, user error or an enhancement request.
+  fields:
+    req_type: issue
+    content:
+      description: |
+        **What I did:**
+
+
+        **What I expected:**
+
+
+        **What happened:**
+

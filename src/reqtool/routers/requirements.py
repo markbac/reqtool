@@ -143,9 +143,14 @@ def update_requirement(
     body: UpdateRequirementRequest,
     if_version: Optional[str] = None,
     service: RequirementService = Depends(get_service),
+    user: dict = Depends(get_current_user),
 ):
-    """Update a requirement. Pass if_version=<current_version> to detect concurrent edits."""
-    return service.update(uid, changed_fields(body.model_dump(exclude_unset=True)), if_version)
+    """Update a requirement. Pass if_version=<current_version> to detect concurrent edits.
+
+    ``force: true`` with a ``reason`` goes past parent/child rules that are in ``error`` mode (see /rules)."""
+    sent = body.model_dump(exclude_unset=True)
+    force, reason = bool(sent.pop("force", False)), str(sent.pop("reason", "") or "")
+    return service.update(uid, changed_fields(sent), if_version, force=force, reason=reason, actor=user)
 
 
 @router.delete("/requirements/{uid}")
@@ -250,9 +255,19 @@ def requirement_impact(uid: ReqUid, store: Store = Depends(get_store)):
 
 
 @router.post("/requirements/{uid}/transition")
-def transition_requirement(uid: ReqUid, body: dict, service: RequirementService = Depends(get_service)):
-    """Transition a requirement to a new status with workflow guard enforcement."""
-    return service.transition(uid, body.get("to_state", ""))
+def transition_requirement(uid: ReqUid, body: dict, service: RequirementService = Depends(get_service),
+                           user: dict = Depends(get_current_user)):
+    """Transition a requirement to a new status with workflow guard and parent/child rule enforcement.
+
+    ``force: true`` with a ``reason`` goes past rules in ``error`` mode (needs the rule's override role)."""
+    return service.transition(uid, body.get("to_state", ""), force=bool(body.get("force")),
+                              reason=str(body.get("reason") or ""), actor=user)
+
+
+@router.post("/requirements/{uid}/raise", status_code=201)
+def raise_from_issue(uid: ReqUid, body: dict, service: RequirementService = Depends(get_service)):
+    """Raise the work an issue needs: a defect (or the type you name), linked back to the issue."""
+    return service.raise_from(uid, body.get("req_type") or None)
 
 
 @router.get("/requirements/{uid}/transitions")

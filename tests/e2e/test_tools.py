@@ -38,6 +38,7 @@ def test_traceability_matrix_shows_allocations(page):
     page.server.put(f"/requirements/{ids['story']['uid']}", {**story, "allocated_to": ["platform"]})
     open_app(page)
     open_menu_item(page, "⊗ Traceability")
+    page.get_by_role("tab", name="Requirements × teams").click()
     table = page.locator(".trace-table")
     expect(table.locator("th", has_text="platform")).to_be_visible()
     row = table.locator("tr", has_text="US-001")
@@ -130,13 +131,14 @@ def test_webhook_add_list_and_delete(page):
 
 def test_workflow_panel_shows_states_and_saves(page):
     open_app(page)
-    open_menu_item(page, "⬡ Fallback workflow")
-    expect(page.get_by_text("Workflow").first).to_be_visible()
-    page.get_by_role("button", name="Save").first.click()
+    open_menu_item(page, "⬡ Workflows")
+    page.get_by_role("button", name="Edit the fallback workflow").click()
+    p = panel(page, "Workflow configuration")
+    p.get_by_role("button", name="Save").first.click()
     expect(page.locator(".toast", has_text="Workflow saved")).to_be_visible()
 
 
-def test_template_use_then_new_creates_from_it(page):
+def test_template_use_creates_the_item_at_once(page):
     templates = page.server.get("/templates")
     assert templates, "the agile flavour ships templates"
     open_app(page)
@@ -145,19 +147,17 @@ def test_template_use_then_new_creates_from_it(page):
     first = p.locator(".template-item").first
     label = first.locator(".template-label").inner_text()
     first.get_by_role("button", name="Use").click()
-    expect(page.locator(".toast", has_text=f"Template '{label}' ready")).to_be_visible()
+    expect(page.locator(".toast", has_text=f"from '{label}'")).to_be_visible()
     expect(page.locator(".side-panel")).to_have_count(0)  # the panel closes itself
-    expect(page.locator(".tree-template-active")).to_contain_text(label)
-    page.get_by_role("button", name="+ New", exact=True).first.click()
     wait_until(lambda: page.server.get("/requirements"), what="the item made from the template")
-    expect(page.locator(".tree-template-active")).to_have_count(0)
+    expect(page.locator(".tree-node").first).to_be_visible()
 
 
 def test_csv_import_creates_requirements(page, tmp_path):
     csv = tmp_path / "in.csv"
     csv.write_text("title,status,priority\nFirst imported,draft,high\nSecond imported,draft,low\n", encoding="utf-8")
     open_app(page)
-    open_menu_item(page, "↑ Import CSV")
+    open_menu_item(page, "⇪ Import CSV")
     p = panel(page, "Import from CSV")
     p.locator("input[type=file]").set_input_files(str(csv))
     expect(p.locator(".import-preview-text")).to_contain_text("First imported")
@@ -185,7 +185,7 @@ def test_iteration_can_be_created_and_deleted(page):
 def test_diagram_canvas_renders_mermaid_and_switches_engine(page):
     seed_tree(page.server)
     open_app(page)
-    open_menu_item(page, "🎨 Diagram Canvas")
+    open_menu_item(page, "✐ Diagram Canvas")
     p = panel(page, "Diagram Canvas")
     expect(p).to_contain_text("graph TD")
     p.get_by_text("PlantUML (Backend plantuml.jar)").click()
@@ -194,7 +194,7 @@ def test_diagram_canvas_renders_mermaid_and_switches_engine(page):
 
 def test_automation_rules_open_and_save(page):
     open_app(page)
-    open_menu_item(page, "🤖 Automation Rules")
+    open_menu_item(page, "⚙ Automation Rules")
     p = panel(page, "Automation Rules")
     expect(p).to_contain_text("Trigger event")
     p.get_by_role("button", name="Save Rules").click()
@@ -204,7 +204,7 @@ def test_automation_rules_open_and_save(page):
 def test_duplicate_detector_lists_pairs_and_rescans(page):
     seed_tree(page.server)  # every seeded item shares one description, so they pair up
     open_app(page)
-    open_menu_item(page, "✨ Duplicate Detector")
+    open_menu_item(page, "⧉ Duplicate Detector")
     p = panel(page, "Duplicate")
     expect(p).to_contain_text("Pair #1")
     p.get_by_role("button", name="Re-scan").click()
@@ -214,7 +214,7 @@ def test_duplicate_detector_lists_pairs_and_rescans(page):
 def test_repository_panel_shows_the_active_repo(page):
     seed_tree(page.server)
     open_app(page)
-    open_menu_item(page, "📦 Repository")
+    open_menu_item(page, "⌂ Repository")
     p = panel(page, "Repository")
     expect(p).to_contain_text("Active: E2E (e2e)")
     expect(p).to_contain_text("4 requirements")

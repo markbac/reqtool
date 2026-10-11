@@ -319,7 +319,7 @@ describe('Kanban (MOD-13)', () => {
     ui(<KanbanPanel />);
     expect(await screen.findByText('Odd status')).toBeTruthy();
     expect(screen.getByText('no matching column')).toBeTruthy();
-    const options = [...screen.getByRole('combobox').options].map(o => o.value);
+    const options = [...screen.getByDisplayValue('All types').options].map(o => o.value);
     expect(options).not.toContain('theme');
     expect(options).not.toContain('initiative');
   });

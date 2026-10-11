@@ -47,7 +47,7 @@ param(
     [string]$Command = 'serve',
 
     [Parameter(Position = 1)]
-    [ValidateSet('core', 'features', 'api', 'all', '')]
+    # Only `test` uses this; with `req` it is the first word of the req command (checked below, not here).
     [string]$Subset = 'all',
 
     [Parameter(ValueFromRemainingArguments)]
@@ -56,6 +56,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$SubsetGiven = $PSBoundParameters.ContainsKey('Subset')
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -68,6 +69,10 @@ if (-not $RepoDir -or -not (Test-Path $RepoDir)) {
     exit 1
 }
 $VenvDir   = Join-Path $RepoDir '.venv'
+# Windows PowerShell 5.1 has no $IsWindows; PowerShell 7 on Linux or macOS puts the tools in bin/, not Scripts/.
+$OnWindows = [IO.Path]::DirectorySeparatorChar -eq '\'
+$VenvBin   = Join-Path $VenvDir $(if ($OnWindows) { 'Scripts' } else { 'bin' })
+$ExeSuffix = if ($OnWindows) { '.exe' } else { '' }
 
 $PythonExe  = if ($env:PYTHON)       { $env:PYTHON }       else { 'python' }
 $ReqtoolRepo = if ($env:REQTOOL_REPO) { $env:REQTOOL_REPO } else { $null }
@@ -117,8 +122,8 @@ function Initialize-Venv {
         & $PythonExe -m venv $VenvDir
     }
 
-    $VenvPython = Join-Path $VenvDir 'Scripts' 'python.exe'
-    $VenvPip    = Join-Path $VenvDir 'Scripts' 'pip.exe'
+    $VenvPython = Join-Path $VenvBin "python$ExeSuffix"
+    $VenvPip    = Join-Path $VenvBin "pip$ExeSuffix"
 
     Write-Yellow "Upgrading pip ..."
     & $VenvPython -m pip install --quiet --upgrade pip
@@ -138,7 +143,7 @@ function Initialize-Venv {
 # Resolve the req executable inside the venv
 # ---------------------------------------------------------------------------
 function Get-ReqExe {
-    $exe = Join-Path $VenvDir 'Scripts' 'req.exe'
+    $exe = Join-Path $VenvBin "req$ExeSuffix"
     if (-not (Test-Path $exe)) {
         # Fallback -- invoke as module
         $exe = $null
@@ -148,7 +153,7 @@ function Get-ReqExe {
 
 function Invoke-Req {
     param([string[]]$Args_)
-    $VenvPython = Join-Path $VenvDir 'Scripts' 'python.exe'
+    $VenvPython = Join-Path $VenvBin "python$ExeSuffix"
     $reqExe = Get-ReqExe
     if ($reqExe) {
         & $reqExe @Args_
@@ -161,7 +166,7 @@ function Invoke-Req {
 
 function Invoke-Pytest {
     param([string[]]$Args_)
-    $VenvPython = Join-Path $VenvDir 'Scripts' 'python.exe'
+    $VenvPython = Join-Path $VenvBin "python$ExeSuffix"
     & $VenvPython -m pytest @Args_
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
@@ -197,61 +202,68 @@ function Invoke-Install {
     }
 
     if (-not $skipBuild) {
-        # Find npm.cmd explicitly -- Start-Process cannot run .ps1 shims
+        # Windows: find npm.cmd explicitly -- Start-Process cannot run .ps1 shims. Elsewhere `npm` itself works.
+        # (No `?.` here: it needs PowerShell 7.1 and this script supports 5.1.)
         $npmCmd = $null
-
-        # 1. Look for npm.cmd on PATH first
-        $npmCmd = (Get-Command 'npm.cmd' -ErrorAction SilentlyContinue)?.Source
-
-        # 2. Try npm.exe
-        if (-not $npmCmd) {
-            $npmCmd = (Get-Command 'npm.exe' -ErrorAction SilentlyContinue)?.Source
-        }
-
-        # 3. Search common Node.js install locations
-        if (-not $npmCmd) {
-            $candidates = @(
-                "$env:ProgramFiles\nodejs\npm.cmd",
-                "${env:ProgramFiles(x86)}\nodejs\npm.cmd",
-                "$env:APPDATA\npm\npm.cmd",
-                "$env:LOCALAPPDATA\Programs\nodejs\npm.cmd"
-            )
-            foreach ($c in $candidates) {
-                if (Test-Path $c) { $npmCmd = $c; break }
+        if ($OnWindows) {
+            foreach ($name in @('npm.cmd', 'npm.exe')) {
+                $found = Get-Command $name -ErrorAction SilentlyContinue
+                if ($found) { $npmCmd = $found.Source; break }
             }
+            if (-not $npmCmd) {
+                $candidates = @(
+                    "$env:ProgramFiles\nodejs\npm.cmd",
+                    "${env:ProgramFiles(x86)}\nodejs\npm.cmd",
+                    "$env:APPDATA\npm\npm.cmd",
+                    "$env:LOCALAPPDATA\Programs\nodejs\npm.cmd"
+                )
+                foreach ($c in $candidates) {
+                    if (Test-Path $c) { $npmCmd = $c; break }
+                }
+            }
+        } else {
+            $found = Get-Command 'npm' -ErrorAction SilentlyContinue
+            if ($found) { $npmCmd = $found.Source }
         }
 
         if (-not $npmCmd) {
-            Write-Red "Cannot find npm.cmd. Install Node.js 18+ from https://nodejs.org/"
+            Write-Red "Cannot find npm. Install Node.js 18+ from https://nodejs.org/"
             Write-Yellow "After installing Node.js, close and reopen this shell, then re-run."
             exit 1
         }
 
         Write-Host "  npm: $npmCmd" -ForegroundColor DarkGray
 
+        function Invoke-Npm {
+            param([string[]]$NpmArgs)
+            if ($OnWindows) {
+                $p = Start-Process -FilePath 'cmd.exe' -ArgumentList "/c `\"$npmCmd`\" $($NpmArgs -join ' ')" `
+                                   -WorkingDirectory $uiDir -Wait -PassThru -NoNewWindow
+                return $p.ExitCode
+            }
+            Push-Location $uiDir
+            try { & $npmCmd @NpmArgs; return $LASTEXITCODE } finally { Pop-Location }
+        }
+
         Write-Yellow "Installing UI dependencies ..."
-        $proc = Start-Process -FilePath 'cmd.exe' `
-                              -ArgumentList "/c `"$npmCmd`" install --legacy-peer-deps" `
-                              -WorkingDirectory $uiDir -Wait -PassThru -NoNewWindow
-        if ($proc.ExitCode -ne 0) {
-            Write-Red "npm install failed (exit $($proc.ExitCode))."
+        $code = Invoke-Npm @('install', '--legacy-peer-deps')
+        if ($code -ne 0) {
+            Write-Red "npm install failed (exit $code)."
             Write-Yellow "Node.js version: $(& node --version 2>$null)"
-            exit $proc.ExitCode
+            exit $code
         }
 
         Write-Yellow "Building UI ..."
-        $proc2 = Start-Process -FilePath 'cmd.exe' `
-                               -ArgumentList "/c `"$npmCmd`" run build" `
-                               -WorkingDirectory $uiDir -Wait -PassThru -NoNewWindow
-        if ($proc2.ExitCode -ne 0) {
-            Write-Red "npm run build failed (exit $($proc2.ExitCode))."
-            exit $proc2.ExitCode
+        $code = Invoke-Npm @('run', 'build')
+        if ($code -ne 0) {
+            Write-Red "npm run build failed (exit $code)."
+            exit $code
         }
         Write-Green "UI built: $uiDir\dist"
     }
 
     Write-Bold "Step 3/3 -- Re-installing package (picks up new dist) ..."
-    $VenvPip = Join-Path $VenvDir 'Scripts' 'pip.exe'
+    $VenvPip = Join-Path $VenvBin "pip$ExeSuffix"
     & $VenvPip install --quiet -e "$RepoDir[test]"
 
     Write-Green ""
@@ -319,12 +331,16 @@ function Invoke-Verify {
 
 function Invoke-ReqCmd {
     Initialize-Venv | Out-Null
-    Invoke-Req $ReqArgs
+    # `dev.ps1 req init agile` binds "init" to -Subset, so put it back in front of the other words.
+    $words = @()
+    if ($SubsetGiven) { $words += $Subset }
+    if ($ReqArgs) { $words += $ReqArgs }
+    Invoke-Req $words
 }
 
 function Invoke-Shell {
     Initialize-Venv | Out-Null
-    $activate = Join-Path $VenvDir 'Scripts' 'Activate.ps1'
+    $activate = Join-Path $VenvBin 'Activate.ps1'
     Write-Green "Activating virtual environment. Run 'deactivate' to exit."
     & $activate
 }
@@ -368,7 +384,13 @@ Examples:
 switch ($Command) {
     'install'  { Invoke-Install }
     'serve'    { Invoke-Serve }
-    'test'     { Invoke-Test $Subset }
+    'test'     {
+        if ($Subset -notin @('core', 'features', 'api', 'all', '')) {
+            Write-Red "Unknown test subset: $Subset (use core, features, api or all)"
+            exit 1
+        }
+        Invoke-Test $Subset
+    }
     'validate' { Invoke-Validate }
     'verify'   { Invoke-Verify }
     'req'      { Invoke-ReqCmd }

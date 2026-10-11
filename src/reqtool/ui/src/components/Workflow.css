@@ -43,3 +43,10 @@
 .wc-row-label { font-size: 11px; color: var(--text-secondary); }
 .wc-rule-row { display: flex; gap: 8px; align-items: center; font-size: 12px; padding: 2px 0; }
 .wc-vale-status { font-size: 12px; padding: 4px 0; }
+
+/* Parent and child rules */
+.td-rules { margin: 4px 0 6px 16px; padding: 0; font-size: 12px; }
+.td-force { display: flex; gap: 6px; align-items: center; font-size: 12px; margin: 4px 0; }
+.td-suggest { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; margin: 6px 0; }
+.we-inline { display: block; font-size: 12px; margin: 6px 0; }
+.we-preview { margin: 6px 0 0 16px; padding: 0; font-size: 12px; }

@@ -96,6 +96,8 @@ class UpdateRequirementRequest(BaseModel):
     dor_checklist: Optional[list[dict[str, Any]]] = None
     dod_checklist: Optional[list[dict[str, Any]]] = None
     attributes: Optional[dict[str, Any]] = None
+    force: Optional[bool] = None       # go past parent/child rules in error mode; needs `reason`
+    reason: Optional[str] = None
     custom_fields: Optional[dict[str, Any]] = None
     nfr: Optional[dict[str, Any]] = None
     constraints: Optional[list[str]] = None
@@ -129,6 +131,8 @@ class CreatePrincipleRequest(BaseModel):
     id: Optional[str] = None
     title: str
     content: Optional[dict[str, Any]] = None
+    area: Optional[str] = None
+    category: Optional[str] = None
     domain: Optional[str] = None
     owner: Optional[str] = None
     tags: Optional[list[str]] = None
@@ -140,6 +144,8 @@ class UpdatePrincipleRequest(BaseModel):
     id: Optional[str] = None
     title: Optional[str] = None
     content: Optional[dict[str, Any]] = None
+    area: Optional[str] = None
+    category: Optional[str] = None
     domain: Optional[str] = None
     owner: Optional[str] = None
     tags: Optional[list[str]] = None

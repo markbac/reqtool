@@ -34,6 +34,11 @@ MATRIX = [
     ("DELETE", "/workflows/lightweight", None, "admin"),
     ("POST", "/repo/init", {"path": "/tmp/never-created-by-test"}, "admin"),
     ("PUT", "/config", {"repo_title": "t"}, "admin"),
+    ("GET", "/principles/areas", None, "viewer"),
+    ("GET", "/principles/packs", None, "viewer"),
+    ("POST", "/principles", {"title": "p", "area": "product"}, "editor"),
+    ("POST", "/principles/packs/security", None, "admin"),
+    ("PUT", "/principles/vocabulary", {"vocabulary": {"team": {}}}, "admin"),
 ]
 RANK = {"viewer": 0, "editor": 1, "admin": 2}
 

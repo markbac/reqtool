@@ -72,7 +72,7 @@ function StrategicSummary({ uid }) {
         <div className="ins-stat"><div className="ins-stat-value">{pct(s.progress_pct)}</div><div className="ins-stat-label">Complete</div></div>
         <div className="ins-stat"><div className="ins-stat-value">{s.descendants}</div><div className="ins-stat-label">Items below</div></div>
         <div className="ins-stat"><div className="ins-stat-value">{s.done_estimate}/{s.total_estimate}</div><div className="ins-stat-label">Estimate done</div></div>
-        <div className="ins-stat"><div className="ins-stat-value">{s.open_tbds.length}</div><div className="ins-stat-label">Open TBDs</div></div>
+        <div className="ins-stat"><div className="ins-stat-value">{s.open_tbds.length}</div><div className="ins-stat-label">Open questions (TBD)</div></div>
         <div className="ins-stat"><div className="ins-stat-value">{s.validation.errors}/{s.validation.warnings}</div><div className="ins-stat-label">Errors / warnings</div></div>
       </div>
       {Object.entries(s.by_type).map(([t, counts]) => (

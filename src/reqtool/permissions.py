@@ -24,6 +24,7 @@ ACTIONS: dict[str, str] = {
     "read": "viewer",
     "write": "editor",             # create and change items, comments, attachments, links, imports
     "delete": "admin",             # delete or restore items
+    "override_rules": "editor",    # force a move past a parent/child rule (each rule can raise this to admin or none)
     "manage_workflow": "admin",    # states, transitions, guards, which workflow a type uses
     "manage_lint": "admin",        # writing-check and Vale settings
     "manage_config": "admin",      # repository configuration, enums, custom fields, templates, automation rules
@@ -42,7 +43,10 @@ _RULES: tuple[tuple[Optional[str], str, str], ...] = (
     ("PUT", r"/custom-fields", "manage_config"),
     ("PUT", r"/templates", "manage_config"),
     ("PUT", r"/automation/rules", "manage_config"),
+    ("PUT", r"/principles/vocabulary", "manage_config"),
+    ("POST", r"/principles/packs/[^/]+", "manage_config"),
     ("PUT", r"/workflow", "manage_workflow"),
+    ("PUT", r"/rules", "manage_workflow"),
     ("POST", r"/workflows(/.*)?", "manage_workflow"),
     ("PUT", r"/workflows/.*", "manage_workflow"),
     ("DELETE", r"/workflows/.*", "manage_workflow"),

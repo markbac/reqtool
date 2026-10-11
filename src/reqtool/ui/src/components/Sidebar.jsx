@@ -1,7 +1,7 @@
 /**
  * Sidebar.jsx
  * Two top-level sections:
- *   1. Requirements  -- sub-tabs: Reqs (product tree) | Principles | TBDs | Modules
+ *   1. Requirements  -- sub-tabs: Reqs (product tree) | Principles | Decisions | Modules
  *   2. Task Mgmt     -- Kanban board (column-per-state, grouped by person or team)
  */
 
@@ -10,6 +10,8 @@ import { useApp, useCan } from '../AppContext';
 import { api } from '../api';
 import ResolveDialog from './ResolveDialog';
 import { parentOf, candidateParents, canMoveUnder } from '../treeMove';
+import { typeBody } from '../createItem';
+import { PrinciplesPanel } from './Principles';
 import './Sidebar.css';
 
 const DOMAIN_COLOURS = {
@@ -285,6 +287,7 @@ function HistoryOverlay({ uid, data, onClose }) {
 // ---------------------------------------------------------------------------
 function RequirementsPanel() {
   const { state, dispatch, toast } = useApp();
+  const can = useCan();
   const { activeProduct, activeVariant, searchQuery } = state;
   const [tree, setTree]       = useState([]);
   const [loading, setLoading] = useState(false);
@@ -331,20 +334,13 @@ function RequirementsPanel() {
 
   const createReq = async (parentId = null, reqType = null) => {
     try {
-      const tmpl = reqType ? null : state.pendingTemplate;
-      const base = reqType ? {
-        title: `New ${TYPE_META[reqType]?.label || reqType}`, parentId, req_type: reqType,
-      } : {
-        title: tmpl ? `New ${tmpl.label}` : 'New requirement',
+      const base = reqType ? typeBody(reqType, TYPE_META[reqType]?.label, parentId) : {
+        title: 'New requirement',
         parentId,
-        content: tmpl?.fields?.content || { description: 'The system shall...', rationale: '', extended_description: '' },
-        ...(tmpl?.fields || {}),
+        content: { description: 'The system shall...', rationale: '', extended_description: '' },
       };
-      // Remove 'content' from top-level spread since it's already set
-      delete base.fields;
       const req = await api.requirements.create(base);
       dispatch({ type: 'SELECT', uid: req.uid, artefactType: 'requirement' });
-      if (tmpl) dispatch({ type: 'CLEAR_TEMPLATE' });
       await load(); return req;
     } catch (err) { toast(err.message, 'error'); return null; }
   };
@@ -447,9 +443,9 @@ function RequirementsPanel() {
     <>
       {/* Toolbar */}
       <div className="tree-toolbar">
-        <button className="btn btn-ghost tree-toolbar-btn" onClick={() => createReq()} title="New requirement">+ New</button>
-        <button className="btn btn-ghost tree-toolbar-btn" onClick={openModulePanel}
-          title="Include a shared requirement module in this product">⊕ Module</button>
+        {can('write') && <button className="btn btn-ghost tree-toolbar-btn" onClick={() => createReq()} title="New requirement">+ New</button>}
+        {can('manage_modules') && <button className="btn btn-ghost tree-toolbar-btn" onClick={openModulePanel}
+          title="Include a shared requirement module in this product">⊕ Module</button>}
         <div style={{ flex: 1 }} />
         <button className="btn btn-ghost tree-toolbar-btn"
           title={expandAll ? "Collapse all" : "Expand all"}
@@ -458,12 +454,6 @@ function RequirementsPanel() {
         </button>
         <button className="btn btn-ghost tree-toolbar-btn" style={{ fontSize: 13 }} onClick={load} title="Refresh tree">↺</button>
       </div>
-      {state.pendingTemplate && (
-        <div className="tree-template-active">
-          <span>◫ {state.pendingTemplate.label}</span>
-          <button onClick={() => dispatch({ type: 'CLEAR_TEMPLATE' })} title="Cancel template">✕</button>
-        </div>
-      )}
 
       {/* Module include panel */}
       {showModulePanel && (
@@ -522,7 +512,7 @@ function RequirementsPanel() {
       {!tree.length && !showModulePanel && (
         <div className="sidebar-empty">
           <div>No requirements yet.</div>
-          <button className="btn btn-secondary" style={{ marginTop: 8, fontSize: 11 }} onClick={() => createReq()}>+ New requirement</button>
+          {can('write') && <button className="btn btn-secondary" style={{ marginTop: 8, fontSize: 11 }} onClick={() => createReq()}>+ New requirement</button>}
         </div>
       )}
       {searchQuery && !displayTree.length && <div className="sidebar-empty">No matches for <em>{searchQuery}</em></div>}
@@ -547,116 +537,81 @@ function RequirementsPanel() {
 }
 
 // ---------------------------------------------------------------------------
-// 1b. Principles panel
+// 1c. Decisions: decisions, ADRs and open questions (TBDs) in one list
 // ---------------------------------------------------------------------------
-const PRINCIPLE_DOMAIN_ORDER = ['business', 'architecture', 'security', 'firmware', 'comms', 'data', 'process', 'safety'];
+const KINDS = [['', 'All'], ['decision', 'Decisions & ADRs'], ['tbd', 'Open questions (TBD)']];
+const OPEN_STATUSES = ['open', 'in_progress', 'proposed'];
 
-function PrinciplesPanel() {
-  const { state, dispatch, toast } = useApp();
-  const [items, setItems]         = useState([]);
-  const [loading, setLoading]     = useState(false);
-  const [collapsed, setCollapsed] = useState({});
-  const [search, setSearch]       = useState('');
-
-  const load = () => { setLoading(true); api.principles.list().then(setItems).catch(() => {}).finally(() => setLoading(false)); };
-  useEffect(() => { load(); }, []);
-
-  const filtered = search ? items.filter(p => p.title?.toLowerCase().includes(search.toLowerCase()) || p.id?.toLowerCase().includes(search.toLowerCase())) : items;
-  const grouped = {};
-  for (const p of filtered) { const d = p.domain || 'unclassified'; if (!grouped[d]) grouped[d] = []; grouped[d].push(p); }
-  const order = [...PRINCIPLE_DOMAIN_ORDER.filter(d => grouped[d]), ...Object.keys(grouped).filter(d => !PRINCIPLE_DOMAIN_ORDER.includes(d)).sort()];
-
-  if (loading) return <div className="sidebar-loading"><div className="spinner" /></div>;
-  return (
-    <div className="list-panel">
-      <div className="list-panel-toolbar">
-        <input className="list-search" placeholder="Search principles..." value={search}
-          onChange={e => setSearch(e.target.value)} />
-        <button className="btn btn-ghost list-new-btn" onClick={async () => {
-          try { const p = await api.principles.create({ title: 'New principle', content: { description: '', rationale: '', implications: '', exceptions: '' } }); dispatch({ type: 'SELECT', uid: p.uid, artefactType: 'principle' }); load(); }
-          catch (err) { toast(err.message, 'error'); }
-        }}>+ New</button>
-      </div>
-      {!items.length && <div className="sidebar-empty">No principles defined.</div>}
-      {order.map(domain => {
-        const domainItems = grouped[domain] || [];
-        const colour = DOMAIN_COLOURS[domain] || 'var(--text-muted)';
-        return (
-          <div key={domain} className="principle-group">
-            <button className="principle-group-header"
-              onClick={() => setCollapsed(c => ({ ...c, [domain]: !c[domain] }))}
-              style={{ borderLeft: `3px solid ${colour}` }}>
-              <span className="principle-group-toggle">{collapsed[domain] ? '▸' : '▾'}</span>
-              <span className="principle-group-label">{domain}</span>
-              <span className="principle-group-count">{domainItems.length}</span>
-            </button>
-            {!collapsed[domain] && domainItems.map(p => (
-              <div key={p.uid} className={`list-item ${state.selectedUid === p.uid ? 'list-item--selected' : ''}`}
-                style={{ borderLeft: `3px solid ${colour}`, paddingLeft: 20 }}
-                onClick={() => dispatch({ type: 'SELECT', uid: p.uid, artefactType: 'principle' })}>
-                <div className="list-item-header">
-                  <span className="list-item-id mono">{p.id}</span>
-                  <span className={`badge badge-${p.approval?.status ?? p.status ?? 'draft'}`}>{p.approval?.status ?? p.status ?? 'draft'}</span>
-                </div>
-                <div className="list-item-title">{p.title}</div>
-              </div>
-            ))}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 1c. TBDs panel
-// ---------------------------------------------------------------------------
-function TBDsPanel() {
+function DecisionsList() {
+  const can = useCan();
   const { state, dispatch, toast } = useApp();
   const [items, setItems]     = useState([]);
-  const [filter, setFilter]   = useState('open');
+  const [kind, setKind]       = useState('');
+  const [filter, setFilter]   = useState('');
   const [loading, setLoading] = useState(false);
   const [resolving, setResolving] = useState(null);
+  const [newKind, setNewKind] = useState('decision');
 
   const load = useCallback(() => {
     setLoading(true);
-    api.tbds.list(filter ? { status: filter } : {}).then(setItems).catch(() => {}).finally(() => setLoading(false));
+    api.decisions.list(filter ? { status: filter } : {}).then(setItems).catch(() => {}).finally(() => setLoading(false));
   }, [filter]);
   useEffect(() => { load(); }, [load]);
+  // Reload when something is saved elsewhere, so a resolved question moves on at once.
+  useEffect(() => { load(); }, [state._lastCommit]);
+
+  const shown = items.filter(d => !kind || (d.type || 'decision') === kind);
+
+  const create = async () => {
+    try {
+      const body = newKind === 'tbd'
+        ? { title: 'New open question', type: 'tbd', content: { description: '', impact: '', resolution_criteria: '', resolution: null } }
+        : { title: 'New decision', content: { context: '', description: '', rationale: '' } };
+      const t = newKind === 'tbd' ? await api.tbds.create(body) : await api.decisions.create(body);
+      dispatch({ type: 'SELECT', uid: t.uid, artefactType: t.type || newKind });
+      load();
+    } catch (err) { toast(err.message, 'error'); }
+  };
 
   return (
-    <div className="tbds-panel">
+    <div className="tbds-panel" data-testid="decisions-list">
       {resolving && (
         <ResolveDialog tbd={resolving} onClose={() => setResolving(null)}
           onResolved={async body => {
             await api.tbds.resolve(resolving.uid, body);
-            setResolving(null); load(); toast('TBD resolved', 'success');
+            setResolving(null); load(); toast('Resolved into a decision', 'success');
           }} />
       )}
-      <div className="list-panel-toolbar">
-        <button className="btn btn-ghost list-new-btn" onClick={async () => {
-          try { const t = await api.tbds.create({ title: 'New TBD', content: { description: '', impact: '', resolution_criteria: '', resolution: null } }); dispatch({ type: 'SELECT', uid: t.uid, artefactType: 'tbd' }); load(); }
-          catch (err) { toast(err.message, 'error'); }
-        }}>+ New</button>
+      <div className="list-panel-toolbar" style={{ gap: 4 }}>
+        <select aria-label="Kind" value={kind} onChange={e => setKind(e.target.value)}>
+          {KINDS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+        </select>
+        {can('write') && <>
+          <select aria-label="New kind" value={newKind} onChange={e => setNewKind(e.target.value)}>
+            <option value="decision">Decision</option><option value="tbd">Open question (TBD)</option>
+          </select>
+          <button className="btn btn-ghost list-new-btn" onClick={create}>+ New</button>
+        </>}
       </div>
       <div className="tbds-filter">
-        {['', 'open', 'in_progress', 'resolved', 'cancelled'].map(s => (
-          <button key={s} className={`tbds-filter-btn ${filter === s ? 'active' : ''}`} onClick={() => setFilter(s)}>{s || 'all'}</button>
+        {['', 'open', 'in_progress', 'proposed', 'accepted', 'resolved'].map(s => (
+          <button key={s} className={`tbds-filter-btn ${filter === s ? 'active' : ''}`} onClick={() => setFilter(s)}>{s ? s.replace('_', ' ') : 'all'}</button>
         ))}
       </div>
       {loading && <div className="sidebar-loading"><div className="spinner" /></div>}
-      {!loading && !items.length && <div className="sidebar-empty">No TBDs.</div>}
-      {!loading && items.map(t => (
+      {!loading && !shown.length && <div className="sidebar-empty">Nothing here.</div>}
+      {!loading && shown.map(t => (
         <div key={t.uid} className={`list-item ${state.selectedUid === t.uid ? 'list-item--selected' : ''}`}
-          onClick={() => dispatch({ type: 'SELECT', uid: t.uid, artefactType: 'tbd' })}>
+          onClick={() => dispatch({ type: 'SELECT', uid: t.uid, artefactType: t.type === 'tbd' ? 'tbd' : 'decision' })}>
           <div className="list-item-header">
             <span className="list-item-id mono">{t.id}</span>
+            <span className="badge" title={t.type === 'tbd' ? 'Open question' : 'Decision'}>{t.type === 'tbd' ? 'question' : 'decision'}</span>
             <span className={`badge badge-${t.status}`}>{t.status}</span>
-            {t.status === 'open' || t.status === 'in_progress' ? (
+            {t.type === 'tbd' && OPEN_STATUSES.includes(t.status) && can('write') ? (
               <button
                 className="btn btn-ghost"
                 style={{ fontSize: 10, padding: '1px 6px', marginLeft: 'auto' }}
-                title="Mark as resolved"
+                title="Resolve into a decision"
                 onClick={e => { e.stopPropagation(); setResolving(t); }}>
                 ✓ Resolve
               </button>
@@ -825,7 +780,7 @@ const TOP_SECTIONS = [
 const REQ_SUBTABS = [
   { id: 'requirements', label: 'Reqs'       },
   { id: 'principles',   label: 'Principles' },
-  { id: 'tbds',         label: 'TBDs'       },
+  { id: 'decisions',    label: 'Decisions'  },
   { id: 'modules',      label: 'Modules'    },
 ];
 
@@ -869,7 +824,7 @@ export default function Sidebar() {
       <div className="sidebar-content">
         {topSection === 'requirements' && panel === 'requirements' && <RequirementsPanel />}
         {topSection === 'requirements' && panel === 'principles'   && <PrinciplesPanel />}
-        {topSection === 'requirements' && panel === 'tbds'         && <TBDsPanel />}
+        {topSection === 'requirements' && panel === 'decisions'    && <DecisionsList />}
         {topSection === 'requirements' && panel === 'modules'      && <ModulesPanel />}
       </div>    </aside>
   );

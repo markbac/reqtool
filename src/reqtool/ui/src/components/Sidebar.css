@@ -429,29 +429,6 @@
 }
 .tree-toolbar-btn:hover { background: var(--bg-hover); border-color: var(--border); color: var(--text-primary); }
 
-/* Active template badge */
-.tree-template-active {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 10px;
-  background: color-mix(in srgb, var(--accent-blue) 12%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--accent-blue) 30%, transparent);
-  font-size: 11px;
-  color: var(--accent-blue);
-  flex-shrink: 0;
-}
-.tree-template-active button {
-  background: none;
-  border: none;
-  color: var(--accent-blue);
-  cursor: pointer;
-  font-size: 11px;
-  padding: 0 2px;
-  opacity: 0.7;
-}
-.tree-template-active button:hover { opacity: 1; }
-
 /* ── Module include panel ────────────────────────────────────────────────── */
 .module-include-panel {
   border-bottom: 1px solid var(--border);

@@ -74,6 +74,8 @@ class RepoEnums(BaseModel):
     id_domain: dict[str, str] = Field(default_factory=dict)
     estimate_unit: str = "points"                              # repo-wide estimate unit label
     relationship_types: list[str] = Field(default_factory=list)  # extends core relationship_type
+    # Principle vocabulary: area -> {label, code, categories: {category: {label, code}}}. Empty means the defaults.
+    principle_areas: dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -264,6 +266,44 @@ class HierarchyWorkflowDef(BaseModel):
     guards: dict[str, WorkflowGuard] = Field(default_factory=dict)
 
 
+RULE_KINDS = ("up", "down", "start", "complete", "reopen", "cancel")
+OVERRIDE_LEVELS = ("none", "editor", "admin")
+
+
+class ParentChildRule(BaseModel):
+    """One parent/child rule. See docs/USER_GUIDE.md ("Parent and child rules") for what each kind does.
+
+    ``up`` and ``down`` are checks (mode off/warn/error). ``start``, ``complete``, ``reopen`` and ``cancel`` change
+    another item's status (mode off/suggest/auto). State lists may hold state ids or the tokens ``@initial``,
+    ``@started``, ``@terminal``, ``@done`` and ``@cancelled``.
+    """
+    id: str
+    kind: str
+    label: str = ""
+    parent_types: list[str] = Field(default_factory=lambda: ["*"])
+    child_types: list[str] = Field(default_factory=lambda: ["*"])
+    # up: parent | ancestors.  down, complete, cancel: children | descendants.  start, reopen: parent | ancestors.
+    scope: str = "parent"
+    levels: Optional[int] = None
+    mode: str = "off"
+    when_in: list[str] = Field(default_factory=list)
+    to: list[str] = Field(default_factory=list)
+    children_in: list[str] = Field(default_factory=list)
+    override: Optional[str] = None
+    reapply: bool = False
+
+
+class RulesConfig(BaseModel):
+    override: str = "editor"
+    rules: list[ParentChildRule] = Field(default_factory=list)
+
+
+class FlowConfig(BaseModel):
+    """When an item counts as stuck in the flow view: days in a state, with optional per-state limits."""
+    stuck_days: int = Field(14, ge=1, le=3650)
+    states: dict[str, int] = Field(default_factory=dict)
+
+
 class HierarchyConfig(BaseModel):
     types: dict[str, ItemTypeConfig] = Field(default_factory=dict)
     hierarchy: dict[str, HierarchyRule] = Field(default_factory=dict)
@@ -273,6 +313,8 @@ class HierarchyConfig(BaseModel):
     type_fields: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
     cross_layer_rules: list[CrossLayerRule] = Field(default_factory=list)
     default_relationship_types: list[RelationshipTypeDef] = Field(default_factory=list)
+    rules: RulesConfig = Field(default_factory=RulesConfig)
+    flow: FlowConfig = Field(default_factory=FlowConfig)
     # How hierarchy rules (allowed_children) are applied: off | warn | error
     enforce: str = "warn"
 

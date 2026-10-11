@@ -1,5 +1,5 @@
 /**
- * Editor.jsx -- Main panel: requirement / principle / TBD editor.
+ * Editor.jsx -- Main panel: requirement / principle / decision editor.
  * All field sections from spec §10.4.
  */
 
@@ -29,8 +29,11 @@ const oneLight = EditorView.theme({
 }, { dark: false });
 import { useApp, useCan } from '../AppContext';
 import { TransitionDialog, getPath, isFilled } from './TransitionDialog';
+import { ForceDialog, SuggestDialog, ruleBlock, rollupSummary } from './RuleDialogs';
 import { WritingStrip } from './WritingCheck';
 import { api } from '../api';
+import { createAndOpen, quickTypes, templateBody, typeBody } from '../createItem';
+import { PlacementFields, principlesChanged } from './Principles';
 import CommitModal from './CommitModal';
 import ResolveDialog from './ResolveDialog';
 import ItemInsight, { StatusStrip } from './ItemInsight';
@@ -827,7 +830,34 @@ export function needsInput(option, draft) {
   if (option?.problem) return true;
   if ((r.fields || []).some(f => f.path !== 'acceptance_criteria' && !isFilled(getPath(draft, f.path)))) return true;
   if (r.acceptance_criteria && !(draft?.acceptance_criteria || []).length) return true;
+  if ((option?.rules?.checks || []).length) return true;
   return (r.open_children || []).length > 0 && r.children_enforce !== 'off';
+}
+
+/** What an issue turns into once triage has decided, by its status. The server uses the same table. */
+export const RAISE_AS = {
+  defect: { type: 'bug', label: 'Raise a defect' },
+  enhancement: { type: 'story', label: 'Raise a story' },
+};
+
+/** On a triaged issue: create the defect (or story) it needs, linked back to the issue, and open it. */
+export function RaiseButton({ item, disabled }) {
+  const { dispatch, toast } = useApp();
+  const can = useCan();
+  const raise = item?.req_type === 'issue' ? RAISE_AS[item.status] : null;
+  if (!raise || !can('write')) return null;
+  const go = async () => {
+    try {
+      const made = await api.requirements.raise(item.uid, raise.type);
+      dispatch({ type: 'SELECT', uid: made.uid, artefactType: 'requirement' });
+      window.dispatchEvent(new Event('reqtool:tree-changed'));
+      toast(`Created ${made.id} from ${item.id}`, 'success');
+    } catch (err) { toast(err.message, 'error'); }
+  };
+  return (
+    <button className="btn btn-secondary" style={{ fontSize: 12, padding: '4px 8px' }} disabled={disabled}
+      title={disabled ? 'Save your changes first' : `Create a ${raise.type} linked to ${item.id}`} onClick={go}>{raise.label}</button>
+  );
 }
 
 export function WorkflowStateWidget({ uid, status, reqType, draft, onTransition }) {
@@ -888,7 +918,7 @@ export function WorkflowStateWidget({ uid, status, reqType, draft, onTransition 
       {dialog && (
         <TransitionDialog option={dialog} draft={draft}
           onCancel={() => setDialog(null)}
-          onApply={(next, save) => { const d = dialog; setDialog(null); onTransition(d.to, next, save); }} />
+          onApply={(next, save, extras) => { const d = dialog; setDialog(null); onTransition(d.to, next, save, extras); }} />
       )}
     </div>
   );
@@ -905,6 +935,8 @@ function RequirementEditor({ uid }) {
   const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [forceBlock, setForceBlock] = useState(null);
+  const [suggested, setSuggested] = useState(null);
   const [showCommit, setShowCommit] = useState(false);
   const [history, setHistory] = useState(null);
   const [breadcrumb, setBreadcrumb] = useState([]);
@@ -984,7 +1016,7 @@ function RequirementEditor({ uid }) {
   const patchBlock = useCallback((block, field, value) => setDraft(d => ({ ...d, [block]: { ...d[block], [field]: value } })), []);
 
   // ``next`` lets the transition pop-up save its own changes at once instead of waiting for the draft state.
-  const handleSave = async (next) => {
+  const handleSave = async (next, extras) => {
     const toSave = next && next.uid ? next : draft;
     setSaving(true);
     try {
@@ -995,9 +1027,19 @@ function RequirementEditor({ uid }) {
         const names = preview.would_become_suspect.map(s => s.id).join(', ');
         if (!confirm(`Saving this change will mark links from ${names} as suspect for review.${preview.affects_baselines?.length ? `\n\nIt touches baselines: ${preview.affects_baselines.join(', ')}.` : ''}\n\nSave anyway?`)) return;
       }
-      const updated = await api.requirements.update(uid, toSave);
+      const body = extras?.force ? { ...toSave, force: true, reason: extras.reason } : toSave;
+      const { rules: effects, ...updated } = await api.requirements.update(uid, body);
       setReq(updated); setDraft(updated);
       dispatch({ type: 'MARK_CLEAN', uid });
+      // Roll-ups the person ticked in the pop-up are moved now; any others a rule proposes are offered.
+      const wanted = extras?.accept || [];
+      for (const move of wanted) {
+        await api.requirements.transition(move.uid, move.to).catch(e => toast(`Could not move ${move.id}: ${e.message}`, 'error'));
+      }
+      const offered = (effects?.suggested || []).filter(s => !wanted.some(w => w.uid === s.uid));
+      if (offered.length) setSuggested(offered);
+      const said = rollupSummary(effects);
+      if (said) toast(said, 'info', 5000);
       window.dispatchEvent(new Event('reqtool:tree-changed'));   // the tree shows title and status
       // Inline validation after save
       const issues = await api.validate.single(uid).catch(() => null);
@@ -1007,7 +1049,11 @@ function RequirementEditor({ uid }) {
       if (errCount) toast(`Saved with ${errCount} error(s)`, 'error', 4000);
       else if (warnCount) toast(`Saved (${warnCount} warning(s))`, 'info', 3000);
       else toast('Saved', 'success');
-    } catch (err) { toast(err.message, 'error'); }
+    } catch (err) {
+      const block = ruleBlock(err);
+      if (block) setForceBlock({ block, next: toSave });
+      else toast(err.message, 'error');
+    }
     finally { setSaving(false); }
   };
 
@@ -1072,12 +1118,13 @@ function RequirementEditor({ uid }) {
           <DomainBadge domain={draft.domain} />
           <TypeBadge reqType={draft.req_type} />
           <WorkflowStateWidget uid={uid} status={draft.status} reqType={draft.req_type} draft={draft}
-            onTransition={(to, next, save) => {
+            onTransition={(to, next, save, extras) => {
               const staged = { ...(next || draft), status: to };
               setDraft(staged);
-              if (save) handleSave(staged);
+              if (save) handleSave(staged, extras);
             }} />
           {isDirty && <span className="editor-dirty-badge" title="You have unsaved changes -- press Ctrl+S or click Save">● Unsaved changes</span>}
+          <RaiseButton item={draft} disabled={isDirty} />
         </div>
         <div className="editor-header-right">
 
@@ -1416,6 +1463,21 @@ function RequirementEditor({ uid }) {
       </fieldset>
       </div>{/* end editor-body */}
 
+      {forceBlock && (
+        <ForceDialog block={forceBlock.block} onCancel={() => setForceBlock(null)}
+          onForce={(reason) => { const f = forceBlock; setForceBlock(null); handleSave(f.next, { force: true, reason }); }} />
+      )}
+      {suggested && (
+        <SuggestDialog suggestions={suggested} onDismiss={() => setSuggested(null)}
+          onAccept={async (picked) => {
+            setSuggested(null);
+            for (const move of picked) {
+              await api.requirements.transition(move.uid, move.to).catch(e => toast(`Could not move ${move.id}: ${e.message}`, 'error'));
+            }
+            window.dispatchEvent(new Event('reqtool:tree-changed'));
+          }} />
+      )}
+
       {showCommit && (
         <CommitModal
           onClose={() => setShowCommit(false)}
@@ -1465,6 +1527,7 @@ function PrincipleEditor({ uid }) {
       const updated = await api.principles.update(uid, draft);
       setData(updated); setDraft(updated);
       dispatch({ type: 'MARK_CLEAN', uid });
+      principlesChanged();
       toast('Saved', 'success');
     } catch (err) { toast(err.message, 'error'); }
     finally { setSaving(false); }
@@ -1481,6 +1544,7 @@ function PrincipleEditor({ uid }) {
       toast(`Committed: ${result.commit_sha?.slice(0, 7)}`, 'success');
       setShowCommit(false);
       dispatch({ type: 'COMMITTED' });
+      principlesChanged();
       const updated = await api.principles.get(uid);
       setData(updated); setDraft(updated);
     } catch (err) { toast(err.message, 'error'); }
@@ -1514,6 +1578,7 @@ function PrincipleEditor({ uid }) {
               try {
                 await api.principles.delete(uid);
                 dispatch({ type: 'DESELECT' });
+                principlesChanged();
                 toast(`Deleted ${draft.id}`, 'info');
               } catch (err) { toast(err.message, 'error'); }
             }}>Delete</button>}
@@ -1528,14 +1593,17 @@ function PrincipleEditor({ uid }) {
         </div>
       </div>
 
+      {!can('write') && <div className="editor-readonly-bar" role="status">Read-only: your role can view this item but not change it.</div>}
       <div className="editor-body">
+      <fieldset className="editor-fieldset" disabled={!can('write')}>
         <Section title="Identity" static>
           <Field label="ID"><input value={draft.id ?? ''} onChange={e => patch('id', e.target.value)} /></Field>
           <Field label="Title"><input value={draft.title ?? ''} onChange={e => patch('title', e.target.value)} /></Field>
           <div className="field-row">
-            <Field label="Domain">
-              <EnumSelect value={draft.domain} options={enums?.domain || []} onChange={v => patch('domain', v)} />
-            </Field>
+            <PlacementFields area={draft.area} category={draft.category} disabled={!can('write')}
+              onChange={p => setDraft(d => ({ ...d, ...p }))} />
+          </div>
+          <div className="field-row">
             <Field label="Owner">
               <ControlledListEditor items={draft.owner ? [draft.owner] : []}
                 onChange={v => patch('owner', v[v.length - 1] || null)}
@@ -1576,6 +1644,7 @@ function PrincipleEditor({ uid }) {
             </Field>
           </div>
         </Section>
+      </fieldset>
       </div>
 
       {showCommit && (
@@ -1587,9 +1656,9 @@ function PrincipleEditor({ uid }) {
 }
 
 // ---------------------------------------------------------------------------
-// TBD editor
+// Decision editor: decisions, ADRs and open questions (TBDs) share one editor
 // ---------------------------------------------------------------------------
-function TBDEditor({ uid }) {
+function DecisionEditor({ uid }) {
   const { state, dispatch, toast } = useApp();
   const can = useCan();
   const { enums } = state;
@@ -1601,7 +1670,7 @@ function TBDEditor({ uid }) {
 
   useEffect(() => {
     setLoading(true);
-    api.tbds.get(uid)
+    api.decisions.get(uid)
       .then(d => { setData(d); setDraft(d); })
       .catch(err => toast(err.message, 'error'))
       .finally(() => setLoading(false));
@@ -1619,7 +1688,7 @@ function TBDEditor({ uid }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updated = await api.tbds.update(uid, draft);
+      const updated = await api.decisions.update(uid, draft);
       setData(updated); setDraft(updated);
       dispatch({ type: 'MARK_CLEAN', uid });
       toast('Saved', 'success');
@@ -1631,14 +1700,14 @@ function TBDEditor({ uid }) {
     setSaving(true);
     try {
       if (isDirty) {
-        const updated = await api.tbds.update(uid, draft);
+        const updated = await api.decisions.update(uid, draft);
         setData(updated); setDraft(updated);
       }
-      const result = await api.tbds.commit(uid, { message, increment });
+      const result = await api.decisions.commit(uid, { message, increment });
       toast(`Committed: ${result.commit_sha?.slice(0, 7)}`, 'success');
       setShowCommit(false);
       dispatch({ type: 'COMMITTED' });
-      const updated = await api.tbds.get(uid);
+      const updated = await api.decisions.get(uid);
       setData(updated); setDraft(updated);
     } catch (err) { toast(err.message, 'error'); }
     finally { setSaving(false); }
@@ -1647,10 +1716,10 @@ function TBDEditor({ uid }) {
   const [showResolve, setShowResolve] = useState(false);
   const handleResolve = async (body) => {
     await api.tbds.resolve(uid, body);
-    const updated = await api.tbds.get(uid);
+    const updated = await api.decisions.get(uid);
     setData(updated); setDraft(updated);
     setShowResolve(false);
-    toast('TBD resolved', 'success');
+    toast('Resolved into a decision', 'success');
   };
 
   useEffect(() => {
@@ -1662,15 +1731,19 @@ function TBDEditor({ uid }) {
   }, [isDirty, saving, draft]);
 
   if (loading) return <div className="editor-loading"><div className="spinner" /></div>;
-  if (!draft) return <div className="editor-empty">Could not load TBD.</div>;
+  if (!draft) return <div className="editor-empty">Could not load this decision.</div>;
 
-  const STATUS_COLOURS = { open: 'var(--accent-red)', in_progress: 'var(--accent-orange)', resolved: 'var(--accent-green)', cancelled: 'var(--text-muted)' };
+  const isQuestion = draft.type === 'tbd';
+  const STATUS_COLOURS = { open: 'var(--accent-red)', in_progress: 'var(--accent-orange)', resolved: 'var(--accent-green)', cancelled: 'var(--text-muted)',
+    proposed: 'var(--accent-orange)', accepted: 'var(--accent-green)', rejected: 'var(--accent-red)', superseded: 'var(--text-muted)' };
+  const statuses = isQuestion ? ['open', 'in_progress', 'resolved', 'cancelled'] : ['proposed', 'accepted', 'rejected', 'superseded'];
 
   return (
     <div className="editor">
       <div className="editor-header">
         <div className="editor-header-left">
           <span className="editor-id mono">{draft.id}</span>
+          <span className="badge" data-testid="decision-kind" style={{ fontSize: 10 }}>{isQuestion ? 'Open question (TBD)' : 'Decision'}</span>
           <span className="editor-version mono text-muted">v{draft.version}</span>
           <span className="badge" style={{
             background: STATUS_COLOURS[draft.status] + '20',
@@ -1680,7 +1753,7 @@ function TBDEditor({ uid }) {
           {isDirty && <span className="editor-dirty-badge" title="You have unsaved changes -- press Ctrl+S or click Save">● Unsaved changes</span>}
         </div>
         <div className="editor-header-right">
-          {(draft.status === 'open' || draft.status === 'in_progress') && (
+          {isQuestion && (draft.status === 'open' || draft.status === 'in_progress') && can('write') && (
             <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setShowResolve(true)}>
               ✓ Resolve
             </button>
@@ -1689,7 +1762,7 @@ function TBDEditor({ uid }) {
             onClick={async () => {
               if (!confirm(`Delete ${draft.id}?\n"${draft.title}"\n\nThis cannot be undone.`)) return;
               try {
-                await api.tbds.delete(uid);
+                await api.decisions.delete(uid);
                 dispatch({ type: 'DESELECT' });
                 toast(`Deleted ${draft.id}`, 'info');
               } catch (err) { toast(err.message, 'error'); }
@@ -1710,7 +1783,7 @@ function TBDEditor({ uid }) {
           <Field label="Title"><input value={draft.title ?? ''} onChange={e => patch('title', e.target.value)} /></Field>
           <div className="field-row">
             <Field label="Status">
-              <EnumSelect value={draft.status} options={['open', 'in_progress', 'resolved', 'cancelled']}
+              <EnumSelect value={draft.status} options={statuses}
                 onChange={v => patch('status', v)} nullable={false} />
             </Field>
             <Field label="Priority">
@@ -1735,12 +1808,32 @@ function TBDEditor({ uid }) {
           <Field label="Description">
             <MarkdownEditor value={draft.content?.description} onChange={v => patchContent('description', v)} rows={4} />
           </Field>
-          <Field label="Impact">
-            <MarkdownEditor value={draft.content?.impact} onChange={v => patchContent('impact', v)} rows={3} />
-          </Field>
-          <Field label="Resolution Criteria">
-            <MarkdownEditor value={draft.content?.resolution_criteria} onChange={v => patchContent('resolution_criteria', v)} rows={3} />
-          </Field>
+          {isQuestion ? (<>
+            <Field label="Impact">
+              <MarkdownEditor value={draft.content?.impact} onChange={v => patchContent('impact', v)} rows={3} />
+            </Field>
+            <Field label="Resolution Criteria">
+              <MarkdownEditor value={draft.content?.resolution_criteria} onChange={v => patchContent('resolution_criteria', v)} rows={3} />
+            </Field>
+          </>) : (<>
+            <Field label="Context">
+              <MarkdownEditor value={draft.content?.context} onChange={v => patchContent('context', v)} rows={3} />
+            </Field>
+            <Field label="Rationale">
+              <MarkdownEditor value={draft.content?.rationale} onChange={v => patchContent('rationale', v)} rows={3} />
+            </Field>
+            <Field label="Chosen option">
+              <input value={draft.content?.chosen_option ?? ''} onChange={e => patchContent('chosen_option', e.target.value || null)} />
+            </Field>
+          </>)}
+          {(draft.resolved_into || draft.resolves?.length > 0) && (
+            <div className="field" data-testid="decision-links">
+              {draft.resolved_into && <div>Resolved into <button className="rel-target-link"
+                onClick={() => dispatch({ type: 'SELECT', uid: draft.resolved_into.uid, artefactType: draft.resolved_into.type })}>{draft.resolved_into.id}: {draft.resolved_into.title}</button></div>}
+              {draft.resolves?.map(q => <div key={q.uid}>Resolves <button className="rel-target-link"
+                onClick={() => dispatch({ type: 'SELECT', uid: q.uid, artefactType: q.type })}>{q.id}: {q.title}</button></div>)}
+            </div>
+          )}
           {draft.content?.resolution && (
             <Field label="Resolution">
               <MarkdownEditor value={draft.content?.resolution} onChange={v => patchContent('resolution', v)} rows={3} />
@@ -1750,7 +1843,7 @@ function TBDEditor({ uid }) {
 
         <Section title="Affected Requirements" defaultOpen={draft.affected_requirements?.length > 0}>
           <div style={{ marginBottom: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-            Requirements that are blocked by or depend on this TBD.
+            Requirements that are blocked by or depend on this {isQuestion ? 'open question' : 'decision'}.
           </div>
           {(draft.affected_requirements ?? []).map((reqUid, i) => (
             <div key={reqUid} className="rel-row">
@@ -1792,26 +1885,21 @@ function TBDEditor({ uid }) {
 // ---------------------------------------------------------------------------
 function EditorEmpty() {
   const { state, dispatch, toast } = useApp();
+  const can = useCan();
   const templates = (state.templates || []).slice(0, 4);
   const hasProduct = !!state.activeProduct;
+  const [quick, setQuick] = useState([]);
+  const canCreate = can('write');
 
-  const AGILE_QUICK = [
-    { icon: '📖', label: 'User Story',    req_type: 'story',    desc: 'As a [user], I want…' },
-    { icon: '✅', label: 'Task',           req_type: 'task',     desc: 'Technical work item' },
-    { icon: '🐛', label: 'Bug',            req_type: 'bug',      desc: 'Defect report' },
-    { icon: '📦', label: 'Epic',           req_type: 'epic',     desc: 'Significant capability' },
-    { icon: '✨', label: 'Feature',        req_type: 'feature',  desc: 'User-facing capability' },
-    { icon: '🚀', label: 'Initiative',     req_type: 'initiative', desc: 'Large body of work' },
-    { icon: '🎯', label: 'Theme',          req_type: 'theme',    desc: 'Strategic area' },
-  ];
+  useEffect(() => {
+    let live = true;
+    api.hierarchy.get().then(h => { if (live) setQuick(quickTypes(h)); }).catch(() => {});
+    return () => { live = false; };
+  }, [state.activeProduct]);
 
-  const createQuick = async (req_type) => {
-    if (!hasProduct) { toast('Select a product first', 'info'); return; }
-    try {
-      const req = await api.requirements.create({ title: `New ${req_type}`, req_type });
-      dispatch({ type: 'SELECT', uid: req.uid, artefactType: 'requirement' });
-    } catch (err) { toast(err.message, 'error'); }
-  };
+  const opts = { dispatch, toast, hasProduct };
+  const createQuick = (q) => createAndOpen(typeBody(q.id, q.label), opts);
+  const createTemplate = (t) => createAndOpen(templateBody(t), opts);
 
   return (
     <div className="editor-onboarding">
@@ -1819,18 +1907,19 @@ function EditorEmpty() {
         <div className="editor-onboarding-icon">◈</div>
         <div className="editor-onboarding-title">Select an item to edit</div>
         <div className="editor-onboarding-sub">
-          Or create something new. Press <kbd>?</kbd> for help and templates.
+          {canCreate ? 'Or create something new. ' : ''}Press <kbd>?</kbd> for help and templates.
         </div>
       </div>
 
+      {canCreate && (
       <div className="editor-onboarding-cols">
-        {/* Quick create */}
+        {/* Quick create: the types this repository's hierarchy defines */}
         <div className="editor-onboarding-card">
           <div className="editor-onboarding-card-title">Quick create</div>
           <div className="editor-onboarding-quick">
-            {AGILE_QUICK.map(q => (
-              <button key={q.req_type} className="editor-quick-btn"
-                onClick={() => createQuick(q.req_type)}>
+            {quick.map(q => (
+              <button key={q.id} className="editor-quick-btn" data-testid={`quick-${q.id}`}
+                onClick={() => createQuick(q)}>
                 <span className="editor-quick-icon">{q.icon}</span>
                 <span className="editor-quick-label">{q.label}</span>
                 <span className="editor-quick-desc">{q.desc}</span>
@@ -1839,14 +1928,14 @@ function EditorEmpty() {
           </div>
         </div>
 
-        {/* Templates */}
+        {/* Templates: create the item straight away */}
         {templates.length > 0 && (
           <div className="editor-onboarding-card">
             <div className="editor-onboarding-card-title">From template</div>
             <div className="editor-onboarding-quick">
               {templates.map(t => (
-                <button key={t.id} className="editor-quick-btn"
-                  onClick={() => dispatch({ type: 'APPLY_TEMPLATE', payload: t })}>
+                <button key={t.id} className="editor-quick-btn" data-testid={`template-${t.id}`}
+                  onClick={() => createTemplate(t)}>
                   <span className="editor-quick-icon">◫</span>
                   <span className="editor-quick-label">{t.label}</span>
                   <span className="editor-quick-desc">{t.description || ''}</span>
@@ -1860,6 +1949,7 @@ function EditorEmpty() {
           </div>
         )}
       </div>
+      )}
 
       <div className="editor-onboarding-tips">
         <div className="editor-onboarding-tip"><kbd>Ctrl+K</kbd> Global search</div>
@@ -1902,6 +1992,6 @@ export default function Editor() {
   }
   if (selectedType === 'requirement') return <RequirementEditor uid={selectedUid} />;
   if (selectedType === 'principle')   return <PrincipleEditor uid={selectedUid} />;
-  if (selectedType === 'tbd')         return <TBDEditor uid={selectedUid} />;
+  if (selectedType === 'tbd' || selectedType === 'decision') return <DecisionEditor key={selectedUid} uid={selectedUid} />;
   return <EditorEmpty />;
 }

@@ -1,0 +1,67 @@
+/* Principles tree: Area > Category > Principle */
+.principle-area-header { border-left: 3px solid var(--accent-blue); }
+.principle-category { display: flex; flex-direction: column; }
+.principle-category-header {
+  display: flex;
+  align-items: center;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-left: 14px;
+}
+.principle-category-header--drop { outline: 2px solid var(--accent-green, #238636); outline-offset: -2px; }
+.principle-category-toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 4px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.principle-category-toggle:hover { background: var(--bg-hover); }
+.principle-category-add {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  margin-right: 6px;
+  line-height: 1;
+  color: var(--text-muted);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.principle-category-add:hover { color: var(--text-primary); border-color: var(--border); background: var(--bg-hover); }
+.principle-row { padding-left: 30px; }
+.principles-status { max-width: 84px; font-size: 11px; }
+
+/* Add default principles */
+.principle-pack-dialog { max-width: 520px; width: 92vw; }
+.principle-pack-dialog .modal-body { max-height: 60vh; overflow-y: auto; }
+.principle-pack-hint { font-size: 12px; color: var(--text-muted); margin: 0 0 10px; }
+.principle-pack {
+  display: flex;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.principle-pack:hover { background: var(--bg-hover); }
+.principle-pack--full { opacity: 0.6; cursor: default; }
+.principle-pack-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.principle-pack-name { font-weight: 600; font-size: 13px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.principle-pack-count { font-weight: 400; font-size: 11px; color: var(--text-muted); }
+.principle-pack-desc { font-size: 12px; color: var(--text-secondary); }
+.principle-pack-cats { font-size: 11px; color: var(--text-muted); }
+
+/* Editor: area and category */
+.principle-add-category { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
+.principle-add-category input { flex: 1; min-width: 0; }
+.principle-add-category-btn { margin-top: 4px; font-size: 11px; padding: 2px 6px; }

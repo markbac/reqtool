@@ -21,7 +21,7 @@ git init
 req init               # blank repo (prompts for ID and title)
 req init agile         # agile types: theme/initiative/epic/feature/story/task/bug/spike
 req init systems       # systems types, formal/safety-formal workflow
-req init defaults      # agile + systems types, formal workflows, and pre-populated principles
+req init defaults      # agile + systems types, formal workflows, and pre-populated principles (by area; --principles to choose packs)
 req init demo          # full IoT sensor demo dataset
 
 # Start the server (opens http://localhost:8765 with full UI)
@@ -120,7 +120,7 @@ Cross-layer: agile items link to systems requirements via explicit relationship 
 
 ## Workflows
 
-Four workflow types are defined in `defaults/hierarchy.yaml`. `req init` copies them, in full, to the repository's own `.reqtool/hierarchy.yaml`, where an administrator can change them by hand or in the workflow editor (with a diagram drawn by the server). The status buttons in the item editor ask for any data a move needs, in a pop-up that also lets you change any other field. Its `hierarchy:` rules (`allowed_children`) are applied according to `enforce: off|warn|error` (default `warn`); in `error` mode a disallowed parent returns `409 hierarchy_violation`.
+Five workflow types are defined in `defaults/hierarchy.yaml`. `req init` copies them, in full, to the repository's own `.reqtool/hierarchy.yaml`, where an administrator can change them by hand or in the workflow editor (with a diagram drawn by the server). The status buttons in the item editor ask for any data a move needs, in a pop-up that also lets you change any other field. Its `hierarchy:` rules (`allowed_children`) are applied according to `enforce: off|warn|error` (default `warn`); in `error` mode a disallowed parent returns `409 hierarchy_violation`.
 
 | Workflow | Used by | States |
 |----------|---------|--------|
@@ -296,6 +296,7 @@ Add a validation badge to your README:
 req init                         Blank repo (prompts for ID and title)
 req init agile                   Agile types, sprint workflow, DoR/DoD defaults
 req init systems                 Systems types, formal/safety-formal workflow
+req principles packs             List principle packs (add-pack AREA, place)
 req init defaults                Blank repo with engineering principles pre-populated
 req init demo                    Full IoT sensor demo dataset
 
