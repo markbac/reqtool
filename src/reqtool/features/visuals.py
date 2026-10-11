@@ -644,3 +644,37 @@ def _critical_chain(deps: list[dict[str, str]]) -> list[str]:
     for start in list(graph):
         walk(start, [start])
     return best if len(best) > 1 else []
+
+
+# ---------------------------------------------------------------------------
+# Kanban card detail (VIS-06)
+# ---------------------------------------------------------------------------
+
+def kanban_details(store, board: dict[str, Any]) -> dict[str, Any]:
+    """Add to every card its parent, what it waits on, how many children are still open and whether it breaks a
+    parent/child rule; and list the iterations and people the board can be filtered by."""
+    from reqtool import workflow_rules
+    live = _live(store)
+    broken: dict[str, str] = {}
+    for hit in workflow_rules.audit(store.hierarchy, store.requirement_map()):
+        if not hit["forced"] and hit["mode"] in ("warn", "error"):
+            broken.setdefault(hit["uid"], hit["message"])
+    for cards in board["columns"].values():
+        for card in cards:
+            r = live.get(card["uid"], {})
+            parent = live.get(r.get("parentId") or "")
+            waits = [live[t] for t in (relationship_target(rel) for rel in r.get("relationships") or []
+                                       if rel.get("type") == "depends_on") if t in live]
+            kids = [live[c] for c in store.graph.children.get(card["uid"], []) if c in live]
+            card["parent"] = {"uid": parent["uid"], "id": parent.get("id"), "title": parent.get("title", "")} if parent else None
+            card["blocked_by"] = [{"uid": w["uid"], "id": w.get("id")} for w in waits if not _state_info(store, w)["terminal"]]
+            card["open_children"] = sum(1 for k in kids if not _state_info(store, k)["terminal"])
+            card["rule_problem"] = broken.get(card["uid"])
+    iterations: list[str] = []
+    try:
+        from reqtool.iterations import IterationStore
+        iterations = [str(i.get("id")) for i in IterationStore(store.root).load_iterations() if i.get("id")]
+    except Exception:
+        iterations = []
+    people = sorted({str(v) for r in live.values() for v in (r.get("assignee"), r.get("owner")) if v})
+    return {**board, "iterations": iterations, "people": people}

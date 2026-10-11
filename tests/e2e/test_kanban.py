@@ -23,7 +23,7 @@ def test_board_shows_delivery_items_but_not_themes_or_initiatives(page):
     expect(body).to_contain_text("EP-001")
     expect(body).to_contain_text("US-001")
     expect(body).not_to_contain_text("TH-001")
-    expect(body).not_to_contain_text("IN-001")
+    expect(page.locator(".kanban-card", has_text="Initiative one")).to_have_count(0)   # shown only as a parent, never as a card
     expect(page.get_by_text("SPRINT SNAPSHOT")).to_be_visible()
 
 
@@ -89,3 +89,41 @@ def test_unknown_status_gets_an_uncolumned_lane(page):
     open_board(page)
     lane = column(page, "no matching column")
     expect(lane.locator(".kanban-card", has_text="US-001")).to_have_count(1)
+
+
+def test_a_card_moves_from_its_menu_without_dragging(page):
+    ids = seed_tree(page.server)
+    open_app(page)
+    open_board(page)
+    card = column(page, "backlog").locator(".kanban-card", has_text="US-001")
+    card.get_by_label("Move US-001 to").select_option("ready")
+    wait_until(lambda: page.server.get(f"/requirements/{ids['story']['uid']}")["status"] == "ready", what="the menu move")
+
+
+def test_a_guarded_move_opens_the_pop_up_and_cancelling_leaves_the_board_alone(page):
+    issue = page.server.req(title="Save does nothing", req_type="issue", content={"description": "Nothing happens."})
+    open_app(page)
+    open_board(page)
+    card = column(page, "reported").locator(".kanban-card", has_text=issue["id"])
+    card.get_by_label(f"Move {issue['id']} to").select_option("in_triage")
+    dialog = page.get_by_role("dialog", name="Move to In triage")
+    dialog.get_by_role("button", name="Cancel").click()
+    expect(column(page, "reported").locator(".kanban-card", has_text=issue["id"])).to_have_count(1)
+    assert page.server.get(f"/requirements/{issue['uid']}")["status"] == "reported"
+
+    card = column(page, "reported").locator(".kanban-card", has_text=issue["id"])
+    card.get_by_label(f"Move {issue['id']} to").select_option("in_triage")
+    dialog = page.get_by_role("dialog", name="Move to In triage")
+    dialog.get_by_label("Assignee").fill("tess")
+    dialog.get_by_role("button", name="Apply and save").click()
+    wait_until(lambda: page.server.get(f"/requirements/{issue['uid']}")["status"] == "in_triage", what="the guarded move")
+    expect(column(page, "in triage").locator(".kanban-card", has_text=issue["id"])).to_have_count(1)
+
+
+def test_a_card_shows_its_parent_and_open_children(page):
+    seed_tree(page.server)
+    open_app(page)
+    open_board(page)
+    detail = column(page, "backlog").locator(".kanban-card", has=page.locator(".kanban-card-id", has_text="EP-001")).get_by_test_id("card-detail")
+    expect(detail).to_contain_text("IN-001")
+    expect(detail).to_contain_text("1 open")

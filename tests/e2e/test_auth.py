@@ -71,3 +71,21 @@ def test_a_viewer_can_read_but_not_write(page):
     assert page.server.post("/requirements", {"title": "x"}, expect=None)["detail"]["error"] == "forbidden"
     page.server.headers["Authorization"] = f"Bearer {token}"
     assert page.server.get("/requirements") == []
+
+
+@pytest.mark.expect_http(401)
+def test_a_viewer_sees_a_read_only_board(page):
+    token = page.server.post("/auth/login", {"username": "admin", "password": PASSWORD}, expect=200)["access_token"]
+    page.server.headers["Authorization"] = f"Bearer {token}"
+    page.server.post("/products", {"id": "p1", "title": "Product One"})
+    page.server.post("/requirements", {"title": "A story", "req_type": "story", "content": {"description": "x"}})
+    page.server.headers.clear()
+
+    log_in(page, "vera")
+    page.locator("select.header-select").first.select_option("p1")
+    page.get_by_text("TASK MGMT").click()
+    board = page.locator(".kanban-page")
+    expect(board.locator(".kanban-card").first).to_be_visible()
+    expect(board.locator(".kanban-card[draggable='true']")).to_have_count(0)
+    expect(board.get_by_label("Move", exact=False)).to_have_count(0)
+    expect(board.get_by_role("button", name="+ New")).to_have_count(0)

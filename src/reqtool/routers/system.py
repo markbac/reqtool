@@ -388,12 +388,13 @@ def get_kanban(
     assignee: Optional[str] = None,
     store: Store = Depends(get_store),
 ):
-    return store.build_kanban(
+    from reqtool.features.visuals import kanban_details
+    return kanban_details(store, store.build_kanban(
         req_type=req_type,
         iteration=iteration,
         owner=owner,
         assignee=assignee,
-    )
+    ))
 
 
 @router.get("/filter-presets", tags=["filter-presets"])
