@@ -123,18 +123,18 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
           <option value="">— select product —</option>
           {products.map(p => <option key={p.id} value={p.id}>{p.title || p.id}</option>)}
         </select>
-        <button
+        {can('manage_modules') && <button
           className="btn btn-ghost"
           style={{ fontSize: 11, padding: '3px 8px', marginLeft: 2 }}
           onClick={() => setShowNewProduct(v => !v)}
           title="Create a new product"
-        >+ Product</button>
-        <button
+        >+ Product</button>}
+        {can('manage_repo') && <button
           className="btn btn-ghost"
           style={{ fontSize: 11, padding: '3px 8px', marginLeft: 2 }}
           onClick={onRepo}
           title="Switch or initialize requirements repository"
-        >📦 Repo</button>
+        >📦 Repo</button>}
         {variants.length > 0 && (
           <select
             className="header-select header-select-sm"

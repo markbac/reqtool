@@ -31,6 +31,7 @@ import {
   OverviewPanel, RoadmapPanel, DecisionsPanel, ModulesPanel, ChangeSetsPanel, InboxPanel, QueryPanel,
 } from './components/Insight';
 import { api } from './api';
+import { createAndOpen, templateBody } from './createItem';
 import './index.css';
 
 function AppShell() {
@@ -210,7 +211,7 @@ function AppShell() {
       {state._showRepo         && <RepoModal         onClose={() => toggle('_showRepo',         false)} />}
       {state._showHelp         && <HelpPanel initialTab="about"
         onClose={() => toggle('_showHelp', false)}
-        onApplyTemplate={t => { dispatch({ type: 'APPLY_TEMPLATE', payload: t }); toggle('_showHelp', false); }} />}
+        onApplyTemplate={async t => { const item = await createAndOpen(templateBody(t), { dispatch, toast, hasProduct: !!state.activeProduct }); if (item) toggle('_showHelp', false); }} />}
       {state._showValidation   && <ValidationPanel   onClose={() => toggle('_showValidation',   false)} />}
       {state._showExport       && <ExportPanel        onClose={() => toggle('_showExport',        false)} />}
       {state._showCoverage     && <CoveragePanel      onClose={() => toggle('_showCoverage',     false)} />}

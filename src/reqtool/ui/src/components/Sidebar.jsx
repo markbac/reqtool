@@ -10,6 +10,7 @@ import { useApp, useCan } from '../AppContext';
 import { api } from '../api';
 import ResolveDialog from './ResolveDialog';
 import { parentOf, candidateParents, canMoveUnder } from '../treeMove';
+import { typeBody } from '../createItem';
 import './Sidebar.css';
 
 const DOMAIN_COLOURS = {
@@ -285,6 +286,7 @@ function HistoryOverlay({ uid, data, onClose }) {
 // ---------------------------------------------------------------------------
 function RequirementsPanel() {
   const { state, dispatch, toast } = useApp();
+  const can = useCan();
   const { activeProduct, activeVariant, searchQuery } = state;
   const [tree, setTree]       = useState([]);
   const [loading, setLoading] = useState(false);
@@ -331,20 +333,13 @@ function RequirementsPanel() {
 
   const createReq = async (parentId = null, reqType = null) => {
     try {
-      const tmpl = reqType ? null : state.pendingTemplate;
-      const base = reqType ? {
-        title: `New ${TYPE_META[reqType]?.label || reqType}`, parentId, req_type: reqType,
-      } : {
-        title: tmpl ? `New ${tmpl.label}` : 'New requirement',
+      const base = reqType ? typeBody(reqType, TYPE_META[reqType]?.label, parentId) : {
+        title: 'New requirement',
         parentId,
-        content: tmpl?.fields?.content || { description: 'The system shall...', rationale: '', extended_description: '' },
-        ...(tmpl?.fields || {}),
+        content: { description: 'The system shall...', rationale: '', extended_description: '' },
       };
-      // Remove 'content' from top-level spread since it's already set
-      delete base.fields;
       const req = await api.requirements.create(base);
       dispatch({ type: 'SELECT', uid: req.uid, artefactType: 'requirement' });
-      if (tmpl) dispatch({ type: 'CLEAR_TEMPLATE' });
       await load(); return req;
     } catch (err) { toast(err.message, 'error'); return null; }
   };
@@ -447,9 +442,9 @@ function RequirementsPanel() {
     <>
       {/* Toolbar */}
       <div className="tree-toolbar">
-        <button className="btn btn-ghost tree-toolbar-btn" onClick={() => createReq()} title="New requirement">+ New</button>
-        <button className="btn btn-ghost tree-toolbar-btn" onClick={openModulePanel}
-          title="Include a shared requirement module in this product">⊕ Module</button>
+        {can('write') && <button className="btn btn-ghost tree-toolbar-btn" onClick={() => createReq()} title="New requirement">+ New</button>}
+        {can('manage_modules') && <button className="btn btn-ghost tree-toolbar-btn" onClick={openModulePanel}
+          title="Include a shared requirement module in this product">⊕ Module</button>}
         <div style={{ flex: 1 }} />
         <button className="btn btn-ghost tree-toolbar-btn"
           title={expandAll ? "Collapse all" : "Expand all"}
@@ -458,12 +453,6 @@ function RequirementsPanel() {
         </button>
         <button className="btn btn-ghost tree-toolbar-btn" style={{ fontSize: 13 }} onClick={load} title="Refresh tree">↺</button>
       </div>
-      {state.pendingTemplate && (
-        <div className="tree-template-active">
-          <span>◫ {state.pendingTemplate.label}</span>
-          <button onClick={() => dispatch({ type: 'CLEAR_TEMPLATE' })} title="Cancel template">✕</button>
-        </div>
-      )}
 
       {/* Module include panel */}
       {showModulePanel && (
@@ -522,7 +511,7 @@ function RequirementsPanel() {
       {!tree.length && !showModulePanel && (
         <div className="sidebar-empty">
           <div>No requirements yet.</div>
-          <button className="btn btn-secondary" style={{ marginTop: 8, fontSize: 11 }} onClick={() => createReq()}>+ New requirement</button>
+          {can('write') && <button className="btn btn-secondary" style={{ marginTop: 8, fontSize: 11 }} onClick={() => createReq()}>+ New requirement</button>}
         </div>
       )}
       {searchQuery && !displayTree.length && <div className="sidebar-empty">No matches for <em>{searchQuery}</em></div>}
@@ -612,6 +601,7 @@ function PrinciplesPanel() {
 // 1c. TBDs panel
 // ---------------------------------------------------------------------------
 function TBDsPanel() {
+  const can = useCan();
   const { state, dispatch, toast } = useApp();
   const [items, setItems]     = useState([]);
   const [filter, setFilter]   = useState('open');
@@ -634,10 +624,10 @@ function TBDsPanel() {
           }} />
       )}
       <div className="list-panel-toolbar">
-        <button className="btn btn-ghost list-new-btn" onClick={async () => {
+        {can('write') && <button className="btn btn-ghost list-new-btn" onClick={async () => {
           try { const t = await api.tbds.create({ title: 'New TBD', content: { description: '', impact: '', resolution_criteria: '', resolution: null } }); dispatch({ type: 'SELECT', uid: t.uid, artefactType: 'tbd' }); load(); }
           catch (err) { toast(err.message, 'error'); }
-        }}>+ New</button>
+        }}>+ New</button>}
       </div>
       <div className="tbds-filter">
         {['', 'open', 'in_progress', 'resolved', 'cancelled'].map(s => (

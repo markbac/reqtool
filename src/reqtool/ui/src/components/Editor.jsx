@@ -31,6 +31,7 @@ import { useApp, useCan } from '../AppContext';
 import { TransitionDialog, getPath, isFilled } from './TransitionDialog';
 import { WritingStrip } from './WritingCheck';
 import { api } from '../api';
+import { createAndOpen, quickTypes, templateBody, typeBody } from '../createItem';
 import CommitModal from './CommitModal';
 import ResolveDialog from './ResolveDialog';
 import ItemInsight, { StatusStrip } from './ItemInsight';
@@ -1792,26 +1793,21 @@ function TBDEditor({ uid }) {
 // ---------------------------------------------------------------------------
 function EditorEmpty() {
   const { state, dispatch, toast } = useApp();
+  const can = useCan();
   const templates = (state.templates || []).slice(0, 4);
   const hasProduct = !!state.activeProduct;
+  const [quick, setQuick] = useState([]);
+  const canCreate = can('write');
 
-  const AGILE_QUICK = [
-    { icon: '📖', label: 'User Story',    req_type: 'story',    desc: 'As a [user], I want…' },
-    { icon: '✅', label: 'Task',           req_type: 'task',     desc: 'Technical work item' },
-    { icon: '🐛', label: 'Bug',            req_type: 'bug',      desc: 'Defect report' },
-    { icon: '📦', label: 'Epic',           req_type: 'epic',     desc: 'Significant capability' },
-    { icon: '✨', label: 'Feature',        req_type: 'feature',  desc: 'User-facing capability' },
-    { icon: '🚀', label: 'Initiative',     req_type: 'initiative', desc: 'Large body of work' },
-    { icon: '🎯', label: 'Theme',          req_type: 'theme',    desc: 'Strategic area' },
-  ];
+  useEffect(() => {
+    let live = true;
+    api.hierarchy.get().then(h => { if (live) setQuick(quickTypes(h)); }).catch(() => {});
+    return () => { live = false; };
+  }, [state.activeProduct]);
 
-  const createQuick = async (req_type) => {
-    if (!hasProduct) { toast('Select a product first', 'info'); return; }
-    try {
-      const req = await api.requirements.create({ title: `New ${req_type}`, req_type });
-      dispatch({ type: 'SELECT', uid: req.uid, artefactType: 'requirement' });
-    } catch (err) { toast(err.message, 'error'); }
-  };
+  const opts = { dispatch, toast, hasProduct };
+  const createQuick = (q) => createAndOpen(typeBody(q.id, q.label), opts);
+  const createTemplate = (t) => createAndOpen(templateBody(t), opts);
 
   return (
     <div className="editor-onboarding">
@@ -1819,18 +1815,19 @@ function EditorEmpty() {
         <div className="editor-onboarding-icon">◈</div>
         <div className="editor-onboarding-title">Select an item to edit</div>
         <div className="editor-onboarding-sub">
-          Or create something new. Press <kbd>?</kbd> for help and templates.
+          {canCreate ? 'Or create something new. ' : ''}Press <kbd>?</kbd> for help and templates.
         </div>
       </div>
 
+      {canCreate && (
       <div className="editor-onboarding-cols">
-        {/* Quick create */}
+        {/* Quick create: the types this repository's hierarchy defines */}
         <div className="editor-onboarding-card">
           <div className="editor-onboarding-card-title">Quick create</div>
           <div className="editor-onboarding-quick">
-            {AGILE_QUICK.map(q => (
-              <button key={q.req_type} className="editor-quick-btn"
-                onClick={() => createQuick(q.req_type)}>
+            {quick.map(q => (
+              <button key={q.id} className="editor-quick-btn" data-testid={`quick-${q.id}`}
+                onClick={() => createQuick(q)}>
                 <span className="editor-quick-icon">{q.icon}</span>
                 <span className="editor-quick-label">{q.label}</span>
                 <span className="editor-quick-desc">{q.desc}</span>
@@ -1839,14 +1836,14 @@ function EditorEmpty() {
           </div>
         </div>
 
-        {/* Templates */}
+        {/* Templates: create the item straight away */}
         {templates.length > 0 && (
           <div className="editor-onboarding-card">
             <div className="editor-onboarding-card-title">From template</div>
             <div className="editor-onboarding-quick">
               {templates.map(t => (
-                <button key={t.id} className="editor-quick-btn"
-                  onClick={() => dispatch({ type: 'APPLY_TEMPLATE', payload: t })}>
+                <button key={t.id} className="editor-quick-btn" data-testid={`template-${t.id}`}
+                  onClick={() => createTemplate(t)}>
                   <span className="editor-quick-icon">◫</span>
                   <span className="editor-quick-label">{t.label}</span>
                   <span className="editor-quick-desc">{t.description || ''}</span>
@@ -1860,6 +1857,7 @@ function EditorEmpty() {
           </div>
         )}
       </div>
+      )}
 
       <div className="editor-onboarding-tips">
         <div className="editor-onboarding-tip"><kbd>Ctrl+K</kbd> Global search</div>

@@ -136,7 +136,7 @@ def test_workflow_panel_shows_states_and_saves(page):
     expect(page.locator(".toast", has_text="Workflow saved")).to_be_visible()
 
 
-def test_template_use_then_new_creates_from_it(page):
+def test_template_use_creates_the_item_at_once(page):
     templates = page.server.get("/templates")
     assert templates, "the agile flavour ships templates"
     open_app(page)
@@ -145,12 +145,10 @@ def test_template_use_then_new_creates_from_it(page):
     first = p.locator(".template-item").first
     label = first.locator(".template-label").inner_text()
     first.get_by_role("button", name="Use").click()
-    expect(page.locator(".toast", has_text=f"Template '{label}' ready")).to_be_visible()
+    expect(page.locator(".toast", has_text=f"from '{label}'")).to_be_visible()
     expect(page.locator(".side-panel")).to_have_count(0)  # the panel closes itself
-    expect(page.locator(".tree-template-active")).to_contain_text(label)
-    page.get_by_role("button", name="+ New", exact=True).first.click()
     wait_until(lambda: page.server.get("/requirements"), what="the item made from the template")
-    expect(page.locator(".tree-template-active")).to_have_count(0)
+    expect(page.locator(".tree-node").first).to_be_visible()
 
 
 def test_csv_import_creates_requirements(page, tmp_path):

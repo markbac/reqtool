@@ -1,22 +1,22 @@
 import { useState } from 'react';
 import { useApp } from '../../AppContext';
 import { Panel } from './Panel';
+import { createAndOpen, templateBody } from '../../createItem';
 
 export function TemplatesPanel({ onClose }) {
   const { state, dispatch, toast } = useApp();
   const { templates } = state;
   const [selected, setSelected] = useState(null);
 
-  const applyTemplate = (template) => {
-    dispatch({ type: 'APPLY_TEMPLATE', payload: template });
-    toast(`Template '${template.label}' ready -- create a new requirement to apply it`, 'info', 4000);
-    onClose();
+  const applyTemplate = async (template) => {
+    const item = await createAndOpen(templateBody(template), { dispatch, toast, hasProduct: !!state.activeProduct });
+    if (item) { toast(`Created ${item.id} from '${template.label}'`, 'success'); onClose(); }
   };
 
   return (
     <Panel title="Requirement templates" onClose={onClose} width={500}>
       <div className="import-hint">
-        Templates pre-fill fields when creating a new requirement. Edit
+        Using a template creates a new requirement with these fields filled in. Edit
         <code>.reqtool/templates.yaml</code> to customise them.
       </div>
       {templates.length === 0 && <div className="text-muted">No templates defined.</div>}

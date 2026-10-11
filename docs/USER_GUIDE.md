@@ -155,7 +155,7 @@ Launching `reqtool serve` opens the interactive web workstation in your browser 
 - Located in the left sidebar.
 - Displays nested requirement hierarchies (Themes → Initiatives → Epics → Features → Stories).
 - **Add child:** right-click a node and choose **+ Add child**. The type of the new item comes from the parent's allowed child types (`GET /hierarchy/children/{type}`): if only one is allowed it is created straight away, otherwise a small menu lets you pick. Types with no allowed children (for example a task) say so instead of creating an item. **+ Add sibling** creates an item of the same type as the one you clicked.
-- **Quick create:** the task sidebar and the empty editor offer Theme, Initiative, Epic, Feature, Story, Task, Bug and Spike. Theme, Initiative and Feature also have templates.
+- **Quick create:** the empty editor (nothing selected) lists every item type your repository defines in `.reqtool/hierarchy.yaml`, top-level types first, and creates the item at once, opens it and adds it to the tree. Select a product first. The **From template** cards beside it do the same with a template's fields filled in, as do **Use** in **⋯ More > Templates** and the templates in Help. Viewers see no create buttons.
 - **Move to...:** right-click a node and choose **⇄ Move to...** to pick a new parent from a searchable list (or **(top level)** for no parent). Only parents the hierarchy allows can be chosen: the others are greyed out, and hovering shows why (for example "A story cannot go under a theme"). It works with the keyboard and screen readers.
 - **Drag and drop:** drag a node onto the parent you want, or onto the empty part of the tree to make it a top-level item. The target is outlined green when the move is allowed and red when it is not. Moving an item onto itself or one of its own descendants is refused with a message (the server also refuses it with `409 parent_cycle`). Unsaved changes to the item must be saved or discarded first. If a loop already exists in the files, validation reports `parent_cycle` and the tree shows each item once.
 
@@ -163,15 +163,14 @@ Launching `reqtool serve` opens the interactive web workstation in your browser 
 
 Saving a change to a requirement marks every relationship that points at it as *suspect* in the items that depend on it. Suspect links show as a warning count (`⚠ n`) on the tree node and as a `⚠ suspect` tag on the relationship row in the editor's Relations tab. The flag spreads transitively: if A changes, items that depend on A are flagged, and so are items that depend on those. Each newly flagged item gets a history entry ("Link to A became suspect") but no version bump, and the flag is not part of the content hash, so it never triggers `hash_mismatch` or makes an approval stale. Use **Review** to open the linked item, and **Clear suspect** once you have checked that the dependant is still correct. `req validate` warns (`suspect_link`) for approved items that still have suspect links, and `GET /metrics` reports `totals.suspect_links`.
 
-### 3.2 High-Density Bulk Grid View (Spreadsheet Mode)
-- Access via **Tools** → **Bulk Editing Grid**.
-- Enables rapid inline editing of titles, statuses, priorities, owners, and disciplines across hundreds of requirements simultaneously.
-- Batch save changes with one click.
+### 3.2 Bulk update
+- Access via **⋯ More > Bulk update** (editors and administrators).
+- Select several requirements and set a field on all of them in one commit.
 
-### 3.3 Interactive D3/Cytoscape Network Graph
-- Access via **Traceability** → **Graph View**.
-- Renders an interactive node graph visualizing bidirectional relationships between requirements, principles, and verification items.
-- Zoom, pan, and click nodes to open detailed inspectors.
+### 3.3 Traceability matrix
+- Access via **⋯ More > Traceability**.
+- Shows the requirements of the active product as a matrix of their relationships, with filters for the `requires`, `derived_from` and `satisfies` link types.
+- A graph view of an item's upstream and downstream links is planned (see the issue tracker).
 
 ### 3.4 Side-by-Side Version Diff Inspector & Command Palette (`Ctrl+K`)
 - **Command Palette:** Press `Ctrl+K` (or `Cmd+K`) anywhere in the application to instantly search requirements, trigger action shortcuts, or switch products.

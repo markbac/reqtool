@@ -75,6 +75,17 @@ def test_a_viewer_sees_a_read_only_item(page):
 
 
 @pytest.mark.expect_http(401)
+@pytest.mark.parametrize("user, admin_buttons, new_button", [("root", 1, 1), ("ed", 0, 1), ("vw", 0, 0)])
+def test_create_and_admin_buttons_follow_the_role(page, user, admin_buttons, new_button):
+    """UI-25: controls a role cannot use are not shown (editor: no Product, Repo or Module; viewer: no New either)."""
+    log_in(page, user)
+    page.locator("select.header-select").first.select_option("p1")
+    for name in ("+ Product", "📦 Repo", "⊕ Module"):
+        expect(page.get_by_role("button", name=name, exact=True)).to_have_count(admin_buttons)
+    expect(page.get_by_role("button", name="+ New", exact=True)).to_have_count(new_button)
+
+
+@pytest.mark.expect_http(401)
 def test_an_administrator_has_everything(page):
     log_in(page, "root")
     page.locator("select.header-select").first.select_option("p1")

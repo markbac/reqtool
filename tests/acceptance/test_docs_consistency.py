@@ -36,3 +36,13 @@ def test_pdf_converter_renders_tables_and_angle_brackets():
     assert any(isinstance(f, Table) for f in flow)
     body = [f for f in flow if getattr(f, "text", "") and "&amp;" in f.text]
     assert body and "&lt;token&gt;" in body[0].text
+
+
+def test_menu_entries_named_in_the_guide_exist_in_the_ui():
+    """DOC-01: a path such as ``**⋯ More > Templates**`` must name a real menu entry."""
+    guide = (ROOT / "docs" / "USER_GUIDE.md").read_text(encoding="utf-8")
+    header = (SRC / "ui" / "src" / "components" / "Header.jsx").read_text(encoding="utf-8")
+    labels = re.findall(r"\*\*⋯ More > ([^*]+)\*\*", guide)
+    assert labels, "the guide names no menu entries; the pattern needs updating"
+    missing = sorted({lab for lab in labels if lab not in header})
+    assert not missing, f"Menu entries in the guide that the UI does not have: {missing}"
