@@ -3,6 +3,7 @@ import { useApp, useCan } from '../AppContext';
 import { api } from '../api';
 import { Panel } from './Advanced/Panel';
 import { MermaidView } from './MermaidView';
+import { RulesPanel } from './RulesPanel';
 import './Workflow.css';
 
 const STATE_ID = /^[a-z][a-z0-9_]*$/;
@@ -299,6 +300,8 @@ export function WorkflowEditor({ onClose }) {
           </tbody>
         </table>
       </section>
+
+      <RulesPanel />
 
       <section className="we-section">
         <div className="metrics-section-title">Fallback workflow</div>

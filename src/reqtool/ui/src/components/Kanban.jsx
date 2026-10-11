@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../AppContext';
 import { api } from '../api';
+import { ForceDialog, SuggestDialog, ruleBlock, rollupSummary } from './RuleDialogs';
 import './Kanban.css';
 
 const TYPE_META = {
@@ -151,6 +152,8 @@ export function KanbanPanel() {
   const [personFilter, setPersonFilter] = useState('');
   const [draggingUid, setDraggingUid]   = useState(null);
   const [moving, setMoving]             = useState(null); // uid being transitioned
+  const [forceBlock, setForceBlock]       = useState(null); // a move a rule blocked, waiting for a reason
+  const [suggested, setSuggested]         = useState(null); // roll-up moves a rule proposes
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -221,12 +224,21 @@ export function KanbanPanel() {
       return { ...prev, columns: cols };
     });
 
+    await moveCard(uid, targetState, {});
+  };
+
+  const moveCard = async (uid, targetState, extra) => {
     try {
-      await api.requirements.transition(uid, targetState);
+      const result = await api.requirements.transition(uid, targetState, extra);
       window.dispatchEvent(new Event('reqtool:tree-changed'));
-      toast(`Moved to ${targetState.replace(/_/g, ' ')}`, 'success', 1500);
+      const said = rollupSummary(result.rules);
+      toast(said || `Moved to ${targetState.replace(/_/g, ' ')}`, 'success', said ? 5000 : 1500);
+      if (result.rules?.suggested?.length) setSuggested(result.rules.suggested);
+      if (result.rules || extra.force) load();   // a roll-up may have moved other cards
     } catch (err) {
-      toast(`Could not move: ${err.message}`, 'error');
+      const block = ruleBlock(err);
+      if (block) setForceBlock({ block, uid, targetState });
+      else toast(`Could not move: ${err.message}`, 'error');
       load(); // revert
     } finally {
       setMoving(null);
@@ -250,6 +262,17 @@ export function KanbanPanel() {
 
   return (
     <div className="kanban-page">
+      {forceBlock && (
+        <ForceDialog block={forceBlock.block} onCancel={() => setForceBlock(null)}
+          onForce={(reason) => { const f = forceBlock; setForceBlock(null); moveCard(f.uid, f.targetState, { force: true, reason }); }} />
+      )}
+      {suggested && (
+        <SuggestDialog suggestions={suggested} onDismiss={() => setSuggested(null)}
+          onAccept={async (picked) => {
+            setSuggested(null);
+            for (const m of picked) await moveCard(m.uid, m.to, {});
+          }} />
+      )}
       <div className="kanban-toolbar">
         <div className="kanban-toolbar-section">
           {GROUPINGS.map(g => (

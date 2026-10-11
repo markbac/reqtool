@@ -86,6 +86,7 @@ Runs full schema, enum, hierarchy, safety, and INCOSE prose quality validation:
 reqtool validate                  # Pretty console output (exits 1 on errors)
 reqtool validate --json           # Machine-readable JSON output
 reqtool validate --strict         # Treat warnings as blocking errors
+reqtool validate --rules          # Also check the parent and child rules (section 4.0b); forced items are shown, not failed
 ```
 
 ### `reqtool tools` -- Check and Install Tools
@@ -303,6 +304,31 @@ The workflow in `.reqtool/config.yaml` stays as the fallback for item types with
 ### 4.0a Moving an item on
 
 The status buttons in the item editor move the item to the next state. If the move needs data the item does not have yet, a pop-up asks for it: the needed fields are highlighted and **Change other fields** shows every other field (title, description, rationale, owner, priority, tags and the rest) in case you want to change any of them on the way. **Apply to draft** stages the change and **Apply and save** writes it. A move that needs nothing happens at once. The server applies the same rules, so the same changes can be sent in one `PUT /requirements/{uid}`.
+
+### 4.0b Parent and child rules
+
+Status moves can be checked against the item's family and can move the family for you. The rules live under `rules:` in `.reqtool/hierarchy.yaml` and are edited in **⋯ More > Workflows**, under **Parent and child rules** (administrators; everyone else can read them). A repository made with `req init` starts with the defaults below. A repository made earlier gets the same rules, all switched off, from `req migrate`, so nothing changes until an administrator turns them on.
+
+| Kind | Does | Modes |
+|---|---|---|
+| `up` | Stops (or warns about) a move into some states while the parent or an ancestor is in others, for example no work can start under a cancelled epic | `off`, `warn`, `error` |
+| `down` | Stops (or warns about) a move into some states until the children or all descendants are in allowed states, for example a feature cannot close while stories are open | `off`, `warn`, `error` |
+| `start` | When a child starts, moves a parent that has not started | `off`, `suggest`, `auto` |
+| `complete` | When every child is finished, finishes the parent | `off`, `suggest`, `auto` |
+| `reopen` | When a child is reopened or a new open child is added, reopens a finished parent | `off`, `suggest`, `auto` |
+| `cancel` | When a parent is cancelled, cancels its open children | `off`, `suggest`, `auto` |
+
+Each rule has a **scope**: `parent` or `ancestors` (grandparent and above) for `up`, `start` and `reopen`, `children` or `descendants` (grandchildren and below) for `down`, `complete` and `cancel`. **Levels** limits how far it looks, and *parent types* and *child types* (in the file) narrow the item types it applies to. States are written as state ids or as tokens that work in any workflow: `@initial`, `@started`, `@terminal`, `@done` and `@cancelled`. A rule that names a state or type the repository does not have is refused when you save, and `req validate --rules` reports it.
+
+A message names the item in the way and how far away it is, for example "epic EP-12, two levels up, is 'cancelled'".
+
+**Roll-up** goes through the same workflow, guards and required fields as a manual move. In `auto` mode the moves are made at once, they repeat up the chain (story, feature, epic, initiative, theme), and they appear in each item's history with the rule as the author. In `suggest` mode the move pop-up lists them with a tick box when it opens anyway, and the editor and the Kanban board offer them in a dialog right after the save or drop. If a parent cannot move (a required field is empty, or its workflow has no such move), the child still saves and you are told which item did not move and why. An item that was forced into its state is left alone by roll-up unless the rule has `reapply: true`. Moves made through a bulk update are checked and rolled up too, but a bulk update cannot force.
+
+**Forcing a move.** A rule in `error` mode can be forced by a person the rule allows. The move pop-up (and the Kanban board, when a drop is refused) shows the blocking rule and a **Force anyway** box that needs a reason. The reason, the person, the rules and the time are saved on the item and in its history. `override` is `editor` (editors and admins; the default), `admin` or `none`, set for the whole repository and per rule. In `--auth required` mode the server enforces it; in local mode you are an administrator. Through the API, send `force: true` with a `reason` on `POST /requirements/{uid}/transition` or `PUT /requirements/{uid}`; without a reason the call is refused with 422. **Forced moves** in the same panel lists every item that is still in a state it was forced into (`GET /rules/overrides`). `req validate --rules` prints those as *Forced* and does not fail on them.
+
+**Try it first.** The panel's **Dry run** (and `POST /rules/preview`) shows what a move would block, warn about and roll up, without changing anything. `GET /requirements/{uid}/transitions` carries the same for each possible move. Responses to a move list `rules.applied`, `rules.suggested`, `rules.blocked` and `rules.warnings` when a rule had something to say.
+
+The defaults are: `up` and `down` as `warn`, `start`, `complete` and `reopen` as `suggest`, `cancel` as `off`.
 
 ### 4.1 Parent/child type rules
 

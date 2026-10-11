@@ -38,7 +38,7 @@ def test_new_product_is_still_listed_after_the_server_settles(page):
 
 def test_quick_create_edit_save_and_reload(page):
     open_app(page)
-    page.get_by_text("User Story").first.click()
+    page.get_by_test_id("quick-story").click()
     expect(field(page, "Title")).to_be_visible()
     field(page, "Title").fill("Reset a forgotten password")
     page.get_by_role("button", name="Save", exact=True).click()

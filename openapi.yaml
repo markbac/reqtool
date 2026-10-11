@@ -957,6 +957,86 @@ paths:
           content:
             application/json:
               schema: {}
+  /rules:
+    get:
+      tags:
+      - rules
+      summary: Get Rules
+      description: The parent and child rules, with problems found in them (missing types or states, bad modes).
+      operationId: get_rules_rules_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    put:
+      tags:
+      - rules
+      summary: Put Rules
+      description: Replace the rule set. Refused when a rule is malformed; a rule naming an unknown type or state is 
+        refused too.
+      operationId: put_rules_rules_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /rules/preview:
+    post:
+      tags:
+      - rules
+      summary: Preview Rules
+      description: 'Dry run: the checks and roll-ups that moving ``uid`` to ``to_state`` would trigger. Changes nothing.'
+      operationId: preview_rules_rules_preview_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /rules/overrides:
+    get:
+      tags:
+      - rules
+      summary: List Overrides
+      description: Items whose current status was reached by forcing a move past a rule, with who, why and when.
+      operationId: list_overrides_rules_overrides_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
   /lint/config:
     get:
       tags:
@@ -1278,7 +1358,8 @@ paths:
       tags:
       - requirements
       summary: Update Requirement
-      description: Update a requirement. Pass if_version=<current_version> to detect concurrent edits.
+      description: "Update a requirement. Pass if_version=<current_version> to detect concurrent edits.\n\n``force: true``
+        with a ``reason`` goes past parent/child rules that are in ``error`` mode (see /rules)."
       operationId: update_requirement_requirements__uid__put
       parameters:
       - name: uid
@@ -1295,6 +1376,22 @@ paths:
           - type: string
           - type: 'null'
           title: If Version
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       requestBody:
         required: true
         content:
@@ -1736,7 +1833,8 @@ paths:
       tags:
       - requirements
       summary: Transition Requirement
-      description: Transition a requirement to a new status with workflow guard enforcement.
+      description: "Transition a requirement to a new status with workflow guard and parent/child rule enforcement.\n\n``force:
+        true`` with a ``reason`` goes past rules in ``error`` mode (needs the rule's override role)."
       operationId: transition_requirement_requirements__uid__transition_post
       parameters:
       - name: uid
@@ -1745,6 +1843,22 @@ paths:
         schema:
           type: string
           title: Uid
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
       requestBody:
         required: true
         content:
@@ -6135,6 +6249,16 @@ components:
             type: object
           - type: 'null'
           title: Attributes
+        force:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Force
+        reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Reason
         custom_fields:
           anyOf:
           - additionalProperties: true

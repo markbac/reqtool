@@ -29,6 +29,7 @@ const oneLight = EditorView.theme({
 }, { dark: false });
 import { useApp, useCan } from '../AppContext';
 import { TransitionDialog, getPath, isFilled } from './TransitionDialog';
+import { ForceDialog, SuggestDialog, ruleBlock, rollupSummary } from './RuleDialogs';
 import { WritingStrip } from './WritingCheck';
 import { api } from '../api';
 import { createAndOpen, quickTypes, templateBody, typeBody } from '../createItem';
@@ -829,6 +830,7 @@ export function needsInput(option, draft) {
   if (option?.problem) return true;
   if ((r.fields || []).some(f => f.path !== 'acceptance_criteria' && !isFilled(getPath(draft, f.path)))) return true;
   if (r.acceptance_criteria && !(draft?.acceptance_criteria || []).length) return true;
+  if ((option?.rules?.checks || []).length) return true;
   return (r.open_children || []).length > 0 && r.children_enforce !== 'off';
 }
 
@@ -890,7 +892,7 @@ export function WorkflowStateWidget({ uid, status, reqType, draft, onTransition 
       {dialog && (
         <TransitionDialog option={dialog} draft={draft}
           onCancel={() => setDialog(null)}
-          onApply={(next, save) => { const d = dialog; setDialog(null); onTransition(d.to, next, save); }} />
+          onApply={(next, save, extras) => { const d = dialog; setDialog(null); onTransition(d.to, next, save, extras); }} />
       )}
     </div>
   );
@@ -907,6 +909,8 @@ function RequirementEditor({ uid }) {
   const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [forceBlock, setForceBlock] = useState(null);
+  const [suggested, setSuggested] = useState(null);
   const [showCommit, setShowCommit] = useState(false);
   const [history, setHistory] = useState(null);
   const [breadcrumb, setBreadcrumb] = useState([]);
@@ -986,7 +990,7 @@ function RequirementEditor({ uid }) {
   const patchBlock = useCallback((block, field, value) => setDraft(d => ({ ...d, [block]: { ...d[block], [field]: value } })), []);
 
   // ``next`` lets the transition pop-up save its own changes at once instead of waiting for the draft state.
-  const handleSave = async (next) => {
+  const handleSave = async (next, extras) => {
     const toSave = next && next.uid ? next : draft;
     setSaving(true);
     try {
@@ -997,9 +1001,19 @@ function RequirementEditor({ uid }) {
         const names = preview.would_become_suspect.map(s => s.id).join(', ');
         if (!confirm(`Saving this change will mark links from ${names} as suspect for review.${preview.affects_baselines?.length ? `\n\nIt touches baselines: ${preview.affects_baselines.join(', ')}.` : ''}\n\nSave anyway?`)) return;
       }
-      const updated = await api.requirements.update(uid, toSave);
+      const body = extras?.force ? { ...toSave, force: true, reason: extras.reason } : toSave;
+      const { rules: effects, ...updated } = await api.requirements.update(uid, body);
       setReq(updated); setDraft(updated);
       dispatch({ type: 'MARK_CLEAN', uid });
+      // Roll-ups the person ticked in the pop-up are moved now; any others a rule proposes are offered.
+      const wanted = extras?.accept || [];
+      for (const move of wanted) {
+        await api.requirements.transition(move.uid, move.to).catch(e => toast(`Could not move ${move.id}: ${e.message}`, 'error'));
+      }
+      const offered = (effects?.suggested || []).filter(s => !wanted.some(w => w.uid === s.uid));
+      if (offered.length) setSuggested(offered);
+      const said = rollupSummary(effects);
+      if (said) toast(said, 'info', 5000);
       window.dispatchEvent(new Event('reqtool:tree-changed'));   // the tree shows title and status
       // Inline validation after save
       const issues = await api.validate.single(uid).catch(() => null);
@@ -1009,7 +1023,11 @@ function RequirementEditor({ uid }) {
       if (errCount) toast(`Saved with ${errCount} error(s)`, 'error', 4000);
       else if (warnCount) toast(`Saved (${warnCount} warning(s))`, 'info', 3000);
       else toast('Saved', 'success');
-    } catch (err) { toast(err.message, 'error'); }
+    } catch (err) {
+      const block = ruleBlock(err);
+      if (block) setForceBlock({ block, next: toSave });
+      else toast(err.message, 'error');
+    }
     finally { setSaving(false); }
   };
 
@@ -1074,10 +1092,10 @@ function RequirementEditor({ uid }) {
           <DomainBadge domain={draft.domain} />
           <TypeBadge reqType={draft.req_type} />
           <WorkflowStateWidget uid={uid} status={draft.status} reqType={draft.req_type} draft={draft}
-            onTransition={(to, next, save) => {
+            onTransition={(to, next, save, extras) => {
               const staged = { ...(next || draft), status: to };
               setDraft(staged);
-              if (save) handleSave(staged);
+              if (save) handleSave(staged, extras);
             }} />
           {isDirty && <span className="editor-dirty-badge" title="You have unsaved changes -- press Ctrl+S or click Save">● Unsaved changes</span>}
         </div>
@@ -1417,6 +1435,21 @@ function RequirementEditor({ uid }) {
 
       </fieldset>
       </div>{/* end editor-body */}
+
+      {forceBlock && (
+        <ForceDialog block={forceBlock.block} onCancel={() => setForceBlock(null)}
+          onForce={(reason) => { const f = forceBlock; setForceBlock(null); handleSave(f.next, { force: true, reason }); }} />
+      )}
+      {suggested && (
+        <SuggestDialog suggestions={suggested} onDismiss={() => setSuggested(null)}
+          onAccept={async (picked) => {
+            setSuggested(null);
+            for (const move of picked) {
+              await api.requirements.transition(move.uid, move.to).catch(e => toast(`Could not move ${move.id}: ${e.message}`, 'error'));
+            }
+            window.dispatchEvent(new Event('reqtool:tree-changed'));
+          }} />
+      )}
 
       {showCommit && (
         <CommitModal

@@ -237,6 +237,10 @@ GET /workflow:
   status: surfaced
 GET /workflow/mermaid:
   status: surfaced
+GET /rules:
+  status: surfaced
+GET /rules/overrides:
+  status: surfaced
 GET /workflows:
   status: surfaced
 GET /workflows/{workflow_id}:
@@ -375,6 +379,8 @@ POST /webhooks:
 POST /webhooks/github:
   status: backend-only
   reason: called by GitHub with an HMAC signature
+POST /rules/preview:
+  status: surfaced
 POST /workflows:
   status: surfaced
 POST /workflows/preview:
@@ -414,6 +420,8 @@ PUT /requirements/{uid}/comments/{comment_uid}:
 PUT /tbds/{uid}:
   status: surfaced
 PUT /templates:
+  status: surfaced
+PUT /rules:
   status: surfaced
 PUT /workflow:
   status: surfaced

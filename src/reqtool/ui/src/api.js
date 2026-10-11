@@ -75,7 +75,7 @@ export const api = {
     commit:        (uid, body)   => post(`/requirements/${uid}/commit`, body),
     approve:       (uid, body)   => post(`/requirements/${uid}/approve`, body),
     history:       (uid)           => get(`/requirements/${uid}/history`),
-    transition:    (uid, status)   => post(`/requirements/${uid}/transition`, { to_state: status }),
+    transition:    (uid, status, extra = {}) => post(`/requirements/${uid}/transition`, { to_state: status, ...extra }),
     transitions:   (uid)           => get(`/requirements/${uid}/transitions`),
     lint:          (uid)           => get(`/requirements/${uid}/lint`),
     relationships: (uid)         => get(`/requirements/${uid}/relationships`),
@@ -222,6 +222,12 @@ export const api = {
     mermaid: ()    => get('/workflow/mermaid'),
   },
   permissions: () => get('/permissions'),
+  rules: {
+    get:       ()          => get('/rules'),
+    save:      (body)      => put('/rules', body),
+    preview:   (uid, to)   => post('/rules/preview', { uid, to_state: to }),
+    overrides: ()          => get('/rules/overrides'),
+  },
   workflows: {
     list:    ()               => get('/workflows'),
     preview: (definition, id) => post('/workflows/preview', { definition, id }),

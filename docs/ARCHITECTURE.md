@@ -74,6 +74,7 @@ graph TB
 | Validation | `validation.py`, `validation_context.py` | Rules run over a `ValidationContext` snapshot, so they need no store |
 | Permissions | `permissions.py`, `security.py` | One table maps a method and path to the action it needs (`delete`, `manage_workflow`, ...) and each role to the actions it may take. The auth middleware applies it; `GET /permissions` hands it to the UI |
 | Workflow tools | `workflows.py`, `services/workflows.py`, `routers/workflows.py` | Pure checks, normalisation and Mermaid output for a workflow definition, and the use cases that save them to `.reqtool/hierarchy.yaml` |
+| Parent and child rules | `workflow_rules.py`, `routers/rules.py`, `RequirementService` | `workflow_rules.py` is pure: `check_move` (upward and downward checks with scope and levels), `plan_rollups` (start, complete, reopen and cancel through a simulated copy of the tree, so chains, loops and depth are bounded) and `check_config`. The service gates a move (`error` rules need `force` and a `reason`, and the role the rule allows), saves it, records the force on the item, then applies `auto` roll-ups through the normal guards with the rule as the author. The rule set is the `rules:` block of `hierarchy.yaml` |
 | Writing check | `doclint/`, `services/lint.py`, `routers/lint.py`, `commands/lint.py` | Text extraction, rules, Vale integration and the settings in `.reqtool/lint.yaml` |
 
 ### 2.2 Module dependency graph

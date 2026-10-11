@@ -65,7 +65,9 @@ def test_a_viewer_can_read_but_not_write(page):
 
     log_in(page, "vera")
     page.locator("select.header-select").first.select_option("p1")
-    page.get_by_role("button", name="+ New", exact=True).first.click()
-    expect(page.locator(".toast", has_text="read-only")).to_be_visible()
+    expect(page.get_by_role("button", name="+ New", exact=True)).to_have_count(0)   # hidden, not offered then refused
+    vera = page.server.post("/auth/login", {"username": "vera", "password": PASSWORD}, expect=200)["access_token"]
+    page.server.headers["Authorization"] = f"Bearer {vera}"
+    assert page.server.post("/requirements", {"title": "x"}, expect=None)["detail"]["error"] == "forbidden"
     page.server.headers["Authorization"] = f"Bearer {token}"
     assert page.server.get("/requirements") == []

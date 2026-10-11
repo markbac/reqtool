@@ -53,6 +53,21 @@ def migrate_settings(root: Path) -> list[str]:
     return written
 
 
+def migrate_rules(root: Path) -> bool:
+    """Add the parent/child rule set to a repository that has none, with every rule off so behaviour is unchanged."""
+    from ..fileio import load_yaml, save_yaml
+    from ..workflow_rules import default_rules
+    path = root / ".reqtool" / "hierarchy.yaml"
+    if not path.exists():
+        return False
+    data = load_yaml(path)
+    if not isinstance(data, dict) or "rules" in data:
+        return False
+    data["rules"] = default_rules("off", "off")
+    save_yaml(path, data)
+    return True
+
+
 def migrate_principles(root: Path) -> dict:
     """Give principles an area and category (from the default packs by id, else the old domain). Safe to run again."""
     from ..services.principles import PrincipleService
@@ -76,6 +91,8 @@ def migrate(repo: Optional[str]):
         click.echo(f"{result['skipped']} file(s) differ from the copy in decisions/ and were left in tbds/ -- reconcile them by hand.")
     for name in migrate_settings(root):
         click.echo(f"Wrote {name} (the repository now owns these settings).")
+    if migrate_rules(root):
+        click.echo("Added the parent and child rules to .reqtool/hierarchy.yaml (all off; turn them on in the workflow editor).")
     placed = migrate_principles(root)
     click.echo(f"Principles placed in an area and category: {placed['placed']}")
     if placed["wrote_vocabulary"]:

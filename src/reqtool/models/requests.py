@@ -96,6 +96,8 @@ class UpdateRequirementRequest(BaseModel):
     dor_checklist: Optional[list[dict[str, Any]]] = None
     dod_checklist: Optional[list[dict[str, Any]]] = None
     attributes: Optional[dict[str, Any]] = None
+    force: Optional[bool] = None       # go past parent/child rules in error mode; needs `reason`
+    reason: Optional[str] = None
     custom_fields: Optional[dict[str, Any]] = None
     nfr: Optional[dict[str, Any]] = None
     constraints: Optional[list[str]] = None
