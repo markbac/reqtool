@@ -188,3 +188,27 @@ describe('rules panel', () => {
     expect(api.rules.preview).toHaveBeenCalledWith('US-1', 'in_progress');
   });
 });
+
+describe('raising work from a triaged issue', () => {
+  it('offers a defect for a defect issue and a story for an enhancement, and nothing else', async () => {
+    const { RaiseButton } = await import('../components/Editor.jsx');
+    const show = (item) => render(<AppProvider><As permissions={['read', 'write']}><RaiseButton item={item} /></As></AppProvider>);
+    const defect = show({ uid: 'i', id: 'ISS-1', req_type: 'issue', status: 'defect' });
+    expect(screen.getByRole('button', { name: 'Raise a defect' })).toBeInTheDocument();
+    defect.unmount();
+    const story = show({ uid: 'i', id: 'ISS-1', req_type: 'issue', status: 'enhancement' });
+    expect(screen.getByRole('button', { name: 'Raise a story' })).toBeInTheDocument();
+    story.unmount();
+    const other = show({ uid: 'i', id: 'ISS-1', req_type: 'issue', status: 'in_triage' });
+    expect(screen.queryByRole('button')).toBeNull();
+    other.unmount();
+    show({ uid: 'b', id: 'BG-1', req_type: 'bug', status: 'defect' });
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('is hidden from viewers', async () => {
+    const { RaiseButton } = await import('../components/Editor.jsx');
+    render(<AppProvider><As permissions={['read']}><RaiseButton item={{ uid: 'i', id: 'ISS-1', req_type: 'issue', status: 'defect' }} /></As></AppProvider>);
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+});

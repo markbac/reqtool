@@ -18,7 +18,8 @@ concepts:
     - **Feature** -- discrete piece of functionality within an epic
     - **Story** -- unit of user value within a feature
     - **Task** -- concrete unit of technical work within a story or feature
-    - **Bug** -- a defect, linked to what it affects
+    - **Defect** (id `bug`) -- a confirmed defect, linked to what it affects
+    - **Issue** -- something reported as wrong, before anyone knows why; triage decides what it is
     - **Spike** -- time-boxed investigation within an epic or feature
 
     **Systems engineering types** (for formal requirements):
@@ -70,6 +71,8 @@ workflow:
     **Lightweight** (theme, initiative, stakeholder_need): draft → active → done / cancelled
 
     **Sprint** (epic, feature, story, task, bug, spike): backlog → ready → in_progress → in_review → done
+
+    **Triage** (issue): reported → in_triage → defect / user_error / enhancement / duplicate / not_reproducible (or needs_info). A defect goes on to fixing → fixed → closed.
 
     **Formal** (functional, performance, interface, etc.): draft → in_review → reviewed → approved → deprecated
 

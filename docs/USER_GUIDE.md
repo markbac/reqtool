@@ -305,6 +305,43 @@ The workflow in `.reqtool/config.yaml` stays as the fallback for item types with
 
 The status buttons in the item editor move the item to the next state. If the move needs data the item does not have yet, a pop-up asks for it: the needed fields are highlighted and **Change other fields** shows every other field (title, description, rationale, owner, priority, tags and the rest) in case you want to change any of them on the way. **Apply to draft** stages the change and **Apply and save** writes it. A move that needs nothing happens at once. The server applies the same rules, so the same changes can be sent in one `PUT /requirements/{uid}`.
 
+### 4.0c Issues and triage
+
+Not everything reported as wrong is a defect. The **Issue** type is the intake record for "something looks wrong": it is raised first, triaged, and only a confirmed defect becomes defect work. (The old **Bug** type is now labelled **Defect** everywhere; its id stays `bug`, so existing items and exports do not change.)
+
+Issues use the `triage` workflow:
+
+```mermaid
+stateDiagram-v2
+    [*] --> reported
+    reported --> in_triage
+    in_triage --> defect
+    in_triage --> user_error
+    in_triage --> enhancement
+    in_triage --> duplicate
+    in_triage --> not_reproducible
+    in_triage --> needs_info
+    needs_info --> in_triage
+    defect --> fixing
+    fixing --> fixed
+    fixed --> closed
+    enhancement --> planned
+    planned --> closed
+```
+
+| Decision | What it means | The move asks for |
+|---|---|---|
+| **Defect** | It is wrong and ours to fix | Priority and a triage note |
+| **User error** | Working as designed | A triage note saying what to do instead |
+| **Enhancement request** | Not wrong, but a reasonable ask | A triage note |
+| **Duplicate** | The same as another issue | **Duplicate of** (the other issue's id) |
+| **Not reproducible** | Could not see it happen | A triage note saying what was tried |
+| **Needs info** | Waiting for the reporter | A triage note saying what is needed |
+
+Starting triage (`In triage`) needs an assignee, so someone owns the decision. The pop-up asks for each of these when you press the status button, and the server enforces the same. The issue form has fields for what was seen and expected, steps, version and environment (**Issue Report** in the template list pre-fills them). A decided issue can be reopened with **In triage**.
+
+When an issue is a **Defect** or an **Enhancement request**, **Raise a defect** (or **Raise a story**) in the editor header creates the work item, copies the title, description and priority, links it back with `derived_from`, and opens it (`POST /requirements/{uid}/raise`, optionally with `req_type`). Track the work on the new item; the issue can follow with `fixing`, `fixed` and `closed`. A queue of issues needing triage is the tree or the search filtered to the `issue` type and the `reported` or `in_triage` status.
+
 ### 4.0b Parent and child rules
 
 Status moves can be checked against the item's family and can move the family for you. The rules live under `rules:` in `.reqtool/hierarchy.yaml` and are edited in **⋯ More > Workflows**, under **Parent and child rules** (administrators; everyone else can read them). A repository made with `req init` starts with the defaults below. A repository made earlier gets the same rules, all switched off, from `req migrate`, so nothing changes until an administrator turns them on.

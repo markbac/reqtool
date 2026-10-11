@@ -21,7 +21,8 @@ SCOPES = {"up": ("parent", "ancestors"), "start": ("parent", "ancestors"), "reop
           "down": ("children", "descendants"), "complete": ("children", "descendants"),
           "cancel": ("children", "descendants")}
 MAX_DEPTH = 25
-_CANCELLED = {"cancelled", "canceled", "deprecated", "rejected", "obsolete", "withdrawn"}
+_CANCELLED = {"cancelled", "canceled", "deprecated", "rejected", "obsolete", "withdrawn",
+              "user_error", "duplicate", "not_reproducible"}
 _LEVEL_WORDS = {1: "one level", 2: "two levels", 3: "three levels", 4: "four levels", 5: "five levels"}
 
 Requirements = Mapping[str, dict[str, Any]]

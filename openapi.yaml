@@ -1879,6 +1879,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/raise:
+    post:
+      tags:
+      - requirements
+      summary: Raise From Issue
+      description: 'Raise the work an issue needs: a defect (or the type you name), linked back to the issue.'
+      operationId: raise_from_issue_requirements__uid__raise_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /requirements/{uid}/transitions:
     get:
       tags:

@@ -264,6 +264,12 @@ def transition_requirement(uid: ReqUid, body: dict, service: RequirementService 
                               reason=str(body.get("reason") or ""), actor=user)
 
 
+@router.post("/requirements/{uid}/raise", status_code=201)
+def raise_from_issue(uid: ReqUid, body: dict, service: RequirementService = Depends(get_service)):
+    """Raise the work an issue needs: a defect (or the type you name), linked back to the issue."""
+    return service.raise_from(uid, body.get("req_type") or None)
+
+
 @router.get("/requirements/{uid}/transitions")
 def requirement_transitions(uid: ReqUid, service: RequirementService = Depends(get_service)):
     """Where the item can move next, what each move needs, and which of those needs are still unmet."""

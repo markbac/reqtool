@@ -296,7 +296,7 @@ The prefix is taken from the type's `id_prefix` in `hierarchy.yaml`. If no match
 
 ### 5.1 Workflow definitions
 
-Four workflow templates ship in `hierarchy.yaml`. Each maps states and transitions.
+Five workflow templates ship in `hierarchy.yaml`. Each maps states and transitions.
 
 ```
 lightweight          sprint              formal              safety_formal

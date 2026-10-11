@@ -77,6 +77,7 @@ export const api = {
     history:       (uid)           => get(`/requirements/${uid}/history`),
     transition:    (uid, status, extra = {}) => post(`/requirements/${uid}/transition`, { to_state: status, ...extra }),
     transitions:   (uid)           => get(`/requirements/${uid}/transitions`),
+    raise:         (uid, reqType)  => post(`/requirements/${uid}/raise`, reqType ? { req_type: reqType } : {}),
     lint:          (uid)           => get(`/requirements/${uid}/lint`),
     relationships: (uid)         => get(`/requirements/${uid}/relationships`),
     addAc:         (uid, body)   => post(`/requirements/${uid}/ac`, body),

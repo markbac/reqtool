@@ -26,6 +26,9 @@ CLEARABLE_FIELDS = {
     "target_release", "target_milestone", "planned_start_date", "planned_completion_date",
 }
 
+# What an issue in each triage state is raised as, when the caller does not say.
+RAISE_AS = {"defect": "bug", "enhancement": "story"}
+
 # What a bulk edit may touch. Identity, history, hashes and soft-delete are never bulk-editable.
 BULK_EDITABLE_FIELDS = {
     "id", "status", "priority", "owner", "assignee", "component", "domain", "discipline", "feature",
@@ -243,6 +246,27 @@ class RequirementService:
             self._mark_forced(uid, gate["forced"], reason, actor, to_state)
             result = self.store.get_requirement(uid) or result
         return self._with_effects(result, gate, self._roll_up(uid, old_status, to_state))
+
+    def raise_from(self, uid: str, req_type: Optional[str] = None) -> dict[str, Any]:
+        """Create the work item an issue turned out to need (a defect, or a story for an enhancement request).
+
+        The new item copies the title, description and priority, and links back to the issue (``derived_from``).
+        """
+        self._no_merge_conflicts()
+        source = self._existing(uid)
+        target_type = req_type or RAISE_AS.get(str(source.get("status")))
+        if not target_type:
+            raise Invalid("Say which type to raise (req_type); this status has no default")
+        if target_type not in self.store.hierarchy.types:
+            raise Invalid(f"Unknown item type '{target_type}'")
+        fields: dict[str, Any] = {
+            "title": source.get("title", ""), "req_type": target_type,
+            "content": {"description": (source.get("content") or {}).get("description", "")},
+            "relationships": [{"type": "derived_from", "target": {"uid": source["uid"], "id": source.get("id")}}],
+        }
+        if source.get("priority"):
+            fields["priority"] = source["priority"]
+        return self.create(fields)
 
     # -- bulk --------------------------------------------------------------------------------
 

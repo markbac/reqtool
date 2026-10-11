@@ -834,6 +834,32 @@ export function needsInput(option, draft) {
   return (r.open_children || []).length > 0 && r.children_enforce !== 'off';
 }
 
+/** What an issue turns into once triage has decided, by its status. The server uses the same table. */
+export const RAISE_AS = {
+  defect: { type: 'bug', label: 'Raise a defect' },
+  enhancement: { type: 'story', label: 'Raise a story' },
+};
+
+/** On a triaged issue: create the defect (or story) it needs, linked back to the issue, and open it. */
+export function RaiseButton({ item, disabled }) {
+  const { dispatch, toast } = useApp();
+  const can = useCan();
+  const raise = item?.req_type === 'issue' ? RAISE_AS[item.status] : null;
+  if (!raise || !can('write')) return null;
+  const go = async () => {
+    try {
+      const made = await api.requirements.raise(item.uid, raise.type);
+      dispatch({ type: 'SELECT', uid: made.uid, artefactType: 'requirement' });
+      window.dispatchEvent(new Event('reqtool:tree-changed'));
+      toast(`Created ${made.id} from ${item.id}`, 'success');
+    } catch (err) { toast(err.message, 'error'); }
+  };
+  return (
+    <button className="btn btn-secondary" style={{ fontSize: 12, padding: '4px 8px' }} disabled={disabled}
+      title={disabled ? 'Save your changes first' : `Create a ${raise.type} linked to ${item.id}`} onClick={go}>{raise.label}</button>
+  );
+}
+
 export function WorkflowStateWidget({ uid, status, reqType, draft, onTransition }) {
   const { state } = useApp();
   const can = useCan();
@@ -1098,6 +1124,7 @@ function RequirementEditor({ uid }) {
               if (save) handleSave(staged, extras);
             }} />
           {isDirty && <span className="editor-dirty-badge" title="You have unsaved changes -- press Ctrl+S or click Save">● Unsaved changes</span>}
+          <RaiseButton item={draft} disabled={isDirty} />
         </div>
         <div className="editor-header-right">
 
