@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 RELEASES = "https://github.com/vale-cli/vale/releases"
-FALLBACK_VALE_VERSION = "3.9.1"  # used only when the latest release cannot be looked up
+FALLBACK_VALE_VERSION = "3.24.0"  # used only when the latest release cannot be looked up (newest release checked to install and verify)
 RETRY_AFTER_SECONDS = 24 * 3600  # after a failed download, setup scripts wait this long before trying again
 TIMEOUT = 20
 
