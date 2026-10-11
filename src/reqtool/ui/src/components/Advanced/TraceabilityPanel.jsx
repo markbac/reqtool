@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../AppContext';
 import { api } from '../../api';
+import { TraceGrid } from '../Views';
 
 export function TraceabilityPanel({ onClose }) {
   const { state } = useApp();
   const { activeProduct } = state;
   const [matrix, setMatrix] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mode, setMode] = useState('grid');
   const [relFilter, setRelFilter] = useState({ requires: true, derived_from: true, satisfies: true });
 
   useEffect(() => {
@@ -38,6 +40,12 @@ export function TraceabilityPanel({ onClose }) {
           </div>
         </div>
         <div className="wide-panel-body">
+          <div className="ins-tabs" role="tablist">
+            <button role="tab" aria-selected={mode === 'grid'} className="ins-tab" onClick={() => setMode('grid')}>Requirements × links</button>
+            <button role="tab" aria-selected={mode === 'teams'} className="ins-tab" onClick={() => setMode('teams')}>Requirements × teams</button>
+          </div>
+          {mode === 'grid' && <TraceGrid product={activeProduct?.id} />}
+          {mode === 'teams' && <>
           {!activeProduct && <div className="text-muted">Select a product first.</div>}
           {loading && <div className="panel-loading"><div className="spinner" /></div>}
           {!loading && matrix && (
@@ -73,6 +81,7 @@ export function TraceabilityPanel({ onClose }) {
               No teams allocated. Use Allocated To on requirements to populate this matrix.
             </div>
           )}
+          </>}
         </div>
       </div>
     </div>

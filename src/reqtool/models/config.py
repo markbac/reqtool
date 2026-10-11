@@ -298,6 +298,12 @@ class RulesConfig(BaseModel):
     rules: list[ParentChildRule] = Field(default_factory=list)
 
 
+class FlowConfig(BaseModel):
+    """When an item counts as stuck in the flow view: days in a state, with optional per-state limits."""
+    stuck_days: int = Field(14, ge=1, le=3650)
+    states: dict[str, int] = Field(default_factory=dict)
+
+
 class HierarchyConfig(BaseModel):
     types: dict[str, ItemTypeConfig] = Field(default_factory=dict)
     hierarchy: dict[str, HierarchyRule] = Field(default_factory=dict)
@@ -308,6 +314,7 @@ class HierarchyConfig(BaseModel):
     cross_layer_rules: list[CrossLayerRule] = Field(default_factory=list)
     default_relationship_types: list[RelationshipTypeDef] = Field(default_factory=list)
     rules: RulesConfig = Field(default_factory=RulesConfig)
+    flow: FlowConfig = Field(default_factory=FlowConfig)
     # How hierarchy rules (allowed_children) are applied: off | warn | error
     enforce: str = "warn"
 

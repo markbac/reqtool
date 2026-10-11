@@ -429,3 +429,25 @@ PUT /workflow:
   status: surfaced
 PUT /workflows/{workflow_id}:
   status: surfaced
+GET /roadmap/board:
+  status: surfaced
+GET /traceability/grid:
+  status: surfaced
+GET /views/burnup/{iteration_id}:
+  status: surfaced
+GET /views/coverage:
+  status: surfaced
+GET /views/decisions:
+  status: surfaced
+GET /views/flow:
+  status: surfaced
+GET /views/hierarchy:
+  status: surfaced
+GET /views/impact/{uid}:
+  status: surfaced
+GET /views/principles:
+  status: surfaced
+GET /views/principles/{uid}/citations:
+  status: surfaced
+GET /views/type-structure:
+  status: surfaced

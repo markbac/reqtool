@@ -4,7 +4,8 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { useApp } from '../AppContext';
+import { useApp, useCan } from '../AppContext';
+import { RoadmapBoard } from './Views';
 import { api } from '../api';
 import { Panel } from './Advanced/Panel';
 import ResolveDialog from './ResolveDialog';
@@ -26,7 +27,7 @@ export function Bar({ value, label }) {
   );
 }
 
-function useLoad(fn, deps = []) {
+export function useLoad(fn, deps = []) {
   const [state, setState] = useState({ data: null, error: null, loading: true });
   const reload = useCallback(() => {
     setState(s => ({ ...s, loading: true, error: null }));
@@ -37,7 +38,7 @@ function useLoad(fn, deps = []) {
   return { ...state, reload };
 }
 
-function Tabs({ tabs, value, onChange }) {
+export function Tabs({ tabs, value, onChange }) {
   return (
     <div className="ins-tabs" role="tablist">
       {tabs.map(([id, label]) => (
@@ -47,7 +48,7 @@ function Tabs({ tabs, value, onChange }) {
   );
 }
 
-function Status({ loading, error }) {
+export function Status({ loading, error }) {
   if (loading) return <div className="panel-loading"><div className="spinner" /></div>;
   if (error) return <div className="ins-error" role="alert">{error}</div>;
   return null;
@@ -200,13 +201,19 @@ function RoadmapNode({ node, depth, onOpen }) {
 
 export function RoadmapPanel({ onClose }) {
   const { dispatch } = useApp();
+  const can = useCan();
+  const [mode, setMode] = useState('list');
   const road = useLoad(() => api.roadmap(), []);
   const open = (uid) => { dispatch({ type: 'SELECT', uid, artefactType: 'requirement' }); onClose(); };
   return (
-    <Panel title="Roadmap" onClose={onClose} width={720}>
-      <Status {...road} />
-      {road.data && !road.data.length && <div className="ins-muted">No themes, initiatives or epics yet.</div>}
-      {road.data?.map(n => <RoadmapNode key={n.uid} node={n} depth={0} onOpen={open} />)}
+    <Panel title="Roadmap" onClose={onClose} width={mode === 'board' ? 1000 : 720}>
+      <Tabs tabs={[['list', 'List'], ['board', 'Board']]} value={mode} onChange={setMode} />
+      {mode === 'board' && <RoadmapBoard open={open} canEdit={can('write')} />}
+      {mode === 'list' && <>
+        <Status {...road} />
+        {road.data && !road.data.length && <div className="ins-muted">No themes, initiatives or epics yet.</div>}
+        {road.data?.map(n => <RoadmapNode key={n.uid} node={n} depth={0} onOpen={open} />)}
+      </>}
     </Panel>
   );
 }

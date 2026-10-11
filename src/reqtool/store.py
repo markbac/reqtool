@@ -649,9 +649,13 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
             self._check_relationships(fields.get("req_type", data.get("req_type", "functional")),
                                       fields.get("relationships", data.get("relationships")) or [],
                                       data.get("relationships") or [])
+        before_status = data.get("status")
         apply_fields(data, fields, deep_merge=True)  # callers may send partial nested blocks
         if record_change(REQUIREMENT, data, increment, author, summary, change_ref):
             self._mark_downstream_suspect(uid)
+        if data.get("status") != before_status:
+            # Dated status moves are what the flow and burn-up views are built from.
+            data["history"][-1]["status_from"], data["history"][-1]["status_to"] = before_status, data.get("status")
 
         self.storage.write(self.req_path(uid), data)
         return data

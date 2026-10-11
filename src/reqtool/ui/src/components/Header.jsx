@@ -193,6 +193,7 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
         <OverflowMenu items={([
           { label: '◔ Overview & release gate', action: onOverview },
           { label: '🗺 Roadmap', action: onRoadmap },
+          { label: '◫ Views', action: () => dispatch({ type: 'TOGGLE_PANEL', key: '_showViews', value: true }) },
           { label: '⚖ Decisions & ADRs', action: onDecisions },
           { label: '🧩 Modules', action: onModules },
           { label: '⎇ Change sets', action: onChangeSets },

@@ -1037,6 +1037,390 @@ paths:
           content:
             application/json:
               schema: {}
+  /views/hierarchy:
+    get:
+      tags:
+      - views
+      summary: View Hierarchy
+      description: Items in tree order with their parents. Filters keep the ancestors of every match.
+      operationId: view_hierarchy_views_hierarchy_get
+      parameters:
+      - name: product
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Product
+      - name: types
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Comma-separated types
+          title: Types
+        description: Comma-separated types
+      - name: statuses
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Comma-separated statuses
+          title: Statuses
+        description: Comma-separated statuses
+      - name: branch
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Branch
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 5000
+          minimum: 1
+          default: 400
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /views/type-structure:
+    get:
+      tags:
+      - views
+      summary: View Type Structure
+      description: Which item type may sit under which, as Mermaid text.
+      operationId: view_type_structure_views_type_structure_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /views/coverage:
+    get:
+      tags:
+      - views
+      summary: View Coverage
+      description: Counts per status (or verification state) at every level of the hierarchy.
+      operationId: view_coverage_views_coverage_get
+      parameters:
+      - name: by
+        in: query
+        required: false
+        schema:
+          type: string
+          default: status
+          title: By
+      - name: product
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Product
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /views/impact/{uid}:
+    get:
+      tags:
+      - views
+      summary: View Impact
+      description: Everything within a few hops of one item, nearest first, capped for legibility.
+      operationId: view_impact_views_impact__uid__get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      - name: depth
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 3
+          minimum: 1
+          default: 2
+          title: Depth
+      - name: types
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Types
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /views/flow:
+    get:
+      tags:
+      - views
+      summary: View Flow
+      description: Items per workflow state, how long they have sat there, and which are stuck.
+      operationId: view_flow_views_flow_get
+      parameters:
+      - name: stuck_days
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 3650
+            minimum: 1
+          - type: 'null'
+          title: Stuck Days
+      - name: req_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Req Type
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /views/burnup/{iteration_id}:
+    get:
+      tags:
+      - views
+      summary: View Burnup
+      description: Scope against done over time for one iteration.
+      operationId: view_burnup_views_burnup__iteration_id__get
+      parameters:
+      - name: iteration_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Iteration Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /views/decisions:
+    get:
+      tags:
+      - views
+      summary: View Decision Ageing
+      description: Open decisions and questions, oldest first, with what each blocks.
+      operationId: view_decision_ageing_views_decisions_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /views/principles:
+    get:
+      tags:
+      - views
+      summary: View Principle Heatmap
+      description: Principle area and category against how many requirements cite them.
+      operationId: view_principle_heatmap_views_principles_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /views/principles/{uid}/citations:
+    get:
+      tags:
+      - views
+      summary: View Principle Citations
+      description: The requirements that cite one principle.
+      operationId: view_principle_citations_views_principles__uid__citations_get
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /traceability/grid:
+    get:
+      tags:
+      - views
+      summary: Traceability Grid
+      description: Requirements against tests, modules or decisions. ``gaps=true`` keeps rows with no link; 
+        ``format=csv`` downloads.
+      operationId: traceability_grid_traceability_grid_get
+      parameters:
+      - name: columns
+        in: query
+        required: false
+        schema:
+          type: string
+          default: tests
+          title: Columns
+      - name: product
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Product
+      - name: req_type
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Req Type
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: gaps
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+          title: Gaps
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+          title: Offset
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          default: 100
+          title: Limit
+      - name: format
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^(json|csv)$
+          default: json
+          title: Format
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /roadmap/board:
+    get:
+      tags:
+      - views
+      summary: Roadmap Board
+      description: Themes as lanes, releases or iterations as columns, with dependency links and the longest chain.
+      operationId: roadmap_board_roadmap_board_get
+      parameters:
+      - name: group_by
+        in: query
+        required: false
+        schema:
+          type: string
+          pattern: ^(release|iteration)$
+          default: release
+          title: Group By
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /lint/config:
     get:
       tags:
