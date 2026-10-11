@@ -24,7 +24,7 @@ def test_dragging_a_story_starts_its_epic_in_auto_mode(page):
     open_board(page)
     drag_and_drop(page, column(page, "backlog").locator(".kanban-card", has_text="US-001"), column(page, "in progress"))
     wait_until(lambda: status(page.server, ids["epic"]) == "in_progress", what="the epic to be rolled up")
-    expect(column(page, "in progress").locator(".kanban-card", has_text="EP-001")).to_have_count(1)
+    expect(column(page, "in progress").locator(".kanban-card", has=page.locator(".kanban-card-id", has_text="EP-001"))).to_have_count(1)
 
 
 def test_suggest_mode_asks_before_moving_the_epic(page):
@@ -48,13 +48,14 @@ def test_a_blocked_drop_can_be_forced_with_a_reason(page):
     open_app(page)
     open_board(page)
     drag_and_drop(page, column(page, "backlog").locator(".kanban-card", has_text="US-001"), column(page, "in progress"))
-    dialog = page.get_by_role("dialog", name="Move blocked by a rule")
+    dialog = page.get_by_role("dialog", name="Move to In progress")            # the same pop-up as in the editor
     expect(dialog).to_contain_text("No work under a closed parent")
     assert status(page.server, ids["story"]) == "backlog"
-    force = dialog.get_by_role("button", name="Force anyway")
-    expect(force).to_be_disabled()
-    dialog.get_by_label("Reason for forcing it").fill("Customer escalation")
-    force.click()
+    apply = dialog.get_by_role("button", name="Apply and save")
+    expect(apply).to_be_disabled()
+    dialog.get_by_label("Force anyway").check()
+    dialog.get_by_label("Reason for forcing").fill("Customer escalation")
+    apply.click()
     wait_until(lambda: status(page.server, ids["story"]) == "in_progress", what="the forced move")
     forced = page.server.get("/rules/overrides")["overrides"]
     assert forced[0]["reason"] == "Customer escalation"

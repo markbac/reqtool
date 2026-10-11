@@ -85,7 +85,7 @@ def test_overflow_menu_lists_the_insight_panels(page):
     page.get_by_role("button", name="⋯ More").click()
     for label in ("◔ Overview & release gate", "⇢ Roadmap", "⚖ Decisions & ADRs", "▦ Modules", "⎇ Change sets",
                   "✉ Inbox", "⌕ Query & saved views", "◎ Baselines", "⊗ Traceability"):
-        expect(page.get_by_role("button", name=label)).to_be_visible()
+        expect(page.get_by_role("menuitem", name=label)).to_be_visible()
     page.keyboard.press("Escape")
     page.mouse.click(5, 400)  # click away closes the menu
     open_menu_item(page, "⇢ Roadmap")
