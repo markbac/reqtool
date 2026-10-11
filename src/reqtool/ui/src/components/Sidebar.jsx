@@ -11,6 +11,7 @@ import { api } from '../api';
 import ResolveDialog from './ResolveDialog';
 import { parentOf, candidateParents, canMoveUnder } from '../treeMove';
 import { typeBody } from '../createItem';
+import { PrinciplesPanel } from './Principles';
 import './Sidebar.css';
 
 const DOMAIN_COLOURS = {
@@ -532,68 +533,6 @@ function RequirementsPanel() {
       {histData && <HistoryOverlay uid={histUid} data={histData}
         onClose={() => { setHistData(null); setHistUid(null); }} />}
     </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 1b. Principles panel
-// ---------------------------------------------------------------------------
-const PRINCIPLE_DOMAIN_ORDER = ['business', 'architecture', 'security', 'firmware', 'comms', 'data', 'process', 'safety'];
-
-function PrinciplesPanel() {
-  const { state, dispatch, toast } = useApp();
-  const [items, setItems]         = useState([]);
-  const [loading, setLoading]     = useState(false);
-  const [collapsed, setCollapsed] = useState({});
-  const [search, setSearch]       = useState('');
-
-  const load = () => { setLoading(true); api.principles.list().then(setItems).catch(() => {}).finally(() => setLoading(false)); };
-  useEffect(() => { load(); }, []);
-
-  const filtered = search ? items.filter(p => p.title?.toLowerCase().includes(search.toLowerCase()) || p.id?.toLowerCase().includes(search.toLowerCase())) : items;
-  const grouped = {};
-  for (const p of filtered) { const d = p.domain || 'unclassified'; if (!grouped[d]) grouped[d] = []; grouped[d].push(p); }
-  const order = [...PRINCIPLE_DOMAIN_ORDER.filter(d => grouped[d]), ...Object.keys(grouped).filter(d => !PRINCIPLE_DOMAIN_ORDER.includes(d)).sort()];
-
-  if (loading) return <div className="sidebar-loading"><div className="spinner" /></div>;
-  return (
-    <div className="list-panel">
-      <div className="list-panel-toolbar">
-        <input className="list-search" placeholder="Search principles..." value={search}
-          onChange={e => setSearch(e.target.value)} />
-        <button className="btn btn-ghost list-new-btn" onClick={async () => {
-          try { const p = await api.principles.create({ title: 'New principle', content: { description: '', rationale: '', implications: '', exceptions: '' } }); dispatch({ type: 'SELECT', uid: p.uid, artefactType: 'principle' }); load(); }
-          catch (err) { toast(err.message, 'error'); }
-        }}>+ New</button>
-      </div>
-      {!items.length && <div className="sidebar-empty">No principles defined.</div>}
-      {order.map(domain => {
-        const domainItems = grouped[domain] || [];
-        const colour = DOMAIN_COLOURS[domain] || 'var(--text-muted)';
-        return (
-          <div key={domain} className="principle-group">
-            <button className="principle-group-header"
-              onClick={() => setCollapsed(c => ({ ...c, [domain]: !c[domain] }))}
-              style={{ borderLeft: `3px solid ${colour}` }}>
-              <span className="principle-group-toggle">{collapsed[domain] ? '▸' : '▾'}</span>
-              <span className="principle-group-label">{domain}</span>
-              <span className="principle-group-count">{domainItems.length}</span>
-            </button>
-            {!collapsed[domain] && domainItems.map(p => (
-              <div key={p.uid} className={`list-item ${state.selectedUid === p.uid ? 'list-item--selected' : ''}`}
-                style={{ borderLeft: `3px solid ${colour}`, paddingLeft: 20 }}
-                onClick={() => dispatch({ type: 'SELECT', uid: p.uid, artefactType: 'principle' })}>
-                <div className="list-item-header">
-                  <span className="list-item-id mono">{p.id}</span>
-                  <span className={`badge badge-${p.approval?.status ?? p.status ?? 'draft'}`}>{p.approval?.status ?? p.status ?? 'draft'}</span>
-                </div>
-                <div className="list-item-title">{p.title}</div>
-              </div>
-            ))}
-          </div>
-        );
-      })}
-    </div>
   );
 }
 

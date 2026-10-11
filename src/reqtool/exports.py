@@ -12,12 +12,23 @@ import json
 import zipfile
 from typing import Any, Optional, TYPE_CHECKING
 
+from . import principles as principle_rules
+
 if TYPE_CHECKING:
     from .store import Store
 
 # ---------------------------------------------------------------------------
 # Markdown export
 # ---------------------------------------------------------------------------
+
+def _principle_sort_key(principle: dict[str, Any], vocabulary: dict[str, Any]) -> tuple:
+    """Area and category in vocabulary order (unknown ones last), then id."""
+    areas = list(vocabulary)
+    area, category = principle_rules.placement(principle)
+    cats = list((vocabulary.get(area) or {}).get("categories", {}))
+    return (areas.index(area) if area in areas else len(areas), area or "~",
+            cats.index(category) if category in cats else len(cats), category or "~", principle.get("id", ""))
+
 
 def _req_to_markdown(req: dict[str, Any], req_id_by_uid: Optional[dict[str, str]] = None) -> str:
     """Render a single requirement as Markdown (definition-list style, spec §11.2)."""
@@ -196,8 +207,17 @@ def export_markdown(
     principles = store.live_principles()
     if principles:
         lines = []
-        for p in sorted(principles, key=lambda x: x.get("id", "")):
-            lines.append(f"## {p.get('id', '')} -- {p.get('title', '')}\n")
+        vocabulary = store.principle_vocabulary()
+        heading = (None, None)
+        for p in sorted(principles, key=lambda x: _principle_sort_key(x, vocabulary)):
+            area, category = principle_rules.placement(p)
+            if (area, category) != heading:
+                if area != heading[0]:
+                    lines.append(f"# {(vocabulary.get(area) or {}).get('label') or (area or 'Unplaced').replace('_', ' ').capitalize()}\n")
+                cat_label = ((vocabulary.get(area) or {}).get("categories", {}).get(category) or {}).get("label")
+                lines.append(f"## {cat_label or (category or 'General').replace('_', ' ').capitalize()}\n")
+                heading = (area, category)
+            lines.append(f"### {p.get('id', '')} -- {p.get('title', '')}\n")
             c = p.get("content", {})
             for section, label in (
                 ("description", "Statement"),

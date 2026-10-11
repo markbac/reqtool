@@ -91,9 +91,9 @@ class TestInitDefaults:
         from reqtool.store import Store
         s = Store(tmp_path)
         s.load()
-        domains = {p.get("domain") for p in s.principles.values()}
-        # Should cover at least 6 of 8 categories
-        assert len(domains) >= 6
+        areas = {p.get("area") for p in s.principle_map().values()}
+        # Every default area has a pack, and `init defaults` includes them all
+        assert len(areas) == 10
 
     def test_init_defaults_output_mentions_count(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)

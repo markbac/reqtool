@@ -141,13 +141,15 @@ def _launch(root: Path, port: int, auth: str | None) -> Server:
     raise RuntimeError("req serve did not start")
 
 
-def start_server(root: Path, flavour: str = "agile", auth: str | None = None) -> Server:
+def start_server(root: Path, flavour: str = "agile", auth: str | None = None, principles: str | None = "none") -> Server:
+    """``principles`` is ``req init``'s ``--principles`` (None keeps the flavour's default packs)."""
     root.mkdir(parents=True, exist_ok=True)
     _git(root, "init", "-q", "-b", "main")
     _git(root, "config", "user.email", "e2e@example.com")
     _git(root, "config", "user.name", "E2E")
+    extra = ["--principles", principles] if principles else []
     subprocess.run([sys.executable, "-m", "reqtool.cli", "init", flavour, "--repo", str(root),
-                    "--id", "e2e", "--title", "E2E"], check=True, capture_output=True, env=_env())
+                    "--id", "e2e", "--title", "E2E", *extra], check=True, capture_output=True, env=_env())
     _git(root, "add", "-A")
     _git(root, "commit", "-q", "-m", "init")
     return _launch(root, _free_port(), auth)

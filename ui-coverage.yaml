@@ -140,6 +140,12 @@ GET /permissions:
   status: surfaced
 GET /principles:
   status: surfaced
+GET /principles/areas:
+  status: surfaced
+GET /principles/packs:
+  status: surfaced
+GET /principles/vocabulary:
+  status: surfaced
 GET /principles/{uid}:
   status: surfaced
 GET /products:
@@ -309,6 +315,8 @@ POST /notifications/{item_id}/read:
   status: surfaced
 POST /principles:
   status: surfaced
+POST /principles/packs/{area}:
+  status: surfaced
 POST /principles/{uid}/commit:
   status: surfaced
 POST /products:
@@ -391,6 +399,8 @@ PUT /hierarchy/types/{type_id}/workflow:
 PUT /lint/config:
   status: surfaced
 PUT /notifications/preferences/{user}:
+  status: surfaced
+PUT /principles/vocabulary:
   status: surfaced
 PUT /principles/{uid}:
   status: surfaced

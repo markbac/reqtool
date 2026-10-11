@@ -465,10 +465,12 @@ class TestInitDefaultsRegression:
         assert result.exit_code == 0
         s = Store(tmp_path)
         s.load()
-        domains = {p.get("domain") for p in s.principles.values() if p.get("domain")}
-        expected = {"business", "architecture", "security", "firmware",
-                    "comms", "data", "process", "safety"}
-        assert expected.issubset(domains), f"Missing domains: {expected - domains}"
+        areas = {p.get("area") for p in s.principle_map().values()}
+        expected = {"business", "product", "architecture", "software_engineering", "hardware_firmware",
+                    "security", "data_privacy", "delivery", "operations", "safety_quality"}
+        assert expected == areas, f"Areas differ: {expected ^ areas}"
+        ids = {p["id"] for p in s.principle_map().values()}
+        assert {"P-BUS-CUSTOMER-FIRST", "P-SEC-TLS", "P-FW-WATCHDOG", "P-SAF-INDEPENDENCE"} <= ids
 
     def test_workflow_states_in_config(self, tmp_path, monkeypatch):
         from click.testing import CliRunner

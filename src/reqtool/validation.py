@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from .validation_context import ValidationContext
+from .principles import check_placement, effective_vocabulary
 from .fileio import (
     compute_requirement_hash,
     compute_principle_hash,
@@ -650,6 +651,15 @@ def _validate_principle(
     if not principle.get("content", {}).get("description"):
         warnings.append(_warn("missing_description",
                               "Principle has no description", uid, "content.description"))
+
+    vocabulary = effective_vocabulary(merged_enums.get("principle_areas"))
+    area, category = principle.get("area"), principle.get("category")
+    problem = check_placement(area, category, vocabulary)
+    if problem:
+        known_area = area in vocabulary
+        warnings.append(_warn("unknown_principle_category" if known_area else "unknown_principle_area",
+                              problem + ". Add it under Principles or in enums.yaml", uid,
+                              "category" if known_area else "area"))
 
     return errors, warnings
 

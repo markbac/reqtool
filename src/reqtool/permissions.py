@@ -42,6 +42,8 @@ _RULES: tuple[tuple[Optional[str], str, str], ...] = (
     ("PUT", r"/custom-fields", "manage_config"),
     ("PUT", r"/templates", "manage_config"),
     ("PUT", r"/automation/rules", "manage_config"),
+    ("PUT", r"/principles/vocabulary", "manage_config"),
+    ("POST", r"/principles/packs/[^/]+", "manage_config"),
     ("PUT", r"/workflow", "manage_workflow"),
     ("POST", r"/workflows(/.*)?", "manage_workflow"),
     ("PUT", r"/workflows/.*", "manage_workflow"),

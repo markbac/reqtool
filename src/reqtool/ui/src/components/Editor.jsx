@@ -32,6 +32,7 @@ import { TransitionDialog, getPath, isFilled } from './TransitionDialog';
 import { WritingStrip } from './WritingCheck';
 import { api } from '../api';
 import { createAndOpen, quickTypes, templateBody, typeBody } from '../createItem';
+import { PlacementFields, principlesChanged } from './Principles';
 import CommitModal from './CommitModal';
 import ResolveDialog from './ResolveDialog';
 import ItemInsight, { StatusStrip } from './ItemInsight';
@@ -1466,6 +1467,7 @@ function PrincipleEditor({ uid }) {
       const updated = await api.principles.update(uid, draft);
       setData(updated); setDraft(updated);
       dispatch({ type: 'MARK_CLEAN', uid });
+      principlesChanged();
       toast('Saved', 'success');
     } catch (err) { toast(err.message, 'error'); }
     finally { setSaving(false); }
@@ -1482,6 +1484,7 @@ function PrincipleEditor({ uid }) {
       toast(`Committed: ${result.commit_sha?.slice(0, 7)}`, 'success');
       setShowCommit(false);
       dispatch({ type: 'COMMITTED' });
+      principlesChanged();
       const updated = await api.principles.get(uid);
       setData(updated); setDraft(updated);
     } catch (err) { toast(err.message, 'error'); }
@@ -1515,6 +1518,7 @@ function PrincipleEditor({ uid }) {
               try {
                 await api.principles.delete(uid);
                 dispatch({ type: 'DESELECT' });
+                principlesChanged();
                 toast(`Deleted ${draft.id}`, 'info');
               } catch (err) { toast(err.message, 'error'); }
             }}>Delete</button>}
@@ -1529,14 +1533,17 @@ function PrincipleEditor({ uid }) {
         </div>
       </div>
 
+      {!can('write') && <div className="editor-readonly-bar" role="status">Read-only: your role can view this item but not change it.</div>}
       <div className="editor-body">
+      <fieldset className="editor-fieldset" disabled={!can('write')}>
         <Section title="Identity" static>
           <Field label="ID"><input value={draft.id ?? ''} onChange={e => patch('id', e.target.value)} /></Field>
           <Field label="Title"><input value={draft.title ?? ''} onChange={e => patch('title', e.target.value)} /></Field>
           <div className="field-row">
-            <Field label="Domain">
-              <EnumSelect value={draft.domain} options={enums?.domain || []} onChange={v => patch('domain', v)} />
-            </Field>
+            <PlacementFields area={draft.area} category={draft.category} disabled={!can('write')}
+              onChange={p => setDraft(d => ({ ...d, ...p }))} />
+          </div>
+          <div className="field-row">
             <Field label="Owner">
               <ControlledListEditor items={draft.owner ? [draft.owner] : []}
                 onChange={v => patch('owner', v[v.length - 1] || null)}
@@ -1577,6 +1584,7 @@ function PrincipleEditor({ uid }) {
             </Field>
           </div>
         </Section>
+      </fieldset>
       </div>
 
       {showCommit && (

@@ -21,7 +21,7 @@ git init
 req init               # blank repo (prompts for ID and title)
 req init agile         # agile types: theme/initiative/epic/feature/story/task/bug/spike
 req init systems       # systems types, formal/safety-formal workflow
-req init defaults      # agile + systems types, formal workflows, and pre-populated principles
+req init defaults      # agile + systems types, formal workflows, and pre-populated principles (by area; --principles to choose packs)
 req init demo          # full IoT sensor demo dataset
 
 # Start the server (opens http://localhost:8765 with full UI)
@@ -296,6 +296,7 @@ Add a validation badge to your README:
 req init                         Blank repo (prompts for ID and title)
 req init agile                   Agile types, sprint workflow, DoR/DoD defaults
 req init systems                 Systems types, formal/safety-formal workflow
+req principles packs             List principle packs (add-pack AREA, place)
 req init defaults                Blank repo with engineering principles pre-populated
 req init demo                    Full IoT sensor demo dataset
 

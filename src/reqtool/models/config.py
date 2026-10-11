@@ -74,6 +74,8 @@ class RepoEnums(BaseModel):
     id_domain: dict[str, str] = Field(default_factory=dict)
     estimate_unit: str = "points"                              # repo-wide estimate unit label
     relationship_types: list[str] = Field(default_factory=list)  # extends core relationship_type
+    # Principle vocabulary: area -> {label, code, categories: {category: {label, code}}}. Empty means the defaults.
+    principle_areas: dict[str, Any] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------

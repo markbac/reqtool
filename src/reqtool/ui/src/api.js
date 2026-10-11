@@ -98,7 +98,12 @@ export const api = {
     approvals:     (uid)         => get(`/requirements/${uid}/approvals`),
   },
   principles: {
-    list:   ()          => get('/principles'),
+    list:   (params = {}) => get('/principles?' + new URLSearchParams(params)),
+    areas:  ()          => get('/principles/areas'),
+    packs:  ()          => get('/principles/packs'),
+    addPack: (area)     => post(`/principles/packs/${encodeURIComponent(area)}`, {}),
+    vocabulary:    ()   => get('/principles/vocabulary'),
+    setVocabulary: (body) => put('/principles/vocabulary', body),
     get:    (uid)       => get(`/principles/${uid}`),
     create: (body)      => post('/principles', body),
     update: (uid, body) => put(`/principles/${uid}`, body),

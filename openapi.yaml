@@ -1822,26 +1822,156 @@ paths:
       tags:
       - principles
       summary: List Principles
+      description: Live principles, optionally narrowed by area, category, status or a search on id and title.
       operationId: list_principles_principles_get
+      parameters:
+      - name: area
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Area
+      - name: category
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+      - name: q
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Q
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
     post:
       tags:
       - principles
       summary: Create Principle
       operationId: create_principle_principles_post
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreatePrincipleRequest'
-        required: true
       responses:
         '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /principles/areas:
+    get:
+      tags:
+      - principles
+      summary: Principle Areas
+      description: Areas and categories with counts (the vocabulary in order, then anything in use it does not list).
+      operationId: principle_areas_principles_areas_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /principles/vocabulary:
+    get:
+      tags:
+      - principles
+      summary: Principle Vocabulary
+      operationId: principle_vocabulary_principles_vocabulary_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+    put:
+      tags:
+      - principles
+      summary: Set Principle Vocabulary
+      description: Replace the repository's areas and categories (administrators).
+      operationId: set_principle_vocabulary_principles_vocabulary_put
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+              title: Body
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /principles/packs:
+    get:
+      tags:
+      - principles
+      summary: Principle Packs
+      description: The default packs, one per area, with how many of their principles the repository already has.
+      operationId: principle_packs_principles_packs_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /principles/packs/{area}:
+    post:
+      tags:
+      - principles
+      summary: Add Principle Pack
+      description: Add a pack's principles to the repository without duplicating ids (administrators).
+      operationId: add_principle_pack_principles_packs__area__post
+      parameters:
+      - name: area
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Area
+      responses:
+        '200':
           description: Successful Response
           content:
             application/json:
@@ -5309,6 +5439,16 @@ components:
             type: object
           - type: 'null'
           title: Content
+        area:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Area
+        category:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category
         domain:
           anyOf:
           - type: string
@@ -5825,6 +5965,16 @@ components:
             type: object
           - type: 'null'
           title: Content
+        area:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Area
+        category:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category
         domain:
           anyOf:
           - type: string

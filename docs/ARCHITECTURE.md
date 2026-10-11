@@ -475,7 +475,7 @@ Result returned, or ServiceError -> one handler -> {"detail": {"error", "message
 | Requirements | `/requirements` | CRUD, bulk, clone, approve, commit, transition, impact, rollup, history, relationships, ACs |
 | Hierarchy | `/hierarchy` | config, types, allowed children |
 | Kanban | `/kanban` | column-per-state board with filters |
-| Principles | `/principles` | CRUD, commit |
+| Principles | `/principles` | CRUD, commit; filter by area/category; `/principles/areas`, `/principles/vocabulary`, `/principles/packs` (taxonomy in `principles.py`, packs in `defaults/principles/`, logic in `services/principles.py`) |
 | TBDs | `/tbds` | CRUD, commit, resolve |
 | Modules | `/modules` | list, get, import, verify |
 | Products | `/products` | CRUD, tree, matrix |

@@ -51,6 +51,14 @@ reqtool init defaults     # Combined Agile + Systems types with pre-populated pr
 reqtool init demo         # Full IoT sensor demo dataset
 ```
 
+`init defaults`, `init agile` and `init systems` also load engineering principles as *packs*, one per area (see section 3.9). Choose them with `--principles`:
+```bash
+reqtool init agile --principles all                    # every area
+reqtool init agile --principles none                   # no principles
+reqtool init systems --principles security,operations  # a list
+```
+Without the option, a terminal asks (the answer defaults to a set suited to the variant) and a script gets that default. An unknown area stops the command before anything is written. Later, `req principles packs` lists the packs and how many of their principles you have, `req principles add-pack <area>...` (or `all`) adds more without duplicating anything, and `req principles place` gives older principles an area and category (`req migrate` does this too).
+
 ### `reqtool serve` — Start API & Web Workstation
 Launches the FastAPI backend and serves the embedded React UI workstation:
 ```bash
@@ -208,6 +216,19 @@ export:
 #### Progress and estimate rollups
 - **Progress** (`GET /requirements/{uid}/progress`) is measured over the leaf items beneath a parent. The parent itself and any `cancelled` items are left out. An item counts as done when it is in a terminal state of its own type's workflow (for example `done`), so `active` does not count. Progress is weighted by estimate when the leaves have estimates, otherwise by item count.
 - **Estimate rollup** (`GET /requirements/{uid}/rollup`) is the sum of the estimates of all leaf descendants, at any depth, excluding cancelled items. A parent's own estimate is never added, so nothing is double counted.
+
+### 3.9 Principles by area and category
+Principles are grouped in two levels: an **area** (Architecture) and a **category** inside it (Security), shown in the **Principles** tab as Area > Category > Principle with counts. Everything starts collapsed; opening a principle opens its own area and category. Search and the status filter open every group that matches.
+
+- **Default areas:** Business, Product, Architecture, Software engineering, Hardware and firmware, Security, Data and privacy, Delivery and process, Operations and support, and Safety and quality. Each has several categories (for example Architecture has Structure and layering, Integration and interfaces, Data, Security, Resilience and availability, Performance and scalability, Observability, and Evolution and technical debt), and about 195 principles in all, each with a statement, a rationale and usually its implications. **Architecture > Security** holds design-level principles (defence in depth, least privilege, trust boundaries, secure defaults, threat modelling). The **Security** area holds engineering practice: credentials, cryptography, supply chain, secure development and vulnerability handling.
+- **Add default principles:** administrators use **+ Defaults** to add packs. The dialog shows how many of each pack's principles the repository already has. Principles already present, including ones you deleted, are never added again, so adding a pack twice is safe.
+- **Move a principle:** change **Area** and **Category** in the editor, or drag its row onto another category. **+** beside a category creates a principle there.
+- **Your own areas and categories:** the list of areas and categories (the *vocabulary*) is `principle_areas` in `.reqtool/enums.yaml`. In the editor, administrators can add a category with **+ New category**. A repository with no `principle_areas` uses the default list. Values that are not in the list still work and are shown, and `req validate` warns (`unknown_principle_area`, `unknown_principle_category`).
+- **IDs:** new principles get `P-<AREA>-<CATEGORY>-<SLUG>` (for example `P-ARCH-SEC-USE-MTLS`). Existing ids never change.
+- **Older repositories:** principles that only have the old `domain` still load, and are shown under the area and category worked out from their id (if they came from the defaults) or their domain (`security` becomes Architecture > Security, `firmware` becomes Hardware and firmware, `comms` becomes Architecture > Integration, and so on). `req migrate` stores the result, adds the vocabulary to `enums.yaml`, and can be run again safely.
+- **API:** `GET /principles?area=&category=&status=&q=`, `GET /principles/areas` (areas and categories with counts), `GET /principles/packs`, `POST /principles/packs/{area}`, `GET` and `PUT /principles/vocabulary`. Adding packs and changing the vocabulary are administrator actions.
+- **Export:** the Markdown export groups `principles.md` by area, then category.
+- Viewers see the tree and the principle read-only.
 
 ### 3.8 Insight Panels, Reviews and Change Sets
 - **Editor, Insight tab:** trace (upstream, downstream and gaps), lifecycle stage and blockers, quality findings and impact. A status strip under the validation bar summarises the same. Saving a change shows an **impact preview** to confirm first.

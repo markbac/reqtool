@@ -28,6 +28,7 @@ log = logging.getLogger(__name__)
 
 from . import __version__ as TOOL_VERSION
 from .actor import resolve_author
+from . import principles as principle_rules
 from .artefacts import (
     DECISION, PRINCIPLE, REQUIREMENT, apply_fields, history_entry, mark_deleted, new_requirement, record_change,
     seal_new,
@@ -812,19 +813,43 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
     # Write helpers: principle
     # ------------------------------------------------------------------
 
+    def principle_vocabulary(self) -> principle_rules.Vocabulary:
+        """Areas and categories principles may use: the repository's own, or the defaults when it has none."""
+        return principle_rules.effective_vocabulary(self.repo_enums.principle_areas)
+
+    def save_principle_vocabulary(self, vocabulary: dict[str, Any]) -> principle_rules.Vocabulary:
+        """Store a new vocabulary in ``.reqtool/enums.yaml`` (the rest of that file is kept as it is)."""
+        cleaned = principle_rules.clean_vocabulary(vocabulary)
+        path = self.root / ".reqtool" / "enums.yaml"
+        data = self.storage.read(path) if self.storage.exists(path) else {}
+        data = dict(data or {})
+        data["principle_areas"] = cleaned
+        self.storage.write(path, data)
+        self.repo_enums = RepoEnums.model_validate(data)
+        return cleaned
+
     @_locked
     def create_principle(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
         uid = uuid7()
         now = utcnow_iso()
+        fields = principle_rules.normalise_fields(fields)
+        pid = fields.get("id")
+        if not pid:
+            area, category = fields.get("area"), fields.get("category")
+            pid = (principle_rules.make_id(area, category, fields.get("title") or "", self.principle_vocabulary(),
+                                           (p.get("id") for p in self.principles.values()))
+                   if area and category else f"P-{uid[:8]}")
         data: dict[str, Any] = {
             "schema_version": "1.0.0",
             "type": "principle",
             "tool_version": TOOL_VERSION,
             "uid": uid,
-            "id": fields.get("id", f"P-{uid[:8]}"),
+            "id": pid,
             "title": fields.get("title", ""),
             "version": "1.0.0",
             "content": fields.get("content", {"description": "", "rationale": "", "implications": "", "exceptions": ""}),
+            "area": fields.get("area"),
+            "category": fields.get("category"),
             "domain": fields.get("domain"),
             "tags": fields.get("tags", []),
             "owner": fields.get("owner"),
@@ -853,6 +878,11 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
         data = self.principles.get(uid)
         if data is None:
             return None
+        fields = dict(fields)
+        if "area" not in fields and not data.get("area") and fields.get("domain"):
+            fields = principle_rules.normalise_fields(fields)
+        elif fields.get("area") and not fields.get("category"):
+            fields["category"] = principle_rules.GENERAL
         apply_fields(data, fields)
         record_change(PRINCIPLE, data, increment, author, summary, change_ref)
         self.storage.write(self.principle_path(uid), data)
