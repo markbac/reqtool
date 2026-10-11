@@ -176,19 +176,47 @@ Saving a change to a requirement marks every relationship that points at it as *
 - Access via **⋯ More > Bulk update** (editors and administrators).
 - Select several requirements and set a field on all of them in one commit.
 
-### 3.3 Traceability matrix
-- Access via **⋯ More > Traceability**.
-- Shows the requirements of the active product as a matrix of their relationships, with filters for the `requires`, `derived_from` and `satisfies` link types.
-- A graph view of an item's upstream and downstream links is planned (see the issue tracker).
+### 3.3 Traceability grid and matrix
+- Access via **⋯ More > Traceability**. It has two tabs.
+- **Requirements × links** is the grid. Pick what runs across the top (**Tests**, **Modules** or **Decisions**), tick **Only requirements with no link** to list the gaps, page through long lists, and use **Download CSV** to take the grid away. A cell is ticked when the requirement is linked and the tooltip gives the state of what it is linked to. A requirement with no link carries a red **no link** tag. Only the 40 most used columns are drawn, and the header says how many were left out. `GET /traceability/grid` returns the same data (`columns`, `gaps`, `offset`, `limit`, `format=csv`).
+- **Requirements × teams** is the older matrix of the `Allocated To` teams.
+- Tests are the test-case links on an item's acceptance criteria. Modules are its `Allocated To` list. Decisions are the decisions that name it in their affected requirements.
+
+### 3.3a Views
+**⋯ More > Views** draws the work in eight ways. Each picture has a table or text form beside it, and every item in it opens in the editor when clicked.
+- **Hierarchy:** the tree of items with their status colour. Filter by type and by status (parents of matches are kept so the shape stays readable), collapse or expand all, and see "Showing N of M" when a very large tree is cut at 400 items.
+- **Type structure:** which type may sit under which (the rules in `hierarchy.yaml`) as a diagram. **Export Mermaid**, **Save SVG** and **Save PNG** take it away.
+- **Coverage:** a treemap of the hierarchy, each box sized by the items at or below it and striped by status or by verification state. **Show table** gives the same numbers as a table, and the legend names every colour.
+- **Impact:** everything within one to three hops of an item: parent, children, linked items both ways, the decisions that affect it and the modules it is allocated to. It opens on the item you have selected. Filter by type; at most 60 items are drawn, nearest first, and a table lists them.
+- **Flow:** for each workflow, how many items sit in each state, their average and longest time there, and the ones stuck longer than 14 days. Change the limit on the page, or in `.reqtool/hierarchy.yaml`:
+
+```yaml
+flow:
+  stuck_days: 14          # default for every state
+  states:
+    in_review: 5          # a shorter limit for one state
+```
+
+  Time in a state comes from the move recorded in the item's history (`status_from`, `status_to`); items moved before this was recorded count from when they were created.
+- **Burn-up:** for one iteration, the scope and the work done over time, in the repository's estimate unit (an item with no estimate counts as one). Scope is dated by when each item was created or the iteration started, because the tool does not record when an item was assigned to an iteration.
+- **Decision ageing:** open decisions and open questions, those blocking the most items first, with their age and the items they block.
+- **Principles:** a heatmap of area and category against how many requirements cite each principle. Dashed boxes are principles nothing cites; a list shows the requirements that cite none.
+
+The same data is served by `GET /views/hierarchy`, `/views/type-structure`, `/views/coverage`, `/views/impact/{uid}`, `/views/flow`, `/views/burnup/{iteration}`, `/views/decisions` and `/views/principles`.
+
+### 3.3b The More menu
+**⋯ More** groups its tools under headings, and hides a heading when your role can use nothing under it: **View** (Overview, Roadmap, Views, Coverage, Traceability, Decisions & ADRs, Query, Inbox), **Create and import** (Bulk update, Import CSV, Iterations & Gates, Change sets, Diagram Canvas), **Quality** (Writing check, Duplicate Detector), **Configure** (Workflows, Vocabularies, Custom fields, Templates, Automation Rules), **Admin** (Modules, Baselines, Webhooks, Repository) and **Account** (Login / Server). Type in the box at the top to find a tool, press Enter to open the first match, use the arrow keys, Home and End to move and Esc to close. The fallback workflow is edited from **More > Workflows**.
 
 ### 3.4 Side-by-Side Version Diff Inspector & Command Palette (`Ctrl+K`)
 - **Command Palette:** Press `Ctrl+K` (or `Cmd+K`) anywhere in the application to instantly search requirements, trigger action shortcuts, or switch products.
 - **Diff Inspector:** Compare historical git versions side-by-side with color-coded diff highlighting.
 
 ### 3.5 Release Roadmap & Kanban Board
-- Access via **Kanban / Roadmap**.
-- View requirements organized by workflow states or target release milestones (see 3.8 for how columns are chosen).
-- Drag-and-drop cards between columns to transition workflow states.
+- **Roadmap:** **⋯ More > Roadmap** has a **List** (Theme, Initiative, Epic with progress and health) and a **Board**. The board has one lane per theme and one column per target release (or per iteration, from the **Columns** menu), with an **unplanned** column for items with no release. Each card shows its progress. Editors and administrators drag a card to another column, or use the menu on the card, to set its release or iteration; viewers see the board read-only. Dependencies (`depends_on`) between themes and initiatives are listed under the board and the longest chain is marked.
+- **Kanban:** **Task Mgmt** in the sidebar. Columns are workflow states (pick a type to see that type's own workflow). Cards show their parent, what they wait on (⛔), how many children are still open, and a **⚠ rule** marker when they break a parent and child rule.
+- Drag a card to another column, or use the **Move to** menu on the card (keyboard users: Tab to the card, then the menu). A move that needs something the item lacks, or that a rule comments on, opens the same pop-up as the editor so you can fill it in, force it with a reason where your role allows it, or accept suggested moves for the parent. Cancelling leaves the board as it was.
+- Viewers see the board but cannot drag, move or create. **+ New** creates an item of the chosen type through the same path as quick create. The iteration and person filters are lists taken from the repository.
+- See 3.8 for how columns are chosen.
 
 #### Paging and the Coverage panel
 `GET /requirements` accepts `limit` (1 to 10000) and `offset`, sorted by ID, and always returns the number of matching items in the `X-Total-Count` response header. Without `limit` it returns everything, as before. The **Coverage** panel now reads the server-side summary from `GET /metrics` (status, priority and quality gaps) instead of downloading every requirement, so it matches the Metrics dashboard.
@@ -281,6 +309,8 @@ Every type has a Definition of Ready or Done where it makes sense, including the
 Themes and initiatives show a **Strategic Fields** section in the editor: outcome, success measures, time horizon (`now`, `next`, `later`), target release, business value and risks. The values are stored under `custom_fields`, are included in Markdown exports and can be picked in CSV exports as `custom_fields.outcome` and so on. The field list comes from `type_fields` in `hierarchy.yaml`, so a repository can change it or add the same for other types.
 
 #### Decisions and TBDs
+
+In the app they are one **Decisions** area: the **Decisions** tab in the sidebar (and **⋯ More > Decisions & ADRs**) lists decisions, ADRs and open questions together, with a **Kind** filter (all, decisions and ADRs, open questions) and a status filter. **+ New** asks which kind first. One editor opens for all of them; an open question shows **Resolve**, and once resolved it says "Resolved into DEC-..." while the decision says "Resolves TBD-...", each a link to the other. A link such as `?uid=...&type=tbd` still opens the item. "TBD" is still the name in the files and in `/tbds`, which stays for existing clients and has no removal date yet; the screens call it an *open question (TBD)*.
 
 A TBD is a decision record with `type: tbd`; both live in one collection and in the `decisions/` folder, served by `/decisions` (everything) and `/tbds` (TBDs only, kept for existing clients). Repositories created before this change keep working with a `tbds/` folder. Run `req migrate` to move those files into `decisions/`; it is safe to run twice and leaves a file in place if `decisions/` already holds a different copy.
 
