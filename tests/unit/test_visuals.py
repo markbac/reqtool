@@ -64,3 +64,16 @@ def test_flow_limits_come_from_hierarchy_yaml(repo_root):
     store.load()
     assert store.hierarchy.flow.stuck_days == 3 and store.hierarchy.flow.states == {"backlog": 1}
     assert visuals.flow(store)["stuck_days"] == 3
+
+
+def test_an_item_with_children_is_a_container_and_is_never_stuck(client_with_store):
+    client, _ = client_with_store
+    epic = make_req(client, title="Big epic", req_type="epic")
+    story = make_req(client, title="Its story", req_type="story", parentId=epic["uid"])
+    from reqtool.store import Store
+    fresh = Store(client_with_store[1].root)
+    fresh.load()
+    later = datetime.now(timezone.utc) + timedelta(days=30)
+    flow = visuals.flow(fresh, now=later)
+    stuck = {i["uid"] for w in flow["workflows"] for s in w["states"] for i in s["stuck"]}
+    assert story["uid"] in stuck and epic["uid"] not in stuck

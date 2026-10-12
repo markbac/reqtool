@@ -17,6 +17,9 @@ class CoreEnums(BaseModel):
         "backlog", "ready", "in_progress", "done", "cancelled",
         # Lightweight workflow
         "active",
+        # Issue triage workflow
+        "reported", "in_triage", "needs_info", "defect", "fixing", "fixed", "enhancement", "planned",
+        "user_error", "duplicate", "not_reproducible", "closed",
         # TBD
         "open", "resolved",
     ]
@@ -30,6 +33,8 @@ class CoreEnums(BaseModel):
         # Agile planning types
         "theme", "initiative", "epic", "feature",
         "story", "task", "bug", "spike",
+        # Reported problems and requests, triaged before they become work
+        "issue",
     ]
     approval_status: list[str] = ["draft", "in_review", "approved", "rejected", "deprecated"]
     verification_method: list[str] = ["analysis", "inspection", "test", "demonstration"]

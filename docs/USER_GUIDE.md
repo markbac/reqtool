@@ -48,7 +48,7 @@ reqtool init              # Blank repository
 reqtool init agile        # Agile planning hierarchy (Theme/Initiative/Epic/Feature/Story)
 reqtool init systems      # Systems engineering hierarchy (Stakeholder Need/Functional/Performance)
 reqtool init defaults     # Combined Agile + Systems types with pre-populated principles
-reqtool init demo         # Full IoT sensor demo dataset
+reqtool init demo         # Sentinel product family demo (see below)
 ```
 
 `init defaults`, `init agile` and `init systems` also load engineering principles as *packs*, one per area (see section 3.9). Choose them with `--principles`:
@@ -58,6 +58,8 @@ reqtool init agile --principles none                   # no principles
 reqtool init systems --principles security,operations  # a list
 ```
 Without the option, a terminal asks (the answer defaults to a set suited to the variant) and a script gets that default. An unknown area stops the command before anything is written. Later, `req principles packs` lists the packs and how many of their principles you have, `req principles add-pack <area>...` (or `all`) adds more without duplicating anything, and `req principles place` gives older principles an area and category (`req migrate` does this too).
+
+**The demo.** `reqtool init demo` builds *Sentinel*, a made-up IoT product family, so every screen has something real to show. It has seven products (the environmental sensor, a Thread gateway, a cloud platform, a companion app, and Pro, Lite and Industrial variants built from shared modules), about 250 needs and systems requirements in every workflow state, three themes down to eight initiatives, 14 epics, 10 features, 74 stories, 37 tasks, defects and spikes, and 14 issues that cover every triage outcome. Five sprints (three finished, one running, one planned) and three phase gates have dated status history, so the burn-up, flow and kanban views show real movement, a few items are stuck, and one story was closed with an open task by forcing a parent and child rule with a reason. It also has 14 decisions (including a superseded one and a rejected one), 15 open questions (some resolved into decisions), around 130 principles from the packs with citations for the heatmap, comments, review requests, attachments, saved views and automation rules. Baselines and change sets need git history, so a new demo has none: run `git init` and commit, then create them. Dates are relative to the day the demo is made.
 
 ### `reqtool serve` — Start API & Web Workstation
 Launches the FastAPI backend and serves the embedded React UI workstation:
@@ -197,7 +199,7 @@ flow:
     in_review: 5          # a shorter limit for one state
 ```
 
-  Time in a state comes from the move recorded in the item's history (`status_from`, `status_to`); items moved before this was recorded count from when they were created.
+  Time in a state comes from the move recorded in the item's history (`status_from`, `status_to`); items moved before this was recorded count from when they were created. An item that has children (an epic waiting on its stories, say) is a container and is never counted as stuck.
 - **Burn-up:** for one iteration, the scope and the work done over time, in the repository's estimate unit (an item with no estimate counts as one). Scope is dated by when each item was created or the iteration started, because the tool does not record when an item was assigned to an iteration.
 - **Decision ageing:** open decisions and open questions, those blocking the most items first, with their age and the items they block.
 - **Principles:** a heatmap of area and category against how many requirements cite each principle. Dashed boxes are principles nothing cites; a list shows the requirements that cite none.

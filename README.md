@@ -22,7 +22,7 @@ req init               # blank repo (prompts for ID and title)
 req init agile         # agile types: theme/initiative/epic/feature/story/task/bug/spike
 req init systems       # systems types, formal/safety-formal workflow
 req init defaults      # agile + systems types, formal workflows, and pre-populated principles (by area; --principles to choose packs)
-req init demo          # full IoT sensor demo dataset
+req init demo          # the Sentinel product family: 7 products, ~420 items, 5 sprints of history
 
 # Start the server (opens http://localhost:8765 with full UI)
 req serve
@@ -298,7 +298,7 @@ req init agile                   Agile types, sprint workflow, DoR/DoD defaults
 req init systems                 Systems types, formal/safety-formal workflow
 req principles packs             List principle packs (add-pack AREA, place)
 req init defaults                Blank repo with engineering principles pre-populated
-req init demo                    Full IoT sensor demo dataset
+req init demo                    Sentinel product family demo (products, delivery history, issues, decisions)
 
 req serve                        Start API + UI at http://localhost:8765 (local mode)
 req serve --auth required        Require login (needed for any non-loopback --host)

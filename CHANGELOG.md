@@ -9,6 +9,13 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 - **`formal` workflow (MOD-14)**: `draft -> approved` is removed, so review cannot be skipped. `POST /approve` on a draft returns `409 workflow_guard`.
 - **TBD resolution (MOD-16)**: `POST /tbds/{uid}/resolve` and `/decisions/{uid}/resolve` need a decision text (`decision`, or the older `resolution`) and accept `rationale` and `linked_decision`. They record `resolved_by` (the logged-in user), `resolved_at` and `resolution_ref`. The editor and TBD list use a Resolve dialog instead of `prompt()` and a fixed string. New policy `validation.block_approval_on_open_tbds` (default off) refuses approval with `409 open_tbd`.
 
+### Changed (demo)
+- **`req init demo` is a product family**: *Sentinel*, with seven products (sensor, Thread gateway, cloud platform, companion app and three variants), about 250 needs and systems requirements across every workflow state, 3 themes, 8 initiatives, 14 epics, 10 features, 74 stories, 37 tasks, defects, spikes and 14 issues covering every triage outcome. Five sprints and three gates with dated history (burn-up, flow, stuck work, a forced move), 14 decisions with lineage, 15 open questions (some resolved), principle packs with citations, comments, review requests, attachments, saved views and automation rules. Generation takes about 15 seconds. The data is in `commands/scaffold_demo_family.py` and `scaffold_demo_data.py`.
+
+### Fixed (demo and views)
+- **Issues failed validation**: the `issue` type and the triage states were missing from the core enums, so every issue reported `invalid_enum`. They are now accepted.
+- **Flow view**: an item with children (an epic or feature waiting on its stories) is a container and is no longer reported as stuck.
+
 ### Added (views and boards)
 - **Views panel** (UI-22, VIS-02 to VIS-04, VIS-05, VIS-07, VIS-09): **More > Views** with the hierarchy tree (filters, collapse, "N of M"), the allowed type structure, a coverage treemap by status or verification with a table form, an impact graph, a flow funnel with stuck highlighting (`flow:` in `hierarchy.yaml`), a burn-up per iteration, open-decision ageing and a principle heatmap. Diagrams export as Mermaid, SVG and PNG. New `GET /views/*`; `Store.update_requirement` now records `status_from` and `status_to` on the history entry.
 - **Traceability grid** (VIS-01): requirements against tests, modules or decisions, a gaps filter, paging and CSV (`GET /traceability/grid`).

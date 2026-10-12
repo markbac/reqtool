@@ -7,6 +7,7 @@ new, show, history, diff, stats, openapi, version.
 import sys
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
@@ -102,42 +103,44 @@ class TestInitDefaults:
         assert "principles" in result.output
 
 
+@pytest.fixture(scope="class")
+def demo_repo(tmp_path_factory):
+    """One generated demo shared by the tests in the class (building the product family takes a few seconds)."""
+    root = tmp_path_factory.mktemp("demo")
+    result = CliRunner().invoke(cli, ["init", "demo", "--repo", str(root)])
+    assert result.exit_code == 0, result.output
+    return root, result.output
+
+
 class TestInitDemo:
-    def test_init_demo_creates_requirements(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        runner = CliRunner()
-        result = runner.invoke(cli, ["init", "demo"])
-        assert result.exit_code == 0, result.output
-        requirements = list((tmp_path / "requirements").glob("*.yaml"))
-        assert len(requirements) >= 100
+    def test_init_demo_creates_requirements(self, demo_repo):
+        root, _ = demo_repo
+        assert len(list((root / "requirements").glob("*.yaml"))) >= 400
 
-    def test_init_demo_creates_product(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        runner = CliRunner()
-        runner.invoke(cli, ["init", "demo"])
-        product_manifest = tmp_path / "products" / "env-sensor-v1" / "_product.yaml"
-        assert product_manifest.exists()
+    def test_init_demo_creates_product(self, demo_repo):
+        root, _ = demo_repo
+        assert (root / "products" / "env-sensor-v1" / "_product.yaml").exists()
 
-    def test_init_demo_creates_tbds(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        runner = CliRunner()
-        runner.invoke(cli, ["init", "demo"])
-        tbds = [p for p in (tmp_path / "decisions").glob("*.yaml") if "type: tbd" in p.read_text()]
-        assert len(tbds) >= 5
+    def test_init_demo_creates_the_product_family(self, demo_repo):
+        root, _ = demo_repo
+        products = {p.parent.name for p in (root / "products").glob("*/_product.yaml")}
+        assert {"env-sensor-v1", "thread_gateway", "cloud_platform", "companion_app",
+                "sensor_pro", "sensor_lite", "sensor_industrial"} <= products
 
-    def test_init_demo_creates_principles(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        runner = CliRunner()
-        runner.invoke(cli, ["init", "demo"])
-        principles = list((tmp_path / "principles").glob("*.yaml"))
-        assert len(principles) >= 8
+    def test_init_demo_creates_tbds(self, demo_repo):
+        root, _ = demo_repo
+        tbds = [p for p in (root / "decisions").glob("*.yaml") if "type: tbd" in p.read_text()]
+        assert len(tbds) >= 10
 
-    def test_init_demo_output_summary(self, tmp_path, monkeypatch):
-        monkeypatch.chdir(tmp_path)
-        runner = CliRunner()
-        result = runner.invoke(cli, ["init", "demo"])
-        assert "requirements" in result.output
-        assert "principles" in result.output
+    def test_init_demo_creates_principles(self, demo_repo):
+        root, _ = demo_repo
+        assert len(list((root / "principles").glob("*.yaml"))) >= 100
+
+    def test_init_demo_output_summary(self, demo_repo):
+        _, output = demo_repo
+        assert "requirements" in output
+        assert "principles" in output
+        assert "stories" in output and "issues" in output
 
 
 # ===========================================================================
