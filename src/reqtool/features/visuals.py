@@ -307,13 +307,15 @@ def entered_status_at(req: dict) -> Optional[datetime]:
 def flow(store, stuck_days: Optional[int] = None, type_filter: Optional[str] = None,
          now: Optional[datetime] = None) -> dict[str, Any]:
     """For each workflow, how many items sit in each state, how long they have been there and how many are
-    stuck. States come from the repository's own workflows, so a custom workflow is drawn as defined."""
+    stuck (an item that has children is a container and is never stuck). States come from the repository's own
+    workflows, so a custom workflow is drawn as defined."""
     now = now or _now()
     flow_cfg = getattr(store.hierarchy, "flow", None)
     limit = stuck_days if stuck_days is not None else (flow_cfg.stuck_days if flow_cfg else STUCK_DAYS)
     per_state = dict(flow_cfg.states) if flow_cfg else {}
     out: list[dict[str, Any]] = []
     live = _live(store)
+    containers = {r["parentId"] for r in live.values() if r.get("parentId")}  # waiting on its children is not stuck
     for wf_id, wf in store.hierarchy.workflows.items():
         used_by = sorted(t for t, cfg in store.hierarchy.types.items() if cfg.workflow == wf_id)
         if type_filter and type_filter not in used_by:
@@ -328,7 +330,7 @@ def flow(store, stuck_days: Optional[int] = None, type_filter: Optional[str] = N
                     since = entered_status_at(r)
                     age = round((now - since).total_seconds() / 86400, 1) if since else 0.0
                     ages.append(age)
-                    if not state.terminal and age >= threshold:
+                    if not state.terminal and age >= threshold and r["uid"] not in containers:
                         stuck.append({"uid": r["uid"], "id": r.get("id"), "title": r.get("title", ""), "days": age})
             rows.append({"state": state.id, "label": state.label, "colour": state.colour, "terminal": state.terminal,
                          "count": len(ages), "avg_days": round(sum(ages) / len(ages), 1) if ages else 0.0,

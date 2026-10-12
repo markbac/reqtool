@@ -1088,9 +1088,6 @@ def populate_demo_data(root: Path, store) -> None:
             "content": d["content"],
         })
 
-    r_count = len(store.requirement_map())
-    t_count = len(store.decision_map())
-    p_count = len(store.principle_map())
 
     # -----------------------------------------------------------------------
     # Add agile items (epics -> stories/tasks) linked to systems requirements
@@ -1249,7 +1246,6 @@ def populate_demo_data(root: Path, store) -> None:
             {"id": "AC-2", "text": "ADR created recording the decision and trade-offs before end of Sprint-2.", "uid": "ac-sp001-2"},
         ]})
 
-    agile_count = len(store.requirement_map()) - r_count
 
     # -----------------------------------------------------------------------
     # Module: comms-security-baseline
@@ -1379,6 +1375,10 @@ def populate_demo_data(root: Path, store) -> None:
                 except Exception:
                     pass
 
+    # Grow the demo into a product family: more products, a full delivery hierarchy, history, issues and decisions
+    from .scaffold_demo_family import populate_family
+    populate_family(root, store)
+
     # Generate PDF export example
     try:
         from ..exports import export_pdf
@@ -1391,14 +1391,20 @@ def populate_demo_data(root: Path, store) -> None:
     except Exception as exc:
         pdf_info = f" (pdf export skipped: {exc})"
 
+    from collections import Counter
+    kinds = Counter(r["req_type"] for r in store.requirement_map().values())
+    delivery_types = ("theme", "initiative", "epic", "feature", "story", "task", "bug", "spike", "issue")
+    systems = sum(n for t, n in kinds.items() if t not in delivery_types)
+    decisions = [d for d in store.decision_map().values() if d.get("type") != "tbd"]
+    tbds = [d for d in store.decision_map().values() if d.get("type") == "tbd"]
     click.echo(click.style(f"Demo repository initialised at {root}", fg="green"))
-    click.echo(f"  {r_count} systems requirements  |  {t_count} TBDs  |  {p_count} principles")
-    click.echo(f"  {agile_count} agile items (theme -> epics -> stories/tasks/bug/spike)")
-    click.echo(f"  3 ATAM decision records ({len(DEMO_DECISIONS)} total decisions)")
-    click.echo(f"  3 reusable modules: comms-security, MOD-SENSOR-CORE, MOD-POWER-MGMT")
-    click.echo(f"  3 product variants: sensor_pro, sensor_lite, sensor_industrial")
+    click.echo(f"  Sentinel product family: {len(store.product_map())} products "
+               f"(sensor, gateway, cloud platform, companion app, plus Pro, Lite and Industrial variants)")
+    click.echo(f"  {systems} needs and systems requirements  |  {len(decisions)} decisions  |  {len(tbds)} open questions  |  "
+               f"{len(store.principle_map())} principles")
+    click.echo(f"  {kinds['theme']} themes, {kinds['initiative']} initiatives, {kinds['epic']} epics, {kinds['feature']} features, "
+               f"{kinds['story']} stories, {kinds['task']} tasks, {kinds['bug']} defects, {kinds['spike']} spikes, {kinds['issue']} issues")
+    click.echo("  5 sprints, 3 gates and a release cycle with dated status history, parent/child rules, saved views, automation rules,")
+    click.echo("  comments, review requests, attachments and principle citations (baselines and change sets need git)")
+    click.echo("  3 reusable modules: comms-security, MOD-SENSOR-CORE, MOD-POWER-MGMT")
     click.echo(f"  PDF Specification Export: exports/demo-iot-sensor-specification.pdf{pdf_info}")
-    click.echo(f"  Cross-links: stories satisfy systems requirements via 'satisfies' relationships")
-
-
-
