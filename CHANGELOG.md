@@ -4,6 +4,9 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+### Changed (logging)
+- **Logging uses ctxlogkit**: the CLI, `req serve` and the uvicorn app factory configure the `reqtool` logger with [ctxlogkit](https://github.com/markbac/py-logkit) (a new dependency, installed from Git and bundled in the executables). The CLI logs warnings and errors to stderr; `req serve` logs from INFO, and lines written while handling a logged-in request carry the user. `LOG_LEVEL`, `LOG_FORMAT` and `LOG_FILE` override the defaults. Command output on stdout is unchanged.
+
 ### Changed
 - **One decision aggregate (MOD-15)**: decisions and TBDs share one collection (`store.decisions`, the `tbds` alias is gone) and one router. `/decisions` serves every record, `/tbds` serves `type: tbd` only. New records are written to `decisions/`; `req migrate` moves a legacy `tbds/` folder (idempotent). Decision files now reload incrementally when edited or deleted on disk.
 - **`formal` workflow (MOD-14)**: `draft -> approved` is removed, so review cannot be skipped. `POST /approve` on a draft returns `409 workflow_guard`.
