@@ -17,6 +17,7 @@ jobs:
     name: Build Wheel & Source Package
     needs: ci
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -26,7 +27,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Setup Node.js & Build UI Assets
         uses: actions/setup-node@v4
@@ -64,6 +65,7 @@ jobs:
     name: Package Documentation & User Guide
     needs: ci
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -71,7 +73,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Install PDF Generation Tools & Package
         run: pip install reportlab markdown pydantic click -e .
@@ -103,6 +105,7 @@ jobs:
     name: Build Standalone Binary Executables (${{ matrix.os }})
     needs: ci
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       matrix:
         include:
@@ -122,7 +125,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Setup Node.js & Build UI Assets
         uses: actions/setup-node@v4
@@ -165,6 +168,7 @@ jobs:
     name: Publish GitHub Release
     needs: [build-python-packages, build-documentation-bundle, build-standalone-binaries]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: write
       packages: write
@@ -202,6 +206,7 @@ jobs:
     needs: publish-release
     if: ${{ !contains(github.ref_name, '-') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       contents: read
       pages: write
@@ -216,7 +221,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
       - name: Install Documentation Dependencies
         run: pip install markdown pyyaml reportlab
