@@ -1,0 +1,125 @@
+area: security
+label: Security
+code: SEC
+description: Product security, identity, cryptographic controls, vulnerability management,
+  and supply chain.
+categories:
+- id: general
+  label: General
+  code: GEN
+- id: identity
+  label: Identity and credentials
+  code: ID
+- id: cryptography
+  label: Cryptography
+  code: CRY
+- id: vulnerability
+  label: Vulnerability management
+  code: VUL
+- id: supply_chain
+  label: Supply chain
+  code: SUP
+- id: development
+  label: Secure development
+  code: DEV
+principles:
+- id: P-SEC-TLS
+  title: Transport Layer Security
+  category: cryptography
+  description: All communications across untrusted or external networks shall use
+    TLS 1.3 or modern secure transport protocols.
+  rationale: Protects data confidentiality, integrity, and replay resistance in transit.
+- id: P-SEC-PKI
+  title: Public Key Infrastructure
+  category: identity
+  description: Device and service identities shall be issued and managed through an
+    established Public Key Infrastructure (PKI).
+  rationale: Asymmetric certificates provide verifiable provenance without shared
+    secret vulnerability.
+- id: P-SEC-UNIQUE-CREDS
+  title: Unique Per-Device Credentials
+  category: identity
+  description: Every device shall be provisioned with unique credentials (certificates
+    or keys) generated from a cryptographically secure random source. Default shared
+    passwords or shared keys are prohibited.
+  rationale: Shared credentials turn the compromise of a single device into a fleet-wide
+    breach.
+- id: P-SEC-NO-SECRETS-IN-CODE
+  title: No Secrets in Source Code
+  category: development
+  description: Source code, configuration files, and container images shall not contain
+    passwords, API keys, private keys, or certificates. Secrets shall be injected
+    at runtime via environment variables or secret managers.
+  rationale: Credentials committed to version control are permanently exposed in repository
+    history.
+- id: P-SEC-OTA
+  title: Secure Over-The-Air Updates
+  category: vulnerability
+  description: Over-the-air firmware updates shall be cryptographically authenticated,
+    encrypted in transit, and validated against replay attacks before installation.
+  rationale: The update mechanism is the highest-value attack surface on a connected
+    device.
+- id: P-SEC-CRY-KEYS-PROTECTED
+  title: Hardware-Protected Private Keys
+  category: cryptography
+  description: Cryptographic private keys shall be stored in dedicated secure elements
+    or hardware keystores where extraction is physically mitigated.
+  rationale: Hardware isolation prevents memory extraction attacks on stolen or probed
+    physical devices.
+- id: P-SEC-SUP-SBOM
+  title: Software Bill of Materials (SBOM)
+  category: supply_chain
+  description: Every released build shall generate a machine-readable SBOM enumerating
+    all third-party and open source dependencies.
+  rationale: Rapid vulnerability triaging requires immediate visibility into deployed
+    package dependencies.
+- id: P-SEC-VUL-DISCLOSURE
+  title: Coordinated Vulnerability Disclosure
+  category: vulnerability
+  description: A public security.txt and coordinated vulnerability disclosure policy
+    shall be published and monitored.
+  rationale: Enables ethical security researchers to report vulnerabilities safely.
+- id: P-SEC-VUL-SUPPORT-PERIOD
+  title: Defined Security Support Period
+  category: vulnerability
+  description: Every connected product shall declare a minimum security patch support
+    window in compliance with PSTI regulations.
+  rationale: Regulatory mandate and customer transparency regarding device maintenance.
+- id: P-SEC-DEV-AUTOMATED-SCANS
+  title: Automated Security Scanning
+  category: development
+  description: CI pipelines shall execute automated SAST, dependency vulnerability
+    scanning, and secret detection on every pull request.
+  rationale: Detects security vulnerabilities before code is merged to main branches.
+- id: P-SEC-CRY-RANDOM-SOURCES
+  title: Cryptographic Hardware Random Sources
+  category: cryptography
+  description: Cryptographic random numbers shall be sourced exclusively from hardware
+    true random number generators (TRNGs).
+  rationale: Predictable pseudo-random sources undermine all cryptographic key generation
+    and session security.
+- id: P-SEC-CRY-ROTATION-SCHEDULE
+  title: Scheduled Key and Certificate Renewal
+  category: cryptography
+  description: All asymmetric keys and certificates shall follow an established cryptographic
+    renewal schedule.
+  rationale: Long-lived credentials increase the window of vulnerability if a private
+    key is exposed.
+- id: P-SEC-ID-MULTI-FACTOR
+  title: Multi-Factor Access for Privileged Roles
+  category: identity
+  description: Administrative and root-level access shall require multi-factor authentication.
+  rationale: Single-factor authentication is insufficient protection for privileged
+    infrastructure roles.
+- id: P-SEC-VUL-RAPID-PATCHING
+  title: Rapid Vulnerability Remediation SLA
+  category: vulnerability
+  description: Critical vulnerabilities shall have remediating patches published within
+    SLA deadlines.
+  rationale: Known vulnerabilities are actively weaponized within days of public disclosure.
+- id: P-SEC-SUP-DEPENDENCY-PINNING
+  title: Cryptographic Dependency Pinning
+  category: supply_chain
+  description: All build dependencies and toolchains shall be pinned to verified cryptographic
+    hashes.
+  rationale: Protects builds against compromised upstream package repositories.

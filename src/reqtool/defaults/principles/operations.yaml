@@ -1,0 +1,121 @@
+area: operations
+label: Operations
+code: OPS
+description: Observability, diagnostics, deployment safety, SLAs, and operational
+  runbooks.
+categories:
+- id: general
+  label: General
+  code: GEN
+- id: diagnostics
+  label: Diagnostics
+  code: DIAG
+- id: monitoring
+  label: Monitoring and alerts
+  code: MON
+- id: deployment
+  label: Deployment
+  code: DEP
+- id: slas
+  label: Service level targets
+  code: SLA
+- id: runbooks
+  label: Runbooks
+  code: RUN
+principles:
+- id: P-OPS-DIAG-REMOTE
+  title: Safe Remote Diagnostics
+  category: diagnostics
+  description: Systems shall provide secure diagnostic bundles containing health state,
+    connection history, and topology without exposing private user data.
+  rationale: Remote diagnosis avoids physical device returns while preserving privacy.
+- id: P-OPS-MON-ALERT-ON-IMPACT
+  title: Alert on User-Impactful Symptoms
+  category: monitoring
+  description: Operational alerting shall prioritize symptoms that impact end-users
+    over internal component warnings.
+  rationale: Threshold alerts on internal metrics cause alert fatigue without highlighting
+    real outages.
+- id: P-OPS-DEP-STAGED
+  title: Staged Canary Deployments
+  category: deployment
+  description: Firmware and cloud updates shall be rolled out in incremental stages
+    (canary rings) with automated health gates.
+  rationale: Limits the blast radius of undetected software regressions.
+- id: P-OPS-DEP-ROLLBACK
+  title: Automated Deployment Rollback
+  category: deployment
+  description: Deployments shall have an automated, tested rollback procedure that
+    triggers if error rates spike.
+  rationale: Rapid rollback minimizes outage duration during failed releases.
+- id: P-OPS-SLA-TARGETS
+  title: Measurable Service Level Objectives
+  category: slas
+  description: Critical cloud services and APIs shall define and monitor quantitative
+    SLOs and error budgets.
+  rationale: SLOs provide clear boundaries balancing release speed and system reliability.
+- id: P-OPS-RUN-EVERY-ALERT
+  title: Runbooks for Every Alert
+  category: runbooks
+  description: Every firing production alert shall link directly to an up-to-date
+    operational runbook with mitigation steps.
+  rationale: On-call engineers need verified instructions when responding to alerts
+    under pressure.
+- id: P-OPS-DIAG-HEALTH-ENDPOINTS
+  title: Standardized Health Probes
+  category: diagnostics
+  description: Every service shall expose dedicated liveness and readiness endpoints
+    for orchestrator monitoring.
+  rationale: Automated platforms require standard health signals to manage traffic
+    routing.
+- id: P-OPS-MON-STRUCTURED-LOGS
+  title: Structured Contextual Logging
+  category: monitoring
+  description: Logs shall be emitted as structured JSON with contextual trace and
+    user identifiers.
+  rationale: Unstructured text logs inhibit automated search and cross-service distributed
+    tracing.
+- id: P-OPS-DEP-ZERO-DOWNTIME
+  title: Zero-Downtime Deployments
+  category: deployment
+  description: Service architectures shall support rolling zero-downtime updates without
+    dropping in-flight requests.
+  rationale: Continuous deployment requires transparent updates without service interruption.
+- id: P-OPS-GEN-DISASTER-RECOVERY
+  title: Regular Disaster Recovery Drills
+  category: general
+  description: Backup restoration and service failover procedures shall be exercised
+    and audited on a scheduled basis.
+  rationale: Unpracticed recovery protocols frequently fail under real outage conditions.
+- id: P-OPS-MON-HIGH-CARDINALITY
+  title: High-Cardinality Metrics Tagging
+  category: monitoring
+  description: Metrics systems shall support high-cardinality tagging for precise
+    device anomaly isolation.
+  rationale: Aggregated metrics without device or firmware dimensions obscure localized
+    field failures.
+- id: P-OPS-MON-REAL-TIME-PIPELINE
+  title: Real-Time Pipeline Health Metrics
+  category: monitoring
+  description: Telemetry pipelines shall publish real-time queue lag and error rate
+    metrics.
+  rationale: Ingestion backlog growth is the primary leading indicator of downstream
+    outage.
+- id: P-OPS-DEP-FEATURE-FLAGS
+  title: Runtime Feature Flags
+  category: deployment
+  description: Major functionality updates shall be deployed behind runtime dynamic
+    feature flags.
+  rationale: Decouples code deployment from feature exposure and enables instant kill-switches.
+- id: P-OPS-RUN-INCIDENT-ESCALATION
+  title: Defined Incident Escalation Pathways
+  category: runbooks
+  description: Runbooks shall define clear escalation paths and communication protocols
+    for on-call engineers.
+  rationale: Clear escalation prevents paralysis and delay during major outages.
+- id: P-OPS-SLA-AVAILABILITY-BUDGET
+  title: Error Budget Release Freezes
+  category: slas
+  description: Outages that exhaust the monthly error budget shall freeze non-critical
+    feature deployments.
+  rationale: Balances feature velocity with operational stability commitments.

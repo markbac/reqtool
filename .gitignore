@@ -46,17 +46,18 @@ src/reqtool/ui/.vite/
 Thumbs.db
 
 # reqtool outputs (if you run the server from the repo root)
-exports/
-attachments/
-comments/
+/exports/
+/attachments/
+/comments/
 
 # reqtool repo data (if you use this repo itself as a requirements repo)
-requirements/
-principles/
-tbds/
-modules/
-products/
-.reqtool/
+/requirements/
+/principles/
+/tbds/
+/modules/
+/products/
+/decisions/
+/.reqtool/
 
 # Backup files created by tooling
 *.bak

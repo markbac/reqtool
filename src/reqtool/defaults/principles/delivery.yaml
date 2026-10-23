@@ -1,0 +1,121 @@
+area: delivery
+label: Delivery and process
+code: DEL
+description: Engineering workflows, continuous delivery, quality gates, and blameless
+  improvement.
+categories:
+- id: general
+  label: General
+  code: GEN
+- id: ci_cd
+  label: Continuous integration
+  code: CI
+- id: quality_gates
+  label: Quality gates
+  code: QG
+- id: incident
+  label: Incident learning
+  code: INC
+principles:
+- id: P-PROC-CI
+  title: Continuous Integration
+  category: ci_cd
+  description: All production code shall be built, tested, and statically analysed
+    on every commit via a CI pipeline. Merges to mainline branches shall require a
+    passing CI run. Manual builds are not permitted as the basis for releases.
+  rationale: CI ensures integration problems are discovered immediately when introduced
+    rather than during release.
+- id: P-PROC-TEST-BEFORE-MERGE
+  title: Tests Before Merge
+  category: quality_gates
+  description: Code shall not be merged to a mainline branch without automated tests
+    that cover the new or changed behaviour. Merges that reduce test coverage require
+    explicit approval.
+  rationale: Untested code is an unquantified liability that degrades reliability
+    over time.
+- id: P-PROC-DEFINITION-OF-DONE
+  title: Explicit Definition of Done
+  category: quality_gates
+  description: 'Every team shall maintain a written Definition of Done that specifies
+    the conditions a work item must meet before it is considered complete. Done means
+    done: no follow-up tasks, no known defects, no documentation debt.'
+  rationale: Incomplete work masquerading as done creates invisible debt and expensive
+    release delays.
+- id: P-PROC-BLAMELESS-POSTMORTEM
+  title: Blameless Post-Mortems
+  category: incident
+  description: All significant production incidents, escaped defects, and near-misses
+    shall trigger a blameless post-mortem within five working days. The output shall
+    include root causes, contributing factors, and time-bound corrective actions.
+  rationale: Blame suppresses transparent reporting; blameless analysis uncovers system
+    vulnerabilities.
+- id: P-DEL-CI-FAST-FEEDBACK
+  title: Fast Feedback Cycle
+  category: ci_cd
+  description: Primary automated test suites shall execute and report results within
+    10 minutes.
+  rationale: Protracted build loops disrupt engineering rhythm and encourage bypassing
+    verification.
+- id: P-DEL-CI-IMMUTABLE-ARTIFACTS
+  title: Immutable Build Artifacts
+  category: ci_cd
+  description: Deployment artifacts shall be built once, signed, and promoted across
+    environments without re-compilation.
+  rationale: Rebuilding across environments introduces subtle discrepancy risks.
+- id: P-DEL-QG-CODE-REVIEW
+  title: Mandatory Peer Review
+  category: quality_gates
+  description: All codebase changes shall be reviewed and approved by an independent
+    peer prior to mainline integration.
+  rationale: Peer review distributes knowledge and verifies adherence to standards.
+- id: P-DEL-QG-AUTOMATED-RELEASE-GATE
+  title: Automated Release Quality Gates
+  category: quality_gates
+  description: Release tagging shall be programmatically gated on passing automated
+    regression, lint, and security checks.
+  rationale: Automated release gates eliminate subjective or overlooked release sign-offs.
+- id: P-DEL-INC-REMEDIATION-TRACKING
+  title: Tracked Incident Remediation
+  category: incident
+  description: Preventative actions emerging from incident post-mortems shall be recorded
+    as prioritized backlog tasks.
+  rationale: Unmanaged corrective action items allow known failure modes to repeat.
+- id: P-DEL-GEN-REPRODUCIBLE-BUILDS
+  title: Reproducible Build Environments
+  category: general
+  description: Build scripts and dependencies shall be locked to produce bit-for-bit
+    identical binaries across machines.
+  rationale: Deterministic builds ensure integrity and auditability of shipping software.
+- id: P-DEL-CI-BRANCH-PROTECTION
+  title: Enforced Branch Protection
+  category: ci_cd
+  description: Mainline branches shall require branch protection rules enforcing passing
+    status checks.
+  rationale: Prevents accidental direct commits bypassing automated test gates.
+- id: P-DEL-CI-ENVIRONMENT-PARITY
+  title: Staging and Production Parity
+  category: ci_cd
+  description: Staging test environments shall mirror production hardware and network
+    topology.
+  rationale: Environmental differences hide concurrency and latency defects until
+    production release.
+- id: P-DEL-QG-DOCUMENTATION-UPDATES
+  title: Synchronous Documentation Updates
+  category: quality_gates
+  description: PRs altering public interfaces shall include concurrent updates to
+    specifications and guides.
+  rationale: Documentation deferred after code merge is rarely completed.
+- id: P-DEL-QG-PERFORMANCE-BUDGETS
+  title: Automated Performance Budgets
+  category: quality_gates
+  description: Pull requests shall be evaluated against bundle size and memory footprint
+    limits.
+  rationale: Incremental resource creep degrades mobile and embedded performance over
+    time.
+- id: P-DEL-INC-SYSTEMIC-FIXES
+  title: Systemic Preventative Actions
+  category: incident
+  description: Incident remediations shall address systemic architectural root causes
+    rather than symptoms.
+  rationale: Surface-level fixes leave the underlying failure mode vulnerable to future
+    trigger events.

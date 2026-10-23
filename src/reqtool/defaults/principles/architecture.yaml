@@ -1,0 +1,148 @@
+area: architecture
+label: Architecture
+code: ARCH
+description: System structure, boundaries, integration protocols, resilience, and
+  evolution.
+categories:
+- id: general
+  label: General
+  code: GEN
+- id: structure
+  label: Structure and layering
+  code: STR
+- id: security
+  label: Security
+  code: SEC
+- id: integration
+  label: Integration and protocols
+  code: INT
+- id: resilience
+  label: Resilience and fault tolerance
+  code: RES
+- id: data
+  label: Data architecture
+  code: DATA
+- id: evolution
+  label: Evolution and adaptability
+  code: EVO
+principles:
+- id: P-ARCH-ADR
+  title: Record Architecture Decisions
+  category: general
+  description: All significant architecture decisions shall be recorded as Architecture
+    Decision Records (ADRs) before implementation begins. Deviations from standing
+    principles require an ADR. ADRs shall be stored in version control alongside the
+    code.
+  rationale: ADRs create a durable record of why decisions were made, preventing repeated
+    debates and enabling future teams to understand constraints.
+- id: P-ARCH-SINGLE-RESPONSIBILITY
+  title: Single Responsibility
+  category: structure
+  description: Each module, service, driver, or component shall have one clearly defined
+    responsibility. Components with mixed concerns require justification.
+  rationale: Focused components are easier to test, replace, and reason about in isolation.
+- id: P-ARCH-EXPLICIT-INTERFACES
+  title: Explicit Interfaces
+  category: structure
+  description: Component interactions shall take place through documented, stable
+    interfaces. Direct access to another component's internal state is forbidden.
+  rationale: Explicit interfaces define contracts, decouple implementations, and enable
+    mocking and unit testing.
+- id: P-ARCH-FAIL-SAFE
+  title: Fail-Safe Defaults
+  category: resilience
+  description: Systems shall be designed so that failure of a component, communication
+    link, or power supply places the system into a known, safe state.
+  rationale: Uncontrolled failure modes in embedded or connected systems cause damage,
+    loss of service, or safety hazards.
+- id: P-ARCH-DEPENDENCY-DIRECTION
+  title: Dependency Direction
+  category: structure
+  description: Dependencies shall point toward stability and abstraction. High-level
+    business and system logic shall not depend on low-level implementation details.
+  rationale: Inverted dependencies isolate domain rules from volatile hardware and
+    external library changes.
+- id: P-COMMS-MQTT
+  title: MQTT for Device Telemetry
+  category: integration
+  description: IoT devices shall publish telemetry over MQTT with TLS to support scalable
+    pub/sub messaging.
+  rationale: MQTT provides lightweight, battery-efficient telemetry with configurable
+    quality of service.
+- id: P-COMMS-JSON
+  title: JSON Payload Formats
+  category: integration
+  description: Application payload messages shall be encoded as structured, valid
+    JSON.
+  rationale: JSON provides widespread ecosystem interoperability and readable schema
+    evolution.
+- id: P-COMMS-REST-LOCAL
+  title: RESTful Management APIs
+  category: integration
+  description: Cloud management and configuration endpoints shall follow REST conventions
+    with HTTP status codes.
+  rationale: Predictable resource-oriented endpoints simplify client integration.
+- id: P-COMMS-NTP
+  title: NTP Time Synchronization
+  category: integration
+  description: Devices with network connectivity shall synchronize system clocks via
+    NTP or secure time servers.
+  rationale: Accurate timestamps are required for event sequencing, security certificates,
+    and telemetry analysis.
+- id: P-ARCH-DATA-SYSTEM-OF-RECORD
+  title: Single System of Record
+  category: data
+  description: For every domain entity, there shall be a single unambiguous system
+    of record responsible for its authoritative state.
+  rationale: Multiple writable copies of data lead to irreconcilable state divergence.
+- id: P-ARCH-DATA-IDEMPOTENT
+  title: Idempotent Command Processing
+  category: data
+  description: Message consumers and command handlers shall process duplicate deliveries
+    idempotently without side effects.
+  rationale: At-least-once messaging guarantees cause repeated message transmissions.
+- id: P-ARCH-EVO-REPLACEABLE
+  title: Replaceable Technology Components
+  category: evolution
+  description: Third-party frameworks and external services shall be isolated behind
+    domain boundary adapters.
+  rationale: Prevents framework or vendor lock-in when components require replacement.
+- id: P-ARCH-SEC-USE-MTLS
+  title: Mutual TLS Everywhere
+  category: security
+  description: Communications between backend microservices and edge gateways shall
+    use mutual TLS authentication.
+  rationale: Ensures cryptographic identity verification and end-to-end transport
+    confidentiality.
+- id: P-ARCH-SEC-LEAST-PRIVILEGE
+  title: Enforce Least Privilege
+  category: security
+  description: Every system component and actor shall operate with the least privilege
+    necessary to fulfill its function.
+  rationale: Restricting permissions minimizes the potential blast radius of a compromised
+    subsystem.
+- id: P-ARCH-SEC-DEFENCE-IN-DEPTH
+  title: Defence in Depth
+  category: security
+  description: Security architectures shall provide redundant defensive layers so
+    that the failure of any single control does not compromise the system.
+  rationale: Single-point defences inevitably fail under targeted attacks.
+- id: P-ARCH-SEC-FAIL-SECURE
+  title: Fail Securely
+  category: security
+  description: Access control mechanisms shall default to denying access when an unexpected
+    failure or exception occurs.
+  rationale: Failing open leaves systems vulnerable during degraded conditions.
+- id: P-ARCH-SEC-ZERO-TRUST
+  title: Zero Trust Network Architecture
+  category: security
+  description: Internal network traffic shall be authenticated and authorized regardless
+    of perimeter location.
+  rationale: Physical proximity or internal subnet presence does not establish trusted
+    identity.
+- id: P-ARCH-STR-LAYER-RULES
+  title: Clean Layer Boundaries
+  category: structure
+  description: Software components shall respect architectural layer boundaries without
+    circular dependencies.
+  rationale: Strict layering ensures code testability and clean module boundaries.

@@ -1,0 +1,118 @@
+area: product
+label: Product
+code: PRD
+description: Product definition, user experience, scope management, and releases.
+categories:
+- id: general
+  label: General
+  code: GEN
+- id: usability
+  label: Usability and accessibility
+  code: UX
+- id: scope
+  label: Scope and lifecycle
+  code: SCP
+- id: outcomes
+  label: Outcomes
+  code: OUT
+- id: releases
+  label: Releases
+  code: REL
+principles:
+- id: P-PRD-SCP-MATTER-PROTOCOL
+  title: Interoperable Smart Home Ecosystem
+  category: scope
+  description: Connected devices shall support industry standard interoperability
+    protocols to integrate smoothly into consumer smart home environments.
+  rationale: Consumers expect vendor-neutral device compatibility without proprietary
+    hubs.
+- id: P-PRD-UX-ACCESSIBLE
+  title: Inclusive and Accessible Design
+  category: usability
+  description: User interfaces shall comply with WCAG 2.2 Level AA accessibility standards,
+    including screen reader support and color contrast.
+  rationale: Accessibility is a fundamental requirement ensuring products are usable
+    by everyone.
+- id: P-PRD-OUT-NAMED-USER
+  title: Design for Named Personas
+  category: outcomes
+  description: Every feature and user journey shall be designed for an explicit named
+    persona and validated against their workflow.
+  rationale: Generic features without defined user roles fail to solve real user problems.
+- id: P-PRD-REL-RELEASE-NOTES
+  title: User-Facing Release Notes
+  category: releases
+  description: Every production software and firmware release shall include clear,
+    human-readable release notes detailing changes and fixes.
+  rationale: Users and operators need clear visibility into behavioural updates and
+    defect resolutions.
+- id: P-PRD-UX-PROGRESSIVE-DISCLOSURE
+  title: Progressive Disclosure
+  category: usability
+  description: Complex settings shall be revealed progressively to maintain an approachable
+    interface for primary tasks.
+  rationale: Exposing all configuration options at once overwhelms users and causes
+    errors.
+- id: P-PRD-UX-IMMEDIATE-FEEDBACK
+  title: Immediate User Feedback
+  category: usability
+  description: All user interactions shall provide sensory or visual feedback within
+    100 milliseconds.
+  rationale: Sluggish feedback causes confusion and duplicate user inputs.
+- id: P-PRD-SCP-MINIMUM-VIABLE-FEATURE
+  title: Minimum Viable Feature Scope
+  category: scope
+  description: Features shall be scoped to the minimal set of capabilities necessary
+    to test the core value hypothesis.
+  rationale: Excessive scope delays deployment and complicates verification.
+- id: P-PRD-SCP-GRACEFUL-DEPRECATION
+  title: Graceful Feature Deprecation
+  category: scope
+  description: Capabilities planned for removal shall provide advance notification
+    and seamless migration paths.
+  rationale: Abrupt feature removal breaks client integrations and diminishes trust.
+- id: P-PRD-OUT-QUANTIFIED-SUCCESS
+  title: Quantified Success Criteria
+  category: outcomes
+  description: Major initiatives shall define measurable outcome metrics validated
+    through usage telemetry.
+  rationale: Without metrics, teams cannot determine if product changes achieved the
+    desired impact.
+- id: P-PRD-GEN-PRIVACY-DEFAULT
+  title: Privacy as Default User Experience
+  category: general
+  description: Default application settings shall enforce high privacy standards without
+    requiring user adjustment.
+  rationale: Respecting user privacy by default builds customer confidence.
+- id: P-PRD-UX-ERROR-RECOVERY
+  title: Actionable Error Messaging
+  category: usability
+  description: Error states shall guide users with clear remediation steps rather
+    than technical stack traces.
+  rationale: Opaque error codes frustrate users and inflate support ticket volumes.
+- id: P-PRD-UX-LOCALIZATION
+  title: Internationalization and Localization
+  category: usability
+  description: User-facing strings and date formats shall support internationalization
+    and regional units.
+  rationale: Global consumer devices must adapt to local language and measurement
+    conventions.
+- id: P-PRD-SCP-EXTENSIBLE-METRICS
+  title: Extensible Metric Models
+  category: scope
+  description: Sensor architectures shall accommodate modular hardware expansion without
+    modifying base schemas.
+  rationale: Modular product variants share telemetry backends without schema proliferation.
+- id: P-PRD-OUT-VALUE-STREAM-ALIGNMENT
+  title: Value Stream Alignment
+  category: outcomes
+  description: Feature releases shall be aligned to customer value streams rather
+    than internal team structures.
+  rationale: Organizing by customer value ensures coherent, end-to-end functionality.
+- id: P-PRD-REL-COMPATIBILITY-MATRIX
+  title: Published Compatibility Matrix
+  category: releases
+  description: Product release documentation shall maintain an up-to-date matrix of
+    supported gateway and app versions.
+  rationale: Prevents customer issues when updating components in distributed smart
+    home systems.
