@@ -54,6 +54,7 @@ def _launch_ui_auto(host: str, port: int, is_app: bool) -> None:
 def serve(repo: Optional[str], host: str, port: int, auth_mode: Optional[str], reload: bool, browser: bool, app: bool):
     """Start the backend API and UI server."""
     import uvicorn
+    from ..logconfig import configure_logging
     from .. import __version__
     from ..store import Store
 
@@ -78,6 +79,8 @@ def serve(repo: Optional[str], host: str, port: int, auth_mode: Optional[str], r
             click.echo(click.style(
                 "  No accounts yet: create the first administrator with "
                 "`req user add <name> --role admin`.", fg="yellow"))
+
+    configure_logging("INFO")
 
     if browser or app:
         _launch_ui_auto(host, port, is_app=app)

@@ -305,7 +305,7 @@ class RulesConfig(BaseModel):
 
 class FlowConfig(BaseModel):
     """When an item counts as stuck in the flow view: days in a state, with optional per-state limits."""
-    stuck_days: int = Field(14, ge=1, le=3650)
+    stuck_days: int = Field(default=14, ge=1, le=3650)
     states: dict[str, int] = Field(default_factory=dict)
 
 

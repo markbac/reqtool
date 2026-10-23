@@ -1,0 +1,122 @@
+area: safety_quality
+label: Safety and quality
+code: SAF
+description: Functional safety, hazard analysis, verification independence, and regulatory
+  compliance.
+categories:
+- id: general
+  label: General
+  code: GEN
+- id: hazard
+  label: Hazard analysis
+  code: HAZ
+- id: verification
+  label: Verification
+  code: VER
+- id: quality
+  label: Quality compliance
+  code: QLT
+principles:
+- id: P-SAF-HAZARD-ANALYSIS
+  title: Hazard Analysis Before Design
+  category: hazard
+  description: A hazard analysis (HAZOP, FMEA, or equivalent) shall be completed before
+    the architecture of any safety-relevant subsystem is finalised. Safety requirements
+    shall be derived from identified hazards, not added retrospectively.
+  rationale: Retrospective safety analysis produces requirements that the design may
+    already violate. Prospective analysis shapes the architecture before it is fixed.
+- id: P-SAF-INDEPENDENCE
+  title: Safety Functions Are Independent
+  category: hazard
+  description: Functions that provide a safety guarantee shall be implemented independently
+    of the functions whose failure they are designed to detect or mitigate. A shared
+    failure mode between a hazard and its mitigation is a design defect.
+  rationale: A watchdog that runs in the same RTOS task it monitors, or a current
+    limiter on the same die as the device it protects, provides no real independence.
+- id: P-SAF-VER-ALL-REQUIREMENTS
+  title: Verify Every Requirement
+  category: verification
+  description: Every system requirement shall define an explicit verification method
+    (test, inspection, analysis, demonstration) and pass acceptance criteria.
+  rationale: Unverified requirements cannot substantiate product safety or compliance
+    claims.
+- id: P-SAF-HAZ-DETERMINISTIC-SHUTDOWN
+  title: Deterministic Emergency Shutdown
+  category: hazard
+  description: Critical fault or over-temperature detections shall trigger immediate
+    deterministic shutdown without depending on complex software logic.
+  rationale: Hardware and human safety depend on guaranteed transition to non-hazardous
+    states.
+- id: P-SAF-HAZ-HARDWARE-INTERLOCK
+  title: Hardware Safety Interlocks
+  category: hazard
+  description: Primary hazardous conditions shall be mitigated by dedicated hardware
+    interlocks in addition to firmware supervision.
+  rationale: Firmware crashes or memory corruption must not defeat fundamental physical
+    safety protections.
+- id: P-SAF-VER-BIDIRECTIONAL-TRACE
+  title: Bidirectional Verification Traceability
+  category: verification
+  description: Every test case shall trace to its originating requirement, and every
+    requirement shall trace to its verification evidence.
+  rationale: Ensures complete coverage verification without orphaned requirements
+    or tests.
+- id: P-SAF-VER-ENVIRONMENTAL-LIMITS
+  title: Boundary and Stress Testing
+  category: verification
+  description: Safety-critical modules shall be tested across full operational temperature,
+    voltage, and electrical stress boundaries.
+  rationale: Field conditions often trigger edge-case failures that do not manifest
+    in benign lab environments.
+- id: P-SAF-QLT-CHANGE-IMPACT
+  title: Rigorous Safety Impact Analysis
+  category: quality
+  description: Any engineering modification to a verified safety subsystem shall undergo
+    formal safety impact analysis before approval.
+  rationale: Prevents seemingly minor code optimizations from invalidating safety
+    certifications.
+- id: P-SAF-QLT-STANDARDS-CONFORMANCE
+  title: International Standards Compliance
+  category: quality
+  description: Hardware and firmware shall comply with applicable international standards
+    (e.g., IEC 62368, ISO 13849, EN 303 645).
+  rationale: Standardized engineering practices ensure broad market access and verifiable
+    safety.
+- id: P-SAF-GEN-SAFETY-CULTURE
+  title: Empowered Safety Escalation
+  category: general
+  description: All team members shall be empowered and obligated to report potential
+    safety hazards without fear of reprisal.
+  rationale: Open reporting is the cornerstone of proactive system safety.
+- id: P-SAF-HAZ-COMMON-CAUSE-ISOLATION
+  title: Common Cause Failure Isolation
+  category: hazard
+  description: Subsystems with differing safety integrity levels shall be physically
+    or logically partitioned.
+  rationale: Failure in a non-critical feature must never cascade into safety supervisory
+    components.
+- id: P-SAF-HAZ-SAFE-STATE-DEGRADATION
+  title: Graceful Safety State Degradation
+  category: hazard
+  description: Degraded operating states shall be explicitly modelled and verified
+    under induced sensor failures.
+  rationale: Complex devices must degrade predictably rather than halting unexpectedly.
+- id: P-SAF-VER-INDEPENDENT-QA
+  title: Independent Quality Verification
+  category: verification
+  description: Safety verification results shall be independently validated by engineers
+    not involved in implementation.
+  rationale: Confirmation bias prevents authors from identifying edge-case flaws in
+    their own designs.
+- id: P-SAF-VER-STATIC-ANALYSIS-MISRA
+  title: Rigorous Coding Standard Compliance
+  category: verification
+  description: Firmware shall be checked against MISRA C or equivalent safety coding
+    standards.
+  rationale: Enforcing subsets of C eliminates undefined behaviours and pointer hazards.
+- id: P-SAF-QLT-SUPPLIER-AUDIT
+  title: Critical Component Supplier Audits
+  category: quality
+  description: Critical electronic component suppliers shall hold active ISO 9001
+    quality certifications.
+  rationale: Hardware reliability depends directly on component manufacturing quality.

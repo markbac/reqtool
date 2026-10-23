@@ -1,0 +1,124 @@
+area: hardware_firmware
+label: Hardware and firmware
+code: FW
+description: Embedded systems, firmware reliability, hardware interfaces, power, and
+  manufacturing.
+categories:
+- id: general
+  label: General
+  code: GEN
+- id: update_recovery
+  label: Update and recovery
+  code: UPD
+- id: power
+  label: Power management
+  code: PWR
+- id: fault_handling
+  label: Fault handling
+  code: FAIL
+- id: manufacturing
+  label: Manufacturing and provisioning
+  code: MFG
+- id: reliability
+  label: Reliability
+  code: REL
+principles:
+- id: P-FW-WATCHDOG
+  title: Hardware Watchdog
+  category: reliability
+  description: Every microcontroller running production firmware shall use an independent
+    hardware watchdog. The watchdog shall be fed only from the main loop or a supervisory
+    task that validates all system threads are healthy.
+  rationale: Embedded systems in unattended environments must recover automatically
+    from deadlocks, bus stalls, and unexpected infinite loops.
+- id: P-FW-SEMVER
+  title: Semantic Versioning for Firmware
+  category: update_recovery
+  description: Firmware releases shall follow semantic versioning. The version shall
+    be readable over all diagnostic interfaces and embedded in the binary image header.
+  rationale: Precise version identification is essential for field diagnosis, OTA
+    management, and compatibility verification.
+- id: P-FW-FAIL-KNOWN-STATE
+  title: Fail to Known Safe State
+  category: fault_handling
+  description: On any unhandled exception, assertion failure, or brownout, firmware
+    shall force all actuators and external lines to a safe state before initiating
+    a reset.
+  rationale: Leaving hardware in an indeterminate state during crashes or reboots
+    can cause physical damage.
+- id: P-FW-NO-BUSY-WAIT
+  title: No Busy-Waiting in Production Code
+  category: power
+  description: Firmware shall not use spinlocks, delay loops, or polling where interrupt-driven
+    or event-driven mechanisms are available.
+  rationale: Busy-waiting wastes battery power, starves lower-priority RTOS tasks,
+    and introduces jitter.
+- id: P-FW-PERSISTENT-CONFIG
+  title: Safe Persistent Configuration
+  category: general
+  description: Non-volatile configuration storage shall use dual-bank wear-levelling
+    or transactional writes with CRC verification.
+  rationale: Power loss during flash write must never corrupt persistent configuration.
+- id: P-FW-UPD-SIGNED
+  title: Cryptographically Signed Firmware
+  category: update_recovery
+  description: Firmware binaries shall be cryptographically signed, and the bootloader
+    shall verify signatures before execution.
+  rationale: Prevents execution of unauthorized or malicious firmware.
+- id: P-FW-UPD-ROLLBACK
+  title: Automatic Firmware Rollback
+  category: update_recovery
+  description: Bootloaders shall verify successful image boot and automatically roll
+    back to the previous image if boot fails.
+  rationale: Prevents permanent bricking of devices during field updates.
+- id: P-FW-UPD-NEVER-BRICK
+  title: Never Brick Device
+  category: update_recovery
+  description: Firmware updates shall maintain a golden bootloader and recovery partition
+    that cannot be overwritten.
+  rationale: Ensures hardware remains recoverable regardless of failed application
+    firmware updates.
+- id: P-FW-PWR-BUDGET
+  title: Strict Power Budgeting
+  category: power
+  description: Battery-powered devices shall have verified energy budgets for every
+    operating state and transition.
+  rationale: Battery life targets require strict measurement of active and quiescent
+    currents.
+- id: P-FW-PWR-SLEEP-DEFAULT
+  title: Deep Sleep as Default State
+  category: power
+  description: Microcontrollers shall remain in deep sleep mode except during brief
+    scheduled or interrupt-driven active periods.
+  rationale: Maximizes field battery lifespan.
+- id: P-FW-PWR-BROWN-OUT
+  title: Brownout Detection and Handling
+  category: power
+  description: Hardware brownout detection shall trigger a clean emergency shutdown
+    before voltage drops below flash write safety thresholds.
+  rationale: Prevents memory corruption during supply voltage decline.
+- id: P-FW-FAIL-RESET-CAUSE
+  title: Persistent Reset Cause Logging
+  category: fault_handling
+  description: Firmware shall record the hardware reset cause register to non-volatile
+    memory immediately upon boot.
+  rationale: Diagnosing sporadic field crashes requires persistent post-mortem reboot
+    telemetry.
+- id: P-FW-MFG-PROVISION
+  title: Automated Factory Provisioning
+  category: manufacturing
+  description: Unique device identity, keys, and calibration data shall be provisioned
+    via automated test fixtures on the assembly line.
+  rationale: Eliminates human error and ensures cryptographic credentials cannot leak.
+- id: P-FW-MFG-TESTABLE
+  title: Test Points for Automatic Inspection
+  category: manufacturing
+  description: Circuit boards shall provide accessible test points for all critical
+    rails, clocks, and serial programming lines.
+  rationale: Enables automated ICT/FCT inspection during manufacturing.
+- id: P-FW-MFG-TRACEABLE-UNIT
+  title: Traceable Serial Numbering
+  category: manufacturing
+  description: Every physical board shall carry a machine-readable barcode linking
+    component lots and test reports.
+  rationale: Enables supply chain root-cause analysis when manufacturing defects occur.

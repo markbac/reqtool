@@ -1,0 +1,118 @@
+area: data_privacy
+label: Data and privacy
+code: DATA
+description: Data protection, telemetry governance, retention policies, and privacy
+  by design.
+categories:
+- id: general
+  label: General
+  code: GEN
+- id: retention
+  label: Retention and disposal
+  code: RET
+- id: minimisation
+  label: Data minimisation
+  code: MIN
+- id: governance
+  label: Governance and integrity
+  code: GOV
+principles:
+- id: P-DATA-IMMUTABLE-LOGS
+  title: Immutable Audit Logs
+  category: governance
+  description: Audit logs for security events, access control decisions, and administrative
+    actions shall be append-only and cryptographically protected against tampering.
+  rationale: Tamper-proof audit logs are required for forensic incident investigation
+    and regulatory compliance.
+- id: P-DATA-SCHEMA-VERSIONED
+  title: Versioned Data Schemas
+  category: governance
+  description: All stored data, published telemetry, and internal API models shall
+    use explicit, versioned schemas with backward compatibility guarantees.
+  rationale: Unversioned schemas create silent deserialization failures across heterogeneous
+    fleets.
+- id: P-DATA-MINIMAL-COLLECTION
+  title: Data Minimisation
+  category: minimisation
+  description: Systems shall collect, store, and transmit only the data strictly necessary
+    to fulfill the declared product function. Collecting speculative or unneeded data
+    is prohibited.
+  rationale: Data minimisation complies with UK GDPR and reduces liability in the
+    event of a breach.
+- id: P-DATA-RET-DEFINED
+  title: Defined Data Retention Periods
+  category: retention
+  description: All stored user and telemetry data shall have explicit retention horizons
+    with automatic aggregation or purge policies.
+  rationale: Prevents indefinite accumulation of liability and optimizes database
+    storage costs.
+- id: P-DATA-RET-DELETE-REALLY
+  title: Verifiable Data Erasure
+  category: retention
+  description: User deletion requests shall propagate across all live tables, replicas,
+    and backup retention cycles within statutory deadlines.
+  rationale: Satisfies statutory Right to Erasure mandates.
+- id: P-DATA-MIN-PRIVACY-BY-DESIGN
+  title: Privacy by Design Defaults
+  category: minimisation
+  description: Privacy-enhancing settings shall be active by default, requiring intentional
+    user opt-in for broader telemetry sharing.
+  rationale: Protects user autonomy and satisfies data protection regulations.
+- id: P-DATA-GOV-DATA-LINEAGE
+  title: Verifiable Data Lineage
+  category: governance
+  description: Telemetry pipelines shall record provenance metadata including device
+    serial and sensor source.
+  rationale: Enables traceability and validation of measurement veracity.
+- id: P-DATA-GOV-ENCRYPT-AT-REST
+  title: Encryption at Rest
+  category: governance
+  description: All persistent databases, object stores, and local caches storing user
+    data shall be encrypted at rest using strong ciphers.
+  rationale: Prevents data exposure from compromised physical storage drives or snapshots.
+- id: P-DATA-MIN-ANONYMIZED-ANALYTICS
+  title: Anonymized Diagnostics
+  category: minimisation
+  description: Operational and diagnostic metrics shall be scrubbed of personally
+    identifiable information before ingestion.
+  rationale: Reduces risk profile while maintaining engineering diagnostic utility.
+- id: P-DATA-GEN-COMPLIANCE-BY-DESIGN
+  title: Regulatory Privacy Compliance
+  category: general
+  description: Architectural choices shall be verified against UK GDPR and regional
+    data privacy obligations.
+  rationale: Legal compliance is an essential operational prerequisite.
+- id: P-DATA-RET-AUTO-PURGE
+  title: Automated Data Purge Pipelines
+  category: retention
+  description: Expired data partitions shall be automatically dropped without requiring
+    manual operator intervention.
+  rationale: Manual deletion processes are forgotten, resulting in unlawful data retention.
+- id: P-DATA-RET-AGGREGATE-ROLLUPS
+  title: Statistical Aggregation Before Expiry
+  category: retention
+  description: Historical telemetry shall be rolled up into statistical aggregates
+    before raw samples expire.
+  rationale: Preserves long-term trend analysis without retaining granular personal
+    activity data.
+- id: P-DATA-MIN-PURPOSE-LIMITATION
+  title: Explicit Purpose Limitation
+  category: minimisation
+  description: Telemetry collection shall be bound to explicit engineering and diagnostic
+    purposes declared to users.
+  rationale: Collecting telemetry for unstated speculative uses violates data protection
+    principles.
+- id: P-DATA-GOV-ACCESS-AUDIT
+  title: Periodic Access Audits
+  category: governance
+  description: All internal access to customer telemetry datasets shall be logged
+    and reviewed periodically.
+  rationale: Ensures internal operators only access customer data when explicitly
+    authorized.
+- id: P-DATA-GOV-DATA-ISOLATION
+  title: Multi-Tenant Data Isolation
+  category: governance
+  description: Tenant data shall be cryptographically and logically isolated at the
+    database layer.
+  rationale: Multi-tenant applications must enforce hard boundary barriers against
+    cross-tenant data leaks.

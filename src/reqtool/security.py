@@ -23,6 +23,7 @@ import os
 from pathlib import Path
 from typing import Any, Optional
 
+from ctxlogkit import log_context
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -188,7 +189,8 @@ def install(app, mode: str) -> None:
         actor_token = current_actor.set(user["username"])
         role_token = current_role.set(user["role"])
         try:
-            return await call_next(request)
+            with log_context(user_id=user["username"]):
+                return await call_next(request)
         finally:
             current_actor.reset(actor_token)
             current_role.reset(role_token)

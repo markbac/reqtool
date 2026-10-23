@@ -10,6 +10,8 @@ import os
 from pathlib import Path
 import click
 
+from ..logconfig import configure_logging
+
 
 # Default repo root: cwd or REQTOOL_REPO env var
 def _repo_root() -> Path:
@@ -53,3 +55,5 @@ def _server_running() -> bool:
 @click.group()
 def cli():
     """reqtool -- requirements management for engineering programmes."""
+    # Warnings and errors only, on stderr, so command output is unchanged; `req serve` raises it to INFO.
+    configure_logging()

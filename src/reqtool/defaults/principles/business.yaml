@@ -1,0 +1,101 @@
+area: business
+label: Business
+code: BUS
+description: Customer value, explicit decision tradeoffs, and sustainable product
+  economics.
+categories:
+- id: general
+  label: General
+  code: GEN
+- id: value
+  label: Value and outcome
+  code: VAL
+- id: tradeoffs
+  label: Tradeoffs and risk
+  code: TRD
+principles:
+- id: P-BUS-CUSTOMER-FIRST
+  title: Customer Outcome Over Technical Elegance
+  category: value
+  description: Every technical decision shall be evaluated against the customer outcome
+    it enables. Technical elegance that does not improve quality, reliability, or
+    time-to-value for the customer requires explicit justification.
+  rationale: Products exist to deliver value to customers. Engineering effort spent
+    on internally satisfying solutions that do not improve the customer experience
+    is waste.
+  implications: Design reviews shall include a customer-impact statement. Gold-plating
+    and over-engineering shall be called out in code review.
+  exceptions: Foundational infrastructure work (security hardening, testability improvements)
+    may justify short-term customer-invisible effort when the long-term risk reduction
+    is documented.
+- id: P-BUS-EXPLICIT-TRADEOFFS
+  title: Explicit Tradeoffs
+  category: tradeoffs
+  description: When a decision involves a meaningful tradeoff between cost, schedule,
+    quality, scope, or risk, the tradeoff shall be made explicit and recorded before
+    commitment. Implicit tradeoffs are not permitted.
+  rationale: Implicit tradeoffs lead to misaligned expectations, revisited decisions,
+    and untracked technical debt. Making them explicit forces the right people to
+    be involved in the decision.
+  implications: Use ADRs for architectural tradeoffs. Use change control for scope/schedule
+    tradeoffs. Use risk registers for risk/cost tradeoffs.
+  exceptions: ''
+- id: P-BUS-DEFER-COMMITMENT
+  title: Defer Irreversible Commitment
+  category: tradeoffs
+  description: Decisions that are difficult or costly to reverse shall be deferred
+    until the last responsible moment. Early commitment shall be avoided where the
+    cost of being wrong exceeds the cost of waiting.
+  rationale: Premature commitment locks in assumptions that may not hold. Deferring
+    decisions preserves options and reduces rework when requirements change.
+  implications: Avoid specifying fixed interfaces, protocols, or component choices
+    before requirements are stable. Use abstractions and adapters to delay binding.
+  exceptions: Long-lead procurement (tooling, certification, silicon) may require
+    early commitment. These shall be flagged as constraints and tracked as TBDs.
+- id: P-BUS-VAL-TIME-TO-VALUE
+  title: Rapid Time to Value
+  category: value
+  description: Product increments shall be structured to deliver verifiable customer
+    value in the shortest feasible cadence.
+  rationale: Long delivery cadences without user validation increase the likelihood
+    of building the wrong solution.
+- id: P-BUS-VAL-LIFECYCLE-COST
+  title: Total Lifecycle Cost
+  category: value
+  description: System design decisions shall account for operational, support, and
+    maintenance costs over the projected product life.
+  rationale: Solutions with low development cost often incur massive long-term operational
+    expense.
+- id: P-BUS-VAL-SUSTAINABLE-VELOCITY
+  title: Sustainable Engineering Velocity
+  category: value
+  description: Development pace shall be maintained at a rate that preserves engineering
+    quality and prevents burnout.
+  rationale: Unsustainable crunch cycles lead to escaped defects and technical debt.
+- id: P-BUS-TRD-DATA-INFORMED
+  title: Data-Informed Decisions
+  category: tradeoffs
+  description: Strategic product and technical directions shall be justified with
+    empirical data, telemetry, or user research.
+  rationale: Decisions guided purely by opinion or assumption frequently misallocate
+    resources.
+- id: P-BUS-TRD-OPPORTUNITY-COST
+  title: Evaluate Opportunity Cost
+  category: tradeoffs
+  description: Commitment to a work stream shall explicitly consider high-value alternatives
+    that are being deferred.
+  rationale: Engineering capacity is finite; choosing one task implicitly rejects
+    others.
+- id: P-BUS-GEN-TRANSPARENT-RISK
+  title: Transparent Risk Escalation
+  category: general
+  description: Known risks, architectural debt, and blockers shall be documented and
+    communicated openly across teams.
+  rationale: Unacknowledged risks compound until they threaten critical delivery deadlines.
+- id: P-BUS-GEN-REGULATORY-EARLY
+  title: Early Regulatory Engagement
+  category: general
+  description: Regulatory and certification requirements shall be established at project
+    inception and tracked continuously.
+  rationale: Discovering compliance constraints late in the project lifecycle forces
+    expensive redesign.

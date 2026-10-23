@@ -1,0 +1,78 @@
+area: software_engineering
+label: Software engineering
+code: SWE
+description: Code craftsmanship, automated verification, maintainability, and clean
+  interfaces.
+categories:
+- id: general
+  label: General
+  code: GEN
+- id: quality
+  label: Code quality and style
+  code: QLT
+- id: testing
+  label: Automated testing
+  code: TST
+- id: maintainability
+  label: Maintainability
+  code: MNT
+principles:
+- id: P-SWE-QLT-STATIC-ANALYSIS
+  title: Zero Static Analysis Warnings
+  category: quality
+  description: All code shall pass configured static analysis and linter checks with
+    zero warnings before merging.
+  rationale: Linters enforce idiomatic standards and prevent common classes of bugs.
+- id: P-SWE-QLT-EXPLICIT-ERROR-HANDLING
+  title: Explicit Error Representation
+  category: quality
+  description: Functions shall explicitly return or handle anticipated error states;
+    swallowing exceptions is prohibited.
+  rationale: Silent error suppression causes difficult-to-diagnose production defects.
+- id: P-SWE-QLT-IMMUTABLE-DATA
+  title: Prefer Immutable Data
+  category: quality
+  description: Data structures and entities shall be immutable unless mutation is
+    explicitly required.
+  rationale: Immutable data structures eliminate state mutation race conditions.
+- id: P-SWE-TST-AUTOMATED-UNIT-TESTS
+  title: Comprehensive Unit Tests
+  category: testing
+  description: Core domain logic and edge cases shall be covered by automated unit
+    tests.
+  rationale: Unit tests provide rapid verification and guard against unintended regression.
+- id: P-SWE-TST-DETERMINISTIC-EXECUTION
+  title: Deterministic Test Execution
+  category: testing
+  description: Tests shall execute deterministically without dependency on execution
+    order, timing, or external network services.
+  rationale: Flaky tests erode developer confidence and slow delivery.
+- id: P-SWE-TST-REGRESSION-FIRST
+  title: Regression Test for Every Bug
+  category: testing
+  description: Every bug fix shall include an automated test reproducing the defect
+    prior to the corrective change.
+  rationale: Prevents previously resolved defects from re-emerging in future releases.
+- id: P-SWE-MNT-ACCURATE-DOCUMENTATION
+  title: Accurate Code Documentation
+  category: maintainability
+  description: Public APIs and modules shall have up-to-date docstrings reflecting
+    arguments, returns, and exceptions.
+  rationale: Outdated documentation misleads contributors and introduces usage defects.
+- id: P-SWE-MNT-MODULAR-COHESION
+  title: High Cohesion and Low Coupling
+  category: maintainability
+  description: Modules shall group tightly related functionality together while minimizing
+    unnecessary external linkages.
+  rationale: Decoupled modules are easier to refactor, test, and understand.
+- id: P-SWE-MNT-LIMIT-COMPLEXITY
+  title: Limit Function Complexity
+  category: maintainability
+  description: Functions shall be concise with bounded cyclomatic complexity.
+  rationale: Deeply nested, lengthy methods are difficult to audit and verify.
+- id: P-SWE-GEN-CONTINUOUS-REFACTORING
+  title: Continuous Code Refactoring
+  category: general
+  description: Developers shall leave modified code cleaner than they found it, addressing
+    minor technical debt continuously.
+  rationale: Incremental refactoring prevents codebase rot over time.

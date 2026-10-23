@@ -39,6 +39,7 @@ dependencies = [
     "defusedxml>=0.7",
     "nh3>=0.2.14",
     "PyJWT>=2.8",
+    "ctxlogkit @ git+https://github.com/markbac/py-logkit",
 ]
 
 [project.scripts]
