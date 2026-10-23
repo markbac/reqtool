@@ -3,8 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: ['**/*.md', 'LICENSE']
   pull_request:
     branches: [main]
+    paths-ignore: ['**/*.md', 'LICENSE']
   workflow_call:   # the release workflow runs this same suite before it builds anything
 
 # Cancel in-flight runs for the same branch/PR so a fast-follow commit
@@ -20,13 +22,14 @@ jobs:
   lint:
     name: Lint & import check
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           cache: pip
 
       - name: Install package (no test extras)
@@ -68,7 +71,7 @@ jobs:
           python -c "from reqtool import __version__; from reqtool.api import create_app; from pathlib import Path; app = create_app(Path.cwd()); assert app.openapi()['info']['version'] == __version__; print('OpenAPI version verified.')"
 
   # ---------------------------------------------------------------------------
-  # Test matrix: Python 3.11, 3.12, 3.13
+  # Tests: latest Python only (cost)
   # Three parallel jobs, each running a distinct subset to keep each job
   # under ~3 minutes.
   # ---------------------------------------------------------------------------
@@ -81,7 +84,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.14"]
 
     steps:
       - uses: actions/checkout@v4
@@ -119,11 +122,12 @@ jobs:
     name: "Tests / v0.3.0 features (py${{ matrix.python-version }})"
     needs: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.14"]
 
     steps:
       - uses: actions/checkout@v4
@@ -161,11 +165,12 @@ jobs:
     name: "Tests / API & regression (py${{ matrix.python-version }})"
     needs: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.14"]
 
     steps:
       - uses: actions/checkout@v4
@@ -207,13 +212,14 @@ jobs:
     name: Validation smoke-test
     needs: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           cache: pip
 
       - name: Install package
@@ -235,13 +241,14 @@ jobs:
     name: Hash verification
     needs: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           cache: pip
 
       - name: Install package
@@ -263,6 +270,7 @@ jobs:
     name: UI build check
     needs: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -311,7 +319,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           cache: pip
 
       - uses: actions/setup-node@v4
@@ -351,13 +359,14 @@ jobs:
     name: Build wheel
     needs: [test-core, test-features, test-api, ui-build, e2e]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           cache: pip
 
       - name: Fetch the built UI (dist/ is git-ignored, so the wheel needs it from the UI job)
@@ -403,6 +412,7 @@ jobs:
     name: Dependency audit (informational)
     needs: lint
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     continue-on-error: true
 
     steps:
@@ -410,7 +420,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
           cache: pip
 
       - uses: actions/setup-node@v4
