@@ -4,6 +4,9 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+### Added (deployment)
+- **Server in a container** (#367): a `Dockerfile` (builds the UI, then runs `req serve` in server mode with login required, as a non-root user, on the repository in `/repo`, with a health check on `/health`), a `docker-compose.yml` (a named volume or a host folder for the repository, port and user ID settings), and `scripts/docker.ps1` to build, set up the repository, add users, start, stop and run `req` commands. See *Running the server in a container* in the User Guide.
+
 ### Changed (logging)
 - **Logging uses ctxlogkit**: the CLI, `req serve` and the uvicorn app factory configure the `reqtool` logger with [ctxlogkit](https://github.com/markbac/py-logkit) (a new dependency, installed from Git and bundled in the executables). The CLI logs warnings and errors to stderr; `req serve` logs from INFO, and lines written while handling a logged-in request carry the user. `LOG_LEVEL`, `LOG_FORMAT` and `LOG_FILE` override the defaults. Command output on stdout is unchanged.
 

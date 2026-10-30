@@ -1,0 +1,37 @@
+# reqtool server in a container (#367). scripts/docker.ps1 wraps the usual commands.
+#
+#   docker compose build
+#   docker compose run --rm reqtool req init defaults --repo /repo --id my-reqs --title "My requirements"
+#   docker compose run --rm reqtool req user add admin --role admin --repo /repo
+#   docker compose up -d
+#
+# Settings come from the environment or a .env file next to this file:
+#   REQTOOL_PORT       Port on this machine (default 8765)
+#   REQTOOL_REPO_DIR   Host folder holding the requirements repository. Default: the named volume reqtool-repo.
+#   REQTOOL_UID/GID    Owner of that host folder, so files written by the server belong to you (default 1000)
+
+services:
+  reqtool:
+    build:
+      context: .
+      args:
+        UID: ${REQTOOL_UID:-1000}
+        GID: ${REQTOOL_GID:-1000}
+    image: reqtool:latest
+    restart: unless-stopped
+    ports:
+      - "${REQTOOL_PORT:-8765}:8765"
+    volumes:
+      # The requirements repository. It also holds .reqtool/users.yaml and .reqtool/.secret_key (both
+      # git-ignored), so deleting the volume removes every account and signs everyone out.
+      - ${REQTOOL_REPO_DIR:-reqtool-repo}:/repo
+      # Sync with an SSH remote: a deploy key and known_hosts, read-only.
+      # - ./ssh:/home/reqtool/.ssh:ro
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # REQTOOL_GITHUB_WEBHOOK_SECRET: change-me
+      # Behind a reverse proxy, trust its X-Forwarded-* headers (the proxy's address, or * on a private network).
+      # FORWARDED_ALLOW_IPS: "*"
+
+volumes:
+  reqtool-repo:

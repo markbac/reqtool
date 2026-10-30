@@ -62,6 +62,24 @@ If your execution policy blocks the script:
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 ```
 
+## docker.ps1 (run the server in a container)
+
+`docker.ps1` runs the shared server (server mode, login required) in Docker, with the `docker-compose.yml` at the repository root. It needs Docker and the Compose plugin, not Python or Node.js. See [Running the server in a container](../docs/USER_GUIDE.md#13-running-the-server-in-a-container).
+
+```powershell
+.\scripts\docker.ps1 -Action Build                       # build the image
+.\scripts\docker.ps1 -Action Init -Flavour defaults -Id my-reqs -Title "My requirements"
+.\scripts\docker.ps1 -Action AddUser -UserName admin -Role admin   # the first administrator
+.\scripts\docker.ps1                                     # start, on http://localhost:8765
+.\scripts\docker.ps1 -Action Status                      # container state and /health
+.\scripts\docker.ps1 -Action Logs                        # follow the log
+.\scripts\docker.ps1 Req validate                        # any req command in the container
+.\scripts\docker.ps1 -Action Stop                        # stop; the repository is kept
+.\scripts\docker.ps1 -Action Start -RepoDir D:\reqs      # a host folder instead of the Docker volume
+```
+
+`Get-Help .\scripts\docker.ps1 -Full` lists every parameter.
+
 ## Environment variables
 
 | Variable | Default | Description |
