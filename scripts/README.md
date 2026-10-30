@@ -54,6 +54,13 @@ chmod +x scripts/dev.sh   # first time only
 .\scripts\run.ps1 -Rebuild                     # rebuild the UI first
 ```
 
+Add `-RepoMode local`, `server` or `shared-repo` to choose how the repository is used (the [three modes](../README.md#starting-reqtool-the-three-modes)). `-RepoMode server` requires a login, listens on every address and offers to create the first administrator. `-RepoMode shared-repo` runs `req setup` and pulls the latest before starting. `-RepoMode` is not the same as `-Mode`, which chooses whether the API, the UI or both run.
+
+```powershell
+.\scripts\run.ps1 -RepoMode server -Repo C:\reqs           # shared server, login required
+.\scripts\run.ps1 -RepoMode shared-repo -Repo C:\reqs      # your clone, synced through git
+```
+
 `Combined` is the normal way to use the tool. `Ui` and `Dev` are for working on the UI: the Vite dev server proxies API calls to port 8765. Get-Help `.\scripts\run.ps1 -Full` lists every parameter.
 
 If your execution policy blocks the script:
@@ -61,6 +68,28 @@ If your execution policy blocks the script:
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 ```
+
+## update.ps1 (Windows PowerShell: bring an install up to date)
+
+Run it after every `git pull`, or whenever reqtool misbehaves after a change. Each step says what it does, and the script stops at the first one that fails, with what to do about it.
+
+1. Pulls (fast-forward only), and runs the new copy of itself when the pull changed it.
+1. Makes or repairs `.venv` (Python 3.11 or later), the same environment `run.ps1` and `dev.ps1` use.
+1. Runs `pip install -e .` and `pip check`.
+1. Checks that `req` runs, and puts this install first on your user PATH.
+1. Runs `req tools` (git is required; Vale is installed if it is missing).
+1. Builds the web UI when its sources are newer than its build.
+1. With `-Docker`, rebuilds the server image, and restarts the server when it is running.
+1. With `-Test`, runs the Python and UI tests.
+
+```powershell
+.\scripts\update.ps1                    # the usual
+.\scripts\update.ps1 -Dev -Test         # with the test tools, then run the tests
+.\scripts\update.ps1 -Docker            # also rebuild and restart the server container
+.\scripts\update.ps1 -NoPull -RebuildUi # use the code as it is, rebuild the UI anyway
+```
+
+`Get-Help .\scripts\update.ps1 -Full` lists every option (`-NoUi`, `-NoPath`, `-RecreateVenv`, `-Python`, `-System`).
 
 ## docker.ps1 (run the server in a container)
 

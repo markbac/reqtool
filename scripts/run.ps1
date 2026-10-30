@@ -27,6 +27,17 @@
 
 .PARAMETER Auth
     local (no login, loopback only) or required (login for every call). Passed to `req serve --auth`.
+    Default: required with -RepoMode server, else local.
+
+.PARAMETER RepoMode
+    How the requirements repository is used, passed to `req serve --mode`. Without it, `mode` in the
+    repository's .reqtool/config.yaml decides (local when it has none). Not the same as -Mode, which
+    chooses whether the API, the UI or both run.
+    local        One person, no login, this machine only.
+    server       A shared server for many people: login required, and listening on every address (0.0.0.0)
+                 unless -HostName is given. Offers to create the first administrator when there is none.
+    shared-repo  Each person runs reqtool on their own clone and shares work through the git remote. Runs
+                 `req setup` (the git merge driver) and `req sync --no-push` (pull the latest) first.
 
 .PARAMETER UiPort
     Port for the Vite dev server in Ui and Dev modes (default 5173).
@@ -43,6 +54,8 @@
     .\scripts\run.ps1 -Mode Server -Auth required      # API only, login required
     .\scripts\run.ps1 -Mode Ui                         # hot-reload UI against a running server
     .\scripts\run.ps1 -Mode Dev                        # API + hot-reload UI
+    .\scripts\run.ps1 -RepoMode server -Repo C:\reqs     # shared server, login required
+    .\scripts\run.ps1 -RepoMode shared-repo              # this clone, synced through git
 #>
 
 [CmdletBinding()]
@@ -58,6 +71,9 @@ param(
 
     [ValidateSet('local', 'required')]
     [string]$Auth = 'local',
+
+    [ValidateSet('local', 'server', 'shared-repo')]
+    [string]$RepoMode,
 
     [int]$UiPort = 5173,
 
@@ -77,7 +93,14 @@ $VenvDir   = Join-Path $RepoDir '.venv'
 $IsWin     = [IO.Path]::DirectorySeparatorChar -eq '\'
 $VenvPy    = if ($IsWin) { [IO.Path]::Combine($VenvDir, 'Scripts', 'python.exe') } else { [IO.Path]::Combine($VenvDir, 'bin', 'python') }
 $SystemPy  = if ($env:PYTHON) { $env:PYTHON } else { 'python' }
-$ServerUrl = "http://${HostName}:${Port}"
+# A server for many people needs a login and listens on every address, unless told otherwise.
+if ($RepoMode -eq 'server') {
+    if (-not $PSBoundParameters.ContainsKey('Auth')) { $Auth = 'required' }
+    if (-not $PSBoundParameters.ContainsKey('HostName') -and -not $env:REQTOOL_HOST) { $HostName = '0.0.0.0' }
+}
+$RepoPath  = if ($Repo) { $Repo } else { (Get-Location).Path }
+# 0.0.0.0 is where the server listens, not an address to connect to.
+$ServerUrl = "http://$(if ($HostName -eq '0.0.0.0') { 'localhost' } else { $HostName }):${Port}"
 
 function Write-Step { param([string]$Msg) Write-Host $Msg -ForegroundColor Cyan }
 function Write-Note { param([string]$Msg) Write-Host $Msg -ForegroundColor Yellow }
@@ -144,7 +167,32 @@ function Initialize-Ui {
 function Get-ServeArgs {
     $serveArgs = @('-m', 'reqtool.cli', 'serve', '--host', $HostName, '--port', "$Port", '--auth', $Auth)
     if ($Repo) { $serveArgs += @('--repo', $Repo) }
+    if ($RepoMode) { $serveArgs += @('--mode', $RepoMode) }
     return $serveArgs
+}
+
+# What -RepoMode needs before the server starts.
+function Initialize-RepoMode {
+    switch ($RepoMode) {
+        'shared-repo' {
+            Write-Step 'Preparing this clone for sharing (req setup) ...'
+            & $VenvPy -m reqtool.cli setup --repo $RepoPath
+            if ($LASTEXITCODE -ne 0) { throw 'req setup failed (see above).' }
+            Write-Step 'Pulling the latest from the remote (req sync --no-push) ...'
+            & $VenvPy -m reqtool.cli sync --no-push --repo $RepoPath
+            if ($LASTEXITCODE -ne 0) { Write-Note 'Could not pull (see above); starting with the copy you have.' }
+        }
+        'server' {
+            & $VenvPy -c "import sys; from pathlib import Path; from reqtool.auth import UserStore; sys.exit(0 if UserStore(Path(sys.argv[1])).has_users() else 1)" $RepoPath
+            if ($LASTEXITCODE -ne 0) {
+                Write-Note 'There are no accounts yet: create the first administrator.'
+                $admin = Read-Host 'Administrator name [admin]'
+                if (-not $admin) { $admin = 'admin' }
+                & $VenvPy -m reqtool.cli user add $admin --role admin --repo $RepoPath
+                if ($LASTEXITCODE -ne 0) { throw 'Could not create the administrator (see above).' }
+            }
+        }
+    }
 }
 
 function Wait-ForServer {
@@ -181,6 +229,7 @@ switch ($Mode) {
 
     'Combined' {
         Initialize-Python
+        Initialize-RepoMode
         Initialize-Ui -ForceBuild:$Rebuild
         Write-Step "reqtool (API + UI) at $ServerUrl"
         Show-Where
@@ -202,6 +251,7 @@ switch ($Mode) {
 
     'Server' {
         Initialize-Python
+        Initialize-RepoMode
         Write-Step "reqtool API at $ServerUrl (no UI is built in this mode)"
         Show-Where
         & $VenvPy @(Get-ServeArgs)
@@ -224,6 +274,7 @@ switch ($Mode) {
 
     'Dev' {
         Initialize-Python
+        Initialize-RepoMode
         Assert-Command npm 'Install Node.js 18 or newer from https://nodejs.org/.'
         if ($Port -ne 8765) {
             throw 'Dev mode needs -Port 8765 because the Vite dev server proxies to it.'
