@@ -12,7 +12,7 @@ Requirements, principles, and TBDs live as individual YAML files in a git reposi
 # Install (Python 3.11+)
 pip install reqtool          # from PyPI (when published)
 # or from source:
-pip install -e .             # pre-built UI is included -- no npm step required
+pip install -e .             # then build the UI once (see the note below)
 
 # Initialise a new repository -- choose a flavour:
 mkdir my-reqs && cd my-reqs
@@ -38,9 +38,12 @@ To run the shared server in Docker instead, see [Running the server in a contain
 > and refuses to bind a network address without `--auth required`. There is no default
 > account. See the [User Guide](docs/USER_GUIDE.md#6-security-and-access-control).
 
-> **Note:** The React UI (`src/reqtool/ui/dist/`) is pre-built and committed to
-> the repository. `pip install` is the only step needed. Rebuild the UI only if
-> you modify files under `src/reqtool/ui/src/`:
+> **Note:** The built React UI (`src/reqtool/ui/dist/`) is not kept in the
+> repository. The release wheel and the Docker image build it for you. When you
+> install from source, build it once with Node.js 18 or later, and again after
+> changing files under `src/reqtool/ui/src/`. Until then, `req serve` shows a page
+> saying how to build it. `scripts/run.ps1` and `scripts/dev.sh install` build it
+> when it is missing.
 > ```bash
 > cd src/reqtool/ui && npm install && npm run build
 > ```

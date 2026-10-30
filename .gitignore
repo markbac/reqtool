@@ -33,8 +33,8 @@ junit-*.xml
 # Node / UI
 node_modules/
 src/reqtool/ui/.vite/
-# ui/dist is intentionally committed so `pip install` includes the built UI.
-# Rebuild it with: cd src/reqtool/ui && npm install && npm run build
+# ui/dist is not committed (the dist/ rule above ignores it). The release wheel and the Docker image build it;
+# from a source checkout, build it with: cd src/reqtool/ui && npm install && npm run build
 
 # Editor
 .vscode/

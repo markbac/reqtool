@@ -5,7 +5,7 @@
 ```bash
 git clone https://github.com/<your-org>/reqtool.git
 cd reqtool
-pip install -e ".[test]"    # installs Python package with pre-built UI
+pip install -e ".[test]"    # installs the Python package; build the UI as below
 ./scripts/dev.sh test core  # quick sanity check
 ./scripts/dev.sh serve      # start the server -- UI at http://localhost:8765
 ```
@@ -20,11 +20,11 @@ pip install -e ".[test]"
 .\scripts\dev.ps1 serve
 ```
 
-`pip install -e .` is all that is required. The pre-built React UI (`src/reqtool/ui/dist/`) is committed to the repository and ships inside the Python wheel, so no `npm` step is needed to run the server.
+The built React UI (`src/reqtool/ui/dist/`) is not in the repository. The release wheel and the Docker image build it, but a source checkout needs it built once (see below). Without it, the server shows a page saying how to build it. `./scripts/dev.sh install` and `.\scripts\dev.ps1 install` build it for you.
 
-## Rebuilding the UI
+## Building the UI
 
-Only needed if you change files under `src/reqtool/ui/src/`:
+Needed once after cloning, and again whenever you change files under `src/reqtool/ui/src/`. It needs Node.js 18 or later:
 
 ```bash
 cd src/reqtool/ui
