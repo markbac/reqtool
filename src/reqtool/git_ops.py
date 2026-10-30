@@ -32,8 +32,9 @@ def validate_ref(ref: str) -> str:
     return ref
 
 
-def run_git(args: list[str], cwd: Path) -> tuple[int, str, str]:
-    """Run a git command, return (returncode, stdout, stderr)."""
+def run_git(args: list[str], cwd: Path, env: Optional[dict[str, str]] = None) -> tuple[int, str, str]:
+    """Run a git command, return (returncode, stdout, stderr). ``env`` adds to the environment."""
+    import os
     result = subprocess.run(
         ["git"] + args,
         cwd=str(cwd),
@@ -41,6 +42,7 @@ def run_git(args: list[str], cwd: Path) -> tuple[int, str, str]:
         text=True,
         encoding="utf-8",
         errors="replace",
+        env={**os.environ, **env} if env else None,
     )
     return result.returncode, result.stdout.strip(), result.stderr.strip()
 
@@ -48,6 +50,12 @@ def run_git(args: list[str], cwd: Path) -> tuple[int, str, str]:
 def is_git_repo(path: Path) -> bool:
     rc, _, _ = run_git(["rev-parse", "--git-dir"], path)
     return rc == 0
+
+
+def remotes(path: Path) -> list[str]:
+    """Names of the configured git remotes."""
+    rc, out, _ = run_git(["remote"], path)
+    return out.split() if rc == 0 else []
 
 
 _IN_PROGRESS_MARKERS = ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply")
@@ -116,22 +124,26 @@ def commit(
     author_name: str = "Requirements Tool",
     author_email: str = "reqtool@example.com",
     paths: Optional[list[Path]] = None,
+    *,
+    committer_name: Optional[str] = None,
+    committer_email: Optional[str] = None,
+    sign: bool = False,
 ) -> str:
     """Commit staged files and return the commit SHA.
 
-    With ``paths``, only those files are committed (``git commit --only``);
-    anything else that happens to be staged is left staged and uncommitted.
+    The committer defaults to the author. With ``paths``, only those files are committed
+    (``git commit --only``); anything else that happens to be staged is left staged and uncommitted.
     """
     env_extras = {
         "GIT_AUTHOR_NAME": author_name,
         "GIT_AUTHOR_EMAIL": author_email,
-        "GIT_COMMITTER_NAME": author_name,
-        "GIT_COMMITTER_EMAIL": author_email,
+        "GIT_COMMITTER_NAME": committer_name or author_name,
+        "GIT_COMMITTER_EMAIL": committer_email or author_email,
     }
     import os
     env = {**os.environ, **env_extras}
     result = subprocess.run(
-        ["git", "commit", "-m", message]
+        ["git", "commit", "-m", message] + (["-S"] if sign else [])
         + (["--only", "--", *[str(Path(p).relative_to(repo_root)) for p in paths]] if paths else []),
         cwd=str(repo_root),
         capture_output=True,
@@ -148,6 +160,12 @@ def commit(
     # Extract SHA
     rc, sha, _ = run_git(["rev-parse", "HEAD"], repo_root)
     return sha if rc == 0 else ""
+
+
+def attribution(store, paths: list[Path]):
+    """Who a commit of ``paths`` is attributed to (see ``reqtool.identity``)."""
+    from .identity import for_commit
+    return for_commit(store, paths)
 
 
 def amend_commit(repo_root: Path) -> str:
@@ -186,23 +204,14 @@ def git_log(repo_root: Path, file_path: Path, max_count: int = 20) -> list[dict]
     return entries
 
 
-def ensure_git_config(repo_root: Path, name: str, email: str) -> None:
-    """Set local git user config if not already set."""
-    rc, out, _ = run_git(["config", "--local", "user.name"], repo_root)
-    if rc != 0 or not out:
-        run_git(["config", "--local", "user.name", name], repo_root)
-    rc, out, _ = run_git(["config", "--local", "user.email"], repo_root)
-    if rc != 0 or not out:
-        run_git(["config", "--local", "user.email", email], repo_root)
-
-
-def git_create_tag(repo_root: Path, tag_name: str, message: str = "") -> str:
-    """Create an annotated git tag at HEAD. Returns the SHA."""
+def git_create_tag(repo_root: Path, tag_name: str, message: str = "",
+                   env: Optional[dict[str, str]] = None) -> str:
+    """Create an annotated git tag at HEAD. Returns the SHA. ``env`` can name the tagger."""
     validate_ref(tag_name)
     if message:
-        rc, out, err = run_git(["tag", "-a", tag_name, "-m", message], repo_root)
+        rc, out, err = run_git(["tag", "-a", tag_name, "-m", message], repo_root, env)
     else:
-        rc, out, err = run_git(["tag", tag_name], repo_root)
+        rc, out, err = run_git(["tag", tag_name], repo_root, env)
     if rc != 0:
         raise RuntimeError(f"git tag failed: {err}")
     rc2, sha, _ = run_git(["rev-parse", tag_name + "^{}"], repo_root)

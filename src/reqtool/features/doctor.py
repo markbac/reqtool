@@ -74,8 +74,35 @@ def run_doctor(store) -> dict[str, Any]:
             if d in ("requirements", "principles", "decisions") and f.stem not in known:
                 out.append(_check("warning", "orphan_file", f"{d}/{f.name} was not loaded as an artefact"))
 
+    # operating mode
+    from reqtool.git_ops import dirty_paths, is_git_repo, remotes
+    from reqtool.modes import resolve_mode
+    operating_mode = resolve_mode(store.config.mode)
+    if operating_mode != "server" and is_git_repo(root):
+        from reqtool.identity import git_identity, tool_identity
+        me = git_identity(root)
+        if me is None:
+            out.append(_check("warning", "no_git_identity",
+                              "No git identity is configured, so commits will be refused: set user.name and user.email"))
+        elif me == tool_identity(store.config):
+            out.append(_check("warning", "tool_git_identity",
+                              f"Commits are attributed to the tool identity ({me}): set your own user.name and "
+                              "user.email (`git config --local --unset user.name` removes one an older release wrote)"))
+    if operating_mode == "shared-repo":
+        if not is_git_repo(root):
+            out.append(_check("error", "not_git_repo", "shared-repo mode needs a git repository"))
+        elif not remotes(root):
+            out.append(_check("error", "no_remote", "shared-repo mode needs a git remote: run `git remote add origin <url>`"))
+        if is_git_repo(root):
+            from reqtool.merge import is_installed, missing_attributes
+            if missing_attributes(root):
+                out.append(_check("warning", "merge_attributes_missing",
+                                  "reqtool's merge driver is not declared in .gitattributes: run `req setup` and commit it"))
+            if not is_installed(root):
+                out.append(_check("warning", "merge_driver_missing",
+                                  "reqtool's merge driver is not registered in this clone: run `req setup`"))
+
     # uncommitted generated files
-    from reqtool.git_ops import dirty_paths, is_git_repo
     if is_git_repo(root):
         for path in dirty_paths(root, ("exports", "docs-dist", "dist")):
             out.append(_check("warning", "uncommitted_generated", f"Generated file not committed: {path}"))

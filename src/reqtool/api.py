@@ -93,8 +93,9 @@ def create_app(repo_root: Path, auth_mode: str | None = None, enable_watcher: bo
     # Access control is registered BEFORE CORS because the last middleware added
     # is the outermost: CORS must wrap it so preflights and 401/403 replies still
     # carry CORS headers for the allowed local origins.
-    from . import security
-    security.install(app, security.resolve_mode(auth_mode))
+    from . import security, modes
+    default_auth = modes.default_auth(modes.resolve_mode(store.config.mode))
+    security.install(app, security.resolve_mode(auth_mode or os.environ.get("REQTOOL_AUTH") or default_auth))
 
     # Only the local UI (and any origins the operator lists) may call the API
     # from a browser. A wildcard lets any web page the user visits drive the API.

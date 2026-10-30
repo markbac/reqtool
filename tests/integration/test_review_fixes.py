@@ -463,7 +463,8 @@ def test_pkg02_git_runs_with_utf8_and_a_committer(repo_root):
     r = c.post(f"/requirements/{uid}/commit", json={"message": "änderung – ✓"})
     assert r.status_code == 200, r.text
     assert _git(repo_root, "log", "-1", "--pretty=%B") == "änderung – ✓"
-    assert _git(repo_root, "log", "-1", "--pretty=%cn") == "Requirements Tool"
+    # the person who made the change commits it (#347), not the tool identity
+    assert _git(repo_root, "log", "-1", "--pretty=%an|%cn") == "t|t"
 
 
 # --- Phase 2: DAT-05, DAT-06, DAT-13, PERF-01, PERF-02, PERF-04 -----------------

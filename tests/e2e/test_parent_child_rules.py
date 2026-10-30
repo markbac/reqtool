@@ -57,6 +57,8 @@ def test_a_blocked_drop_can_be_forced_with_a_reason(page):
     dialog.get_by_label("Reason for forcing").fill("Customer escalation")
     apply.click()
     wait_until(lambda: status(page.server, ids["story"]) == "in_progress", what="the forced move")
+    # the move is saved first and the force recorded on the item just after it
+    wait_until(lambda: page.server.get("/rules/overrides")["overrides"], what="the forced move to be recorded")
     forced = page.server.get("/rules/overrides")["overrides"]
     assert forced[0]["reason"] == "Customer escalation"
 

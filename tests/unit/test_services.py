@@ -6,6 +6,7 @@ from reqtool.services.errors import (
     Forbidden, GitFailure, Invalid, MergeConflicts, MissingItem, NotFound, OpenTbd, ServiceError,
     StaleContent, VersionConflict, WorkflowGuard,
 )
+from reqtool.identity import Attribution, Identity
 from reqtool.services.requirements import RequirementService, changed_fields
 from reqtool.store import Store
 from reqtool.storage import MemoryStorage
@@ -26,7 +27,11 @@ class FakeGit:
     def unstage_file(self, root, path):
         self.unstaged.append(path)
 
-    def commit(self, root, message, name, email, paths=None):
+    def attribution(self, store, paths):
+        me = Identity("Ann", "ann@example.com")
+        return Attribution(me, me)
+
+    def commit(self, root, message, name, email, paths=None, **_):
         if self.fail_commit:
             raise RuntimeError("git commit failed: simulated")
         self.commits.append((message, paths))

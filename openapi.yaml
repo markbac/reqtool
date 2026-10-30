@@ -5226,11 +5226,79 @@ paths:
           content:
             application/json:
               schema: {}
+  /git/fetch:
+    post:
+      tags:
+      - git
+      summary: Git Fetch
+      description: Fetch from the remote (#348). Nothing in the working tree changes.
+      operationId: git_fetch_git_fetch_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /git/pull:
+    post:
+      tags:
+      - git
+      summary: Git Pull
+      description: Bring in the upstream's commits, reload, and report what validation finds.
+      operationId: git_pull_git_pull_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /git/push:
+    post:
+      tags:
+      - git
+      summary: Git Push
+      operationId: git_push_git_push_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /git/sync:
+    post:
+      tags:
+      - git
+      summary: Git Sync
+      description: 'Fetch, pull, reload and validate, then push (unless ``{"push": false}``).'
+      operationId: git_sync_git_sync_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - additionalProperties: true
+                type: object
+              - type: 'null'
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /git/commit:
     post:
       tags:
       - git
       summary: Batch Commit
+      description: Commit the listed items, one commit per author (#347). With no ``uids``, commit what is already 
+        staged.
       operationId: batch_commit_git_commit_post
       requestBody:
         content:

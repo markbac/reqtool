@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 from reqtool import git_ops
-from .errors import GitFailure, Invalid, MergeConflicts
+from reqtool.identity import MissingIdentity, with_trailers
+from .errors import GitFailure, Invalid, MergeConflicts, NoGitIdentity
 
 
 def commit_message(message: str | None) -> str:
@@ -25,9 +26,15 @@ def commit_artefact(store: Any, message: str | None, path: Path, *, bump: Callab
         raise MergeConflicts()
     text = commit_message(message)
     try:
+        who = git.attribution(store, [path])  # before the bump, which adds a history entry of its own
+    except MissingIdentity as exc:
+        raise NoGitIdentity(str(exc))
+    try:
         bump(text)
         git.stage_file(store.root, path)
-        sha = git.commit(store.root, text, store.config.git.commit_name, store.config.git.commit_email, paths=[path])
+        sha = git.commit(store.root, with_trailers(text, who.trailers), who.author.name, who.author.email,
+                         paths=[path], committer_name=who.committer.name, committer_email=who.committer.email,
+                         sign=store.config.git.sign_commits)
         return {"commit_sha": sha, "version": version()}
     except RuntimeError as exc:
         undo()

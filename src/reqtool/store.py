@@ -28,6 +28,7 @@ log = logging.getLogger(__name__)
 
 from . import __version__ as TOOL_VERSION
 from .actor import resolve_author
+from . import ids
 from . import principles as principle_rules
 from .artefacts import (
     DECISION, PRINCIPLE, REQUIREMENT, apply_fields, history_entry, mark_deleted, new_requirement, record_change,
@@ -608,10 +609,13 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
         wf = self.get_workflow_for_type(req_type)
         default_status = wf.initial if wf else "draft"
 
-        # Auto-increment ID if not provided
+        # Auto-increment ID if not provided (or a provisional one when clones share a remote, #349)
         provided_id = fields.get("id")
         if not provided_id:
-            provided_id = self.next_id_for_type(req_type)
+            if ids.strategy(self.config) == "provisional":
+                provided_id = ids.provisional_id(hierarchy_store.id_prefix(self.hierarchy, req_type), uid)
+            else:
+                provided_id = self.next_id_for_type(req_type)
 
         # Populate DoR/DoD from hierarchy defaults if not provided
         dor = fields.get("dor_checklist") or self.default_checklist("dor", req_type)
@@ -708,7 +712,9 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
         if key in self.requirements:
             return key
         hits = [u for u, r in self.requirements.items() if r.get("id") == key and not r.get("deleted")]
-        return hits[0] if len(hits) == 1 else None
+        if len(hits) == 1:
+            return hits[0]
+        return None if hits else ids.resolve_provisional(self.requirements, key)
 
     def _check_parent_exists(self, parent_uid: Optional[str]) -> None:
         """Raise UnknownParent unless ``parent_uid`` is empty or a live requirement."""

@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from reqtool import __version__
 from reqtool.store import Store
+from reqtool.modes import resolve_mode as resolve_operating_mode
 from reqtool.validation import validate_all
 from reqtool.repo_init import write_base_repo, write_enums
 from reqtool.watcher import restart_watcher
@@ -33,17 +34,19 @@ router = APIRouter()
 
 @router.get("/health", tags=["meta"])
 def health(store: Store = Depends(get_store)):
-    return {"status": "ok", "version": __version__, "requirements": len(store.requirement_map())}
+    return {"status": "ok", "version": __version__, "requirements": len(store.requirement_map()),
+            "operating_mode": resolve_operating_mode(store.config.mode)}
 
 
 @router.get("/permissions", tags=["meta"])
-def get_permissions(request: Request):
+def get_permissions(request: Request, store: Store = Depends(get_store)):
     """What the caller may do. In local mode the single user on this machine is an administrator."""
     from reqtool.actor import current_actor, current_role
     from reqtool.permissions import permissions_for
     mode = getattr(request.app.state, "auth_mode", "local")
     role = current_role.get() if mode == "required" else "admin"
-    return {"mode": mode, "role": role, "username": current_actor.get(), "permissions": permissions_for(role)}
+    return {"mode": mode, "operating_mode": resolve_operating_mode(store.config.mode), "role": role,
+            "username": current_actor.get(), "permissions": permissions_for(role)}
 
 
 @router.get("/version", tags=["meta"])

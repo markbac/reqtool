@@ -17,6 +17,8 @@ def main():
         # only together with --host 127.0.0.1).
         if "--auth" not in sys.argv:
             sys.argv[1:1] = ["--auth", "required"]
+        if "--mode" not in sys.argv:
+            sys.argv[1:1] = ["--mode", "server"]
         if "--host" not in sys.argv:
             sys.argv[1:1] = ["--host", "0.0.0.0"]
         sys.argv.insert(1, "serve")

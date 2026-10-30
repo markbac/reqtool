@@ -123,6 +123,7 @@ source_modules = [
     "reqtool.store", "reqtool.stores", "reqtool.models", "reqtool.validation", "reqtool.fileio",
     "reqtool.git_ops", "reqtool.events", "reqtool.automation", "reqtool.iterations",
     "reqtool.github_sync", "reqtool.pdf", "reqtool.exports", "reqtool.intelligence",
+    "reqtool.modes", "reqtool.identity", "reqtool.sync",
 ]
 forbidden_modules = ["reqtool.routers", "reqtool.api", "reqtool.security", "fastapi", "starlette"]
 

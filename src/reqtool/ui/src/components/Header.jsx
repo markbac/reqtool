@@ -88,6 +88,7 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
   const can = useCan();
   const { products, activeProduct, activeVariant } = state;
   const [gitStatus, setGitStatus] = useState(null);
+  const [syncing, setSyncing] = useState(false);
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [newProdId, setNewProdId] = useState('');
   const [newProdTitle, setNewProdTitle] = useState('');
@@ -133,6 +134,28 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
       setNewProdId(''); setNewProdTitle('');
       toast(`Product '${title}' created`, 'success');
     } catch (err) { toast(err.message, 'error'); }
+  };
+
+  // Shared remote (#348): pull, reload and validate, then push.
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const r = await api.git.sync();
+      const problems = r.validation?.merge_errors ?? [];
+      if (problems.length) {
+        toast(`Synced, but the merge brought in ${problems.length} problem(s): `
+          + [...new Set(problems.map(e => e.code))].join(', ') + '. Run Validate for details.', 'error', 8000);
+      } else {
+        toast(r.pushed ? 'Synced and pushed' : 'Up to date with the remote', 'success');
+      }
+      if (r.changed?.length) window.location.reload();
+      else refreshGitStatus();
+    } catch (err) {
+      toast(err.message, 'error', 8000);
+      refreshGitStatus();
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const variants = activeProduct?.variants ?? [];
@@ -206,6 +229,17 @@ export default function Header({ onValidate, onExport, onCoverage, onBulk, onVoc
         )}
         {unstagedCount > 0 && (
           <span className="header-unstaged-badge">{unstagedCount} unstaged</span>
+        )}
+        {state.operatingMode && state.operatingMode !== 'local' && (
+          <span className="header-unstaged-badge" title="Operating mode">{state.operatingMode}</span>
+        )}
+        {gitStatus?.sync?.remotes?.length > 0 && can('write') && (
+          <button className="header-staged-badge" disabled={syncing} onClick={handleSync}
+            title={`Sync with ${gitStatus.sync.upstream || gitStatus.sync.remotes[0]}: pull, then push your commits`}>
+            {syncing ? 'Syncing…' : '⇅ Sync'}
+            {gitStatus.sync.behind > 0 && ` ↓${gitStatus.sync.behind}`}
+            {gitStatus.sync.ahead > 0 && ` ↑${gitStatus.sync.ahead}`}
+          </button>
         )}
         {/* Primary actions */}
         <button className="btn btn-ghost header-action-btn" onClick={onValidate} title="Validate all requirements">✓ Validate</button>
