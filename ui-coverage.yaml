@@ -293,6 +293,17 @@ POST /export/pdf:
   status: surfaced
 POST /git/commit:
   status: surfaced
+POST /git/fetch:
+  status: backend-only
+  reason: for scripts; the UI's Sync button uses POST /git/sync
+POST /git/pull:
+  status: backend-only
+  reason: for scripts; the UI's Sync button uses POST /git/sync
+POST /git/push:
+  status: backend-only
+  reason: for scripts; the UI's Sync button uses POST /git/sync
+POST /git/sync:
+  status: surfaced
 POST /import/csv:
   status: backend-only
   reason: the UI uses POST /import/csv/upload

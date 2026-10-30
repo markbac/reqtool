@@ -10,7 +10,7 @@ import logging
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 
-from reqtool.actor import can_modify_owned
+from reqtool.actor import can_modify_owned, local_author
 from reqtool.store import Store
 from reqtool.features.notifications import mentions
 from .deps import get_store, not_found, publish_event, ReqUid
@@ -59,7 +59,7 @@ def add_artefact_comment(uid: str, body: dict[str, Any], store: Store = Depends(
     if not store.has_artefact(uid):
         raise not_found(uid)
     text = _text(body)
-    author = body.get("author") if isinstance(body.get("author"), str) else "anonymous"
+    author = body.get("author") if isinstance(body.get("author"), str) else (local_author.get() or "anonymous")
     reply_to = body.get("reply_to")
     comment = store.add_comment(uid, text, author, reply_to=reply_to)
     publish_event(store, "comment_added", {"uid": uid, "comment_uid": comment["uid"], "author": comment["author"]})
@@ -109,7 +109,7 @@ def add_comment(uid: ReqUid, body: dict[str, Any], store: Store = Depends(get_st
     if req is None:
         raise not_found(uid)
     text = _text(body)
-    author = body.get("author") if isinstance(body.get("author"), str) else "anonymous"
+    author = body.get("author") if isinstance(body.get("author"), str) else (local_author.get() or "anonymous")
     reply_to = body.get("reply_to")
     comment = store.add_comment(uid, text, author, reply_to=reply_to)
     publish_event(store, "comment_added", {"uid": uid, "comment_uid": comment["uid"], "author": comment["author"]})

@@ -347,6 +347,7 @@ export const api = {
     status: ()     => get('/git/status'),
     commit: (body) => post('/git/commit', body),
     log:    (uid)  => get(`/git/log/${uid}`),
+    sync:   (body) => post('/git/sync', body),
   },
   exports: {
     jsx:          (body) => post('/export/jsx', body),

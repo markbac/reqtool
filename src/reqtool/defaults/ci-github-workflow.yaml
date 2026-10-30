@@ -1,0 +1,49 @@
+# Written by `req ci init`. Without a reqtool server, these checks are what enforce the workflow:
+# make the `reqtool / check` job a required status check on @DEFAULT_BRANCH@ in the branch protection settings.
+name: reqtool
+
+on:
+  pull_request:
+  push:
+    branches: [@DEFAULT_BRANCH@]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "reqtool @ git+https://github.com/markbac/reqtool@v@REQTOOL_VERSION@"
+      # Errors only; add --strict to fail on warnings as well.
+      - name: Validate
+        run: req validate
+      - name: Content hashes match (no edits that skipped reqtool)
+        run: req verify
+      - name: Status moves follow the workflow
+        if: github.event_name == 'pull_request'
+        run: req check-changes --base "origin/${{ github.base_ref }}"
+
+  # Provisional IDs (FR-~1A2B3C4D) get their sequential IDs once merged.
+  finalise-ids:
+    if: github.event_name == 'push'
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "reqtool @ git+https://github.com/markbac/reqtool@v@REQTOOL_VERSION@"
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          req finalise-ids
+          git push

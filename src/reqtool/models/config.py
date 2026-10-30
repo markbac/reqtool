@@ -148,6 +148,7 @@ class GitConfig(BaseModel):
     commit_name: str = "Requirements Tool"
     commit_email: str = "reqtool@example.com"
     sign_commits: bool = False
+    pull_strategy: Literal["rebase", "merge"] = "rebase"
     post_commit_hook: bool = True
 
 
@@ -186,6 +187,12 @@ class ExportConfig(BaseModel):
     csv: ExportCsvConfig = Field(default_factory=ExportCsvConfig)
 
 
+class IdsConfig(BaseModel):
+    # sequential: FR-001, FR-002 ... at creation. provisional: FR-~1A2B3C4D at creation, made sequential by
+    # `req sync` on the default branch, so clones never pick the same number (#349). None: by operating mode.
+    strategy: Optional[Literal["sequential", "provisional"]] = None
+
+
 class ValidationConfig(BaseModel):
     require_rationale_for_approved: bool = True
     require_ac_for_approved: bool = True
@@ -201,7 +208,9 @@ class RepoConfig(BaseModel):
     repo_id: str = ""
     repo_title: str = ""
     repo_description: str = ""
+    mode: Literal["local", "server", "shared-repo"] = "local"
     git: GitConfig = Field(default_factory=GitConfig)
+    ids: IdsConfig = Field(default_factory=IdsConfig)
     ui: UIConfig = Field(default_factory=UIConfig)
     export: ExportConfig = Field(default_factory=ExportConfig)
     validation: ValidationConfig = Field(default_factory=ValidationConfig)

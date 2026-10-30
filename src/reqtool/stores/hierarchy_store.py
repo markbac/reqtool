@@ -281,9 +281,13 @@ def validate_transition(
     return check_transition_guard(hierarchy, req, to_state, requirements)
 
 
-def next_id_for_type(hierarchy: HierarchyConfig, requirements: dict[str, dict[str, Any]], req_type: str) -> str:
+def id_prefix(hierarchy: HierarchyConfig, req_type: str) -> str:
     type_cfg = hierarchy.types.get(req_type)
-    prefix = type_cfg.id_prefix if type_cfg else req_type.upper()[:3]
+    return type_cfg.id_prefix if type_cfg else req_type.upper()[:3]
+
+
+def next_id_for_type(hierarchy: HierarchyConfig, requirements: dict[str, dict[str, Any]], req_type: str) -> str:
+    prefix = id_prefix(hierarchy, req_type)
 
     max_n = 0
     for req in requirements.values():

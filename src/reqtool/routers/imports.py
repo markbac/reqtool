@@ -16,7 +16,8 @@ from fastapi.responses import JSONResponse
 
 from reqtool.store import Store
 from pathlib import Path
-from reqtool.git_ops import dirty_paths, git_list_tags, git_create_tag, ensure_git_config, git_diff_tree, git_show_file
+from reqtool.git_ops import dirty_paths, git_list_tags, git_create_tag, git_diff_tree, git_show_file
+from reqtool.identity import MissingIdentity, for_action, git_env
 from reqtool.fileio import load_yaml as _load_yaml
 from .deps import get_store, publish_event
 from .auth import get_current_user
@@ -202,7 +203,10 @@ def create_baseline(body: dict[str, Any], store: Store = Depends(get_store)):
         raise HTTPException(status_code=422, detail={"error": "validation", "message": "name is required"})
     tag = f"baseline/{name}"
     message = body.get("message", f"Baseline: {name}")
-    ensure_git_config(store.root, store.config.git.commit_name, store.config.git.commit_email)
+    try:
+        who = for_action(store)
+    except MissingIdentity as exc:
+        raise HTTPException(status_code=409, detail={"error": "no_git_identity", "message": str(exc)})
     # A tag points at HEAD, so uncommitted edits would silently be left out of the baseline.
     dirty = dirty_paths(store.root, BASELINE_DIRS)
     uncommitted = _describe_dirty(store, dirty)
@@ -214,7 +218,7 @@ def create_baseline(body: dict[str, Any], store: Store = Depends(get_store)):
     if uncommitted:
         message += "\n\nCreated with uncommitted changes not included in this baseline: " + ", ".join(uncommitted)
     try:
-        sha = git_create_tag(store.root, tag, message)
+        sha = git_create_tag(store.root, tag, message, env=git_env(who, committer=who.author))
         return {"tag": tag, "sha": sha, "name": name, "message": message, "uncommitted": uncommitted}
     except RuntimeError as exc:
         raise HTTPException(status_code=500, detail={"error": "git_error", "message": str(exc)})

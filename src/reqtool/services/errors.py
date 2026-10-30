@@ -43,6 +43,10 @@ class MergeConflicts(Conflict):
         super().__init__("Working tree has unresolved merge conflicts")
 
 
+class NoGitIdentity(Conflict):
+    code = "no_git_identity"
+
+
 class VersionConflict(Conflict):
     code = "version_conflict"
 

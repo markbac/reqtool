@@ -9,7 +9,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from reqtool.git_ops import run_git, dirty_paths, ensure_git_config, is_git_repo
+from reqtool.git_ops import run_git, dirty_paths, is_git_repo
+from reqtool.identity import MissingIdentity, for_action, git_env
 from .diff import ref_diff
 
 PREFIX = "changeset/"
@@ -102,9 +103,13 @@ def merge(store, name: str, reviewed_by: str) -> dict[str, Any]:
     base = _base_of(store, branch)
     if dirty_paths(store.root, TRACKED):
         raise ChangeSetError("Commit or discard your changes before merging")
-    ensure_git_config(store.root, store.config.git.commit_name, store.config.git.commit_email)
+    try:
+        who = for_action(store)
+    except MissingIdentity as exc:
+        raise ChangeSetError(str(exc))
     _git(store, "checkout", base)
-    code, out, err = run_git(["merge", "--no-ff", branch, "-m", f"Merge change set {name} (reviewed by {reviewed_by.strip()})"], store.root)
+    message = f"Merge change set {name} (reviewed by {reviewed_by.strip()})"
+    code, out, err = run_git(["merge", "--no-ff", branch, "-m", message], store.root, git_env(who))
     if code != 0:
         run_git(["merge", "--abort"], store.root)
         _git(store, "checkout", branch)

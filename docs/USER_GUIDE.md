@@ -557,7 +557,8 @@ With `REQTOOL_GITHUB_WEBHOOK_SECRET` set, a signed push webhook to `POST /webhoo
 ### 6.5 Environment variables
 | Variable | Purpose |
 |---|---|
-| `REQTOOL_AUTH` | `local` or `required`. Same as `--auth`. |
+| `REQTOOL_AUTH` | `local` or `required`. Same as `--auth`. Default: `required` in `server` mode, else `local`. |
+| `REQTOOL_MODE` | `local`, `server` or `shared-repo`: overrides the repository's `mode` on this machine. Same as `req serve --mode`. |
 | `REQTOOL_VALE_VERSION` | The Vale version `reqtool tools` installs (default: the latest release). |
 | `REQTOOL_TOOLS_DIR` | Where `reqtool tools` keeps the tools it installs (default `~/.reqtool/tools`). |
 | `REQTOOL_GITHUB_WEBHOOK_SECRET` | Shared secret for `POST /webhooks/github`. Requests must carry a matching `X-Hub-Signature-256` (HMAC-SHA256 of the body), otherwise `401`. Without a secret the endpoint is disabled (`503`). The endpoint is authenticated by its signature, not by a login. |

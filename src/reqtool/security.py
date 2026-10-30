@@ -27,8 +27,9 @@ from ctxlogkit import log_context
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from .actor import current_actor, current_role
+from .actor import current_actor, current_role, local_author
 from .auth import CSRF_HEADER, SESSION_COOKIE
+from .identity import git_identity
 from .permissions import can, changes_data, required_action
 
 log = logging.getLogger(__name__)
@@ -160,7 +161,15 @@ def install(app, mode: str) -> None:
                 problem = None if path == "/health" else local_request_problem(request.headers, method)
                 if problem:
                     return _deny(403, "forbidden", problem)
-                return await call_next(request)
+                if not changes_data(method, path):
+                    return await call_next(request)
+                # Record the person at this machine as the author of what this request changes.
+                me = git_identity(app.state.store.root)
+                author_token = local_author.set(me.name if me else None)
+                try:
+                    return await call_next(request)
+                finally:
+                    local_author.reset(author_token)
             return _deny(403, "forbidden",
                          "This server is in local mode and only accepts connections from this machine. "
                          "Start it with `--auth required` to allow remote users.")
