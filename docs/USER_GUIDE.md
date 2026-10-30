@@ -35,6 +35,53 @@ Verify the installation:
 reqtool --help
 ```
 
+### 1.3 Running the server in a container
+
+The shared server can run in Docker. The image runs `req serve` in server mode with login required, as a non-root user, and serves the requirements repository in the container's `/repo`. Single-user and desktop use are unchanged: run `req serve` or the executable as before.
+
+You need Docker and the Docker Compose plugin. On Windows, use Docker Desktop or Docker Engine in WSL 2. `scripts/docker.ps1` wraps the usual commands:
+
+```powershell
+.\scripts\docker.ps1 -Action Build
+.\scripts\docker.ps1 -Action Init -Flavour defaults -Id my-reqs -Title "My requirements"
+.\scripts\docker.ps1 -Action AddUser -UserName admin -Role admin
+.\scripts\docker.ps1 -Action Start          # http://localhost:8765
+```
+
+The same steps with Compose directly:
+
+```bash
+docker compose build
+docker compose run --rm reqtool git init -q /repo
+docker compose run --rm reqtool req init defaults --repo /repo --id my-reqs --title "My requirements"
+docker compose run --rm -e GIT_AUTHOR_NAME=reqtool -e GIT_AUTHOR_EMAIL=reqtool@localhost \
+    -e GIT_COMMITTER_NAME=reqtool -e GIT_COMMITTER_EMAIL=reqtool@localhost \
+    reqtool sh -c 'cd /repo && git add -A && git commit -qm "Initialise requirements repository"'
+docker compose run --rm reqtool req user add admin --role admin --repo /repo
+docker compose up -d
+```
+
+**Where the repository lives.** By default `/repo` is the Docker volume `reqtool-repo`. To use a folder on the host, set `REQTOOL_REPO_DIR` (or pass `-RepoDir` to the script) every time. On Linux the folder must belong to the user the server runs as: build with `REQTOOL_UID` and `REQTOOL_GID` (or `-Uid`) set to your own IDs (`id -u`, `id -g`). To serve an existing repository, point `REQTOOL_REPO_DIR` at its clone and skip `Init`.
+
+**Accounts and the signing key.** `.reqtool/users.yaml` and `.reqtool/.secret_key` are in the repository folder (git-ignored), so they are kept with it. Removing the volume (`docker compose down -v`) removes every account and signs everyone out. Back up the volume or the folder.
+
+**Settings.** `docker-compose.yml` reads these from the environment or a `.env` file next to it:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `REQTOOL_PORT` | `8765` | Port on the host |
+| `REQTOOL_REPO_DIR` | the `reqtool-repo` volume | Host folder holding the repository |
+| `REQTOOL_UID`, `REQTOOL_GID` | `1000` | User the server runs as (applied when the image is built) |
+| `LOG_LEVEL` | `INFO` | Server log level |
+
+The image sets `REQTOOL_DISABLE_REPO_SWITCH=1`, so users cannot switch the server to another folder in the container.
+
+**Sync with a git remote.** For an SSH remote, put a deploy key and a `known_hosts` file in a folder and mount it read-only at `/home/reqtool/.ssh` (the commented line in `docker-compose.yml`). For HTTPS, use a URL with a token stored by a git credential helper in the container. Never build credentials into the image.
+
+**Behind a reverse proxy.** Terminate TLS at the proxy and forward to port 8765. Set `FORWARDED_ALLOW_IPS` to the proxy's address so the server trusts its `X-Forwarded-*` headers. Login cookies are then marked `Secure`.
+
+**Watching for changes.** The server notices files changed outside it (a `git pull` in the volume, an editor on the host folder). With Docker Desktop on Windows or macOS, changes made on the host side of a mounted folder are not always reported to the container. Keep the repository in the volume, or restart the server after changing files from outside.
+
 ---
 
 ## 2. Command Line Interface (CLI) Reference

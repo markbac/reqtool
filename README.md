@@ -32,6 +32,8 @@ req user add alice --role admin
 req serve --host 0.0.0.0 --auth required
 ```
 
+To run the shared server in Docker instead, see [Running the server in a container](docs/USER_GUIDE.md#13-running-the-server-in-a-container) (`docker-compose.yml`, `scripts/docker.ps1`).
+
 > **Security:** `req serve` defaults to `local` mode (no login, loopback clients only)
 > and refuses to bind a network address without `--auth required`. There is no default
 > account. See the [User Guide](docs/USER_GUIDE.md#6-security-and-access-control).
