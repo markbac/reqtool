@@ -5,6 +5,8 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 ## [Unreleased]
 
 ### Added (deployment)
+- **`scripts/update.ps1`**: brings an install up to date after a pull, as py-doc's does. It pulls, makes or repairs `.venv`, reinstalls, checks `req` and the PATH, runs `req tools`, and rebuilds the web UI when its sources changed. `-Docker` rebuilds and restarts the server container, and `-Test` runs the tests.
+- **`run.ps1 -RepoMode local|server|shared-repo`**: starts reqtool in one of the three operating modes. `server` requires a login, listens on every address and offers to create the first administrator. `shared-repo` runs `req setup` and pulls before starting. The README has a section on starting in each mode.
 - **Server in a container** (#367): a `Dockerfile` (builds the UI, then runs `req serve` in server mode with login required, as a non-root user, on the repository in `/repo`, with a health check on `/health`), a `docker-compose.yml` (a named volume or a host folder for the repository, port and user ID settings), and `scripts/docker.ps1` to build, set up the repository, add users, start, stop and run `req` commands. See *Running the server in a container* in the User Guide.
 
 ### Changed (logging)

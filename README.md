@@ -23,16 +23,76 @@ req init agile         # agile types: theme/initiative/epic/feature/story/task/b
 req init systems       # systems types, formal/safety-formal workflow
 req init defaults      # agile + systems types, formal workflows, and pre-populated principles (by area; --principles to choose packs)
 req init demo          # the Sentinel product family: 7 products, ~420 items, 5 sprints of history
-
-# Start the server (opens http://localhost:8765 with full UI)
-req serve
-
-# Share it with other machines: login is mandatory
-req user add alice --role admin
-req serve --host 0.0.0.0 --auth required
 ```
 
-To run the shared server in Docker instead, see [Running the server in a container](docs/USER_GUIDE.md#13-running-the-server-in-a-container) (`docker-compose.yml`, `scripts/docker.ps1`).
+Then start it in one of the three modes below. On Windows, `scripts\run.ps1` does the setup for each mode: it makes a virtual environment, installs reqtool and builds the UI the first time. After a `git pull`, run `.\scripts\update.ps1` to bring everything up to date.
+
+## Starting reqtool: the three modes
+
+| Mode | Who uses it | Login | How work is shared |
+|---|---|---|---|
+| `local` | One person, on their own machine | No (this machine only) | Commit and push with git yourself |
+| `server` | A team, through one central server | Yes, with roles | Everyone edits the server's copy |
+| `shared-repo` | A team, each person on their own clone | No (each machine only) | **Sync** pulls and pushes through the git remote |
+
+A repository's default is `mode` in `.reqtool/config.yaml` (set it with `req mode <mode>`). `req serve --mode` or `REQTOOL_MODE` overrides it on one machine.
+
+### Local: one person
+
+```bash
+req serve --browser                                  # http://localhost:8765, no login
+```
+
+```powershell
+.\scripts\run.ps1 -Repo C:\my-reqs -Browser
+```
+
+### Server: one central server, with logins
+
+There is no default account, so create the first administrator before anyone logs in.
+
+```bash
+req user add alice --role admin                      # asks for a password
+req serve --mode server --host 0.0.0.0               # login required; others connect to port 8765
+```
+
+```powershell
+.\scripts\run.ps1 -RepoMode server -Repo C:\my-reqs   # offers to create the first administrator
+```
+
+Or run the server in Docker, with no Python or Node.js on the host:
+
+```powershell
+.\scripts\docker.ps1 -Action Build
+.\scripts\docker.ps1 -Action Init -Flavour defaults -Id my-reqs -Title "My requirements"
+.\scripts\docker.ps1 -Action AddUser -UserName alice -Role admin
+.\scripts\docker.ps1 -Action Start
+```
+
+See [Running the server in a container](docs/USER_GUIDE.md#13-running-the-server-in-a-container). Put a reverse proxy in front for TLS.
+
+### Shared repo: everyone on their own clone
+
+One person makes shared-repo the repository's default and pushes it:
+
+```bash
+req mode shared-repo && git commit -am "Use shared-repo mode" && git push
+```
+
+Then each person, on their own machine:
+
+```bash
+git clone <remote> my-reqs && cd my-reqs
+req setup                                            # once per clone: reqtool's git merge driver
+req serve --browser                                  # no login, this machine only
+req sync                                             # pull the others' work, push yours (or ⇅ Sync in the header)
+```
+
+```powershell
+.\scripts\run.ps1 -RepoMode shared-repo -Repo C:\my-reqs -Browser   # runs req setup and pulls first
+```
+
+Commits use each person's own git name and e-mail, and credentials come from their git set-up (credential helper or SSH agent).
 
 > **Security:** `req serve` defaults to `local` mode (no login, loopback clients only)
 > and refuses to bind a network address without `--auth required`. There is no default
