@@ -217,17 +217,6 @@
   border: 1.5px solid;
 }
 
-/* ── Click-to-copy ───────────────────────────────────────────────────────── */
-.copy-uid-btn {
-  background: none; border: none; cursor: pointer;
-  color: var(--text-muted); font-size: 11px; padding: 2px 4px;
-  border-radius: 3px; opacity: 0;
-  transition: opacity .15s, color .1s;
-}
-.copy-uid-wrap:hover .copy-uid-btn { opacity: 1; }
-.copy-uid-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
-.copy-uid-wrap { display: flex; align-items: center; gap: 4px; }
-
 /* ── Attachments ─────────────────────────────────────────────────────────── */
 .attachments-section { display: flex; flex-direction: column; gap: 6px; }
 .attachment-list { display: flex; flex-direction: column; gap: 4px; }

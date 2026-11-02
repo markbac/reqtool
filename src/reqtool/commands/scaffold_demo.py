@@ -278,7 +278,7 @@ def populate_demo_data(root: Path, store) -> None:
          "disc":None,"test":None,"note":None,
          "status_flag":"M"},
         {"id":"SYS-COST-1","parentId":"SR-COST","title":"Unit Cost Target",
-         "text":"The product shall be manufacturable at a unit cost consistent with retail price [TBD-001]. [TBD-001]","domain":"cost",
+         "text":"The product shall be manufacturable at a unit cost consistent with retail price [TBD-001].","domain":"cost",
          "disc":None,"test":None,"note":None,
          "status_flag":"M"},
         {"id":"SYS-COST-2","parentId":"SR-COST","title":"Standard Components",

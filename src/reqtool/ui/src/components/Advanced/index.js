@@ -1,3 +1,4 @@
+import '../Advanced.css';
 export { Panel } from './Panel';
 export { CmdPalette } from './CmdPalette';
 export { BaselinesPanel } from './BaselinesPanel';

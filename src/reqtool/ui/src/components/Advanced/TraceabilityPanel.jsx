@@ -9,7 +9,6 @@ export function TraceabilityPanel({ onClose }) {
   const [matrix, setMatrix] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState('grid');
-  const [relFilter, setRelFilter] = useState({ requires: true, derived_from: true, satisfies: true });
 
   useEffect(() => {
     if (!activeProduct) { setLoading(false); return; }
@@ -19,25 +18,12 @@ export function TraceabilityPanel({ onClose }) {
       .finally(() => setLoading(false));
   }, [activeProduct]);
 
-  const toggleRel = (key) => setRelFilter(f => ({ ...f, [key]: !f[key] }));
-
   return (
     <div className="panel-overlay" onClick={onClose}>
       <div className="wide-panel" onClick={e => e.stopPropagation()}>
         <div className="side-panel-header">
-          <span className="side-panel-title">Traceability Matrix & Dependency Filters</span>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-              <input type="checkbox" checked={relFilter.requires} onChange={() => toggleRel('requires')} /> requires
-            </label>
-            <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-              <input type="checkbox" checked={relFilter.derived_from} onChange={() => toggleRel('derived_from')} /> derived_from
-            </label>
-            <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
-              <input type="checkbox" checked={relFilter.satisfies} onChange={() => toggleRel('satisfies')} /> satisfies
-            </label>
-            <button className="btn btn-ghost" onClick={onClose}>✕</button>
-          </div>
+          <span className="side-panel-title">Traceability</span>
+          <button className="btn btn-ghost" onClick={onClose}>✕</button>
         </div>
         <div className="wide-panel-body">
           <div className="ins-tabs" role="tablist">
