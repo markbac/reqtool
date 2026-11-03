@@ -56,7 +56,7 @@ def check_changes(store: Any, base_ref: str) -> list[dict[str, str]]:
     rc, merge_base, err = run_git(["merge-base", base_ref, "HEAD"], root)
     if rc != 0:
         raise ValueError(f"Cannot compare with {base_ref}: {err}")
-    rc, out, err = run_git(["diff", "--name-status", "--no-renames", merge_base, "HEAD", "--", "requirements"], root)
+    rc, out, err = run_git(["diff", "--name-status", "--no-renames", merge_base, "HEAD", "--", "requirements", "work"], root)
     if rc != 0:
         raise ValueError(err)
     findings = []

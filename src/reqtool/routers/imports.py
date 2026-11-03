@@ -177,7 +177,7 @@ async def import_csv_upload(
     return {"imported": len(created), "errors": [], "uids": created}
 
 
-BASELINE_DIRS = ("requirements", "principles", "tbds", "decisions", "modules", "products")
+BASELINE_DIRS = ("requirements", "work", "principles", "tbds", "decisions", "modules", "products")
 
 
 def _describe_dirty(store: Store, paths: list[str]) -> list[str]:

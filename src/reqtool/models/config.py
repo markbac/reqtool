@@ -236,6 +236,8 @@ class RepoConfig(BaseModel):
 
 class ItemTypeConfig(BaseModel):
     label: str
+    # Which folder and area items of this type belong to (#380): requirements/ or work/. None: the built-in default.
+    family: Optional[Literal["requirement", "work"]] = None
     icon: str = ""
     color: str = "#8b949e"
     description: str = ""

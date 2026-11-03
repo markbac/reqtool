@@ -168,7 +168,7 @@ def finalise_ids(store: Any) -> dict[str, Any]:
     from .git_ops import attribution, commit, dirty_paths, stage_file
     from .identity import MissingIdentity, with_trailers
     from .ids import finalise
-    dirty = {Path(p).stem for p in dirty_paths(store.root, ("requirements",))}
+    dirty = {Path(p).stem for p in dirty_paths(store.root, ("requirements", "work"))}
     renamed = finalise(store, exclude=dirty)
     if not renamed:
         return {"finalised": []}

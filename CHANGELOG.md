@@ -4,6 +4,11 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+### Changed (repository layout, #380)
+- **Every requirement is under `requirements/`, everything worked on is under `work/`**: stakeholder needs and system requirements stay in `requirements/`; themes, initiatives, epics, features, stories, tasks, defects, spikes and issues are written to `work/`; modules move from `modules/<id>/` to `requirements/modules/<id>/`. File contents do not change. A type can choose its folder with `family: requirement | work` in `hierarchy.yaml`; changing an item's type to the other family moves its file.
+- **`req migrate`** moves the files with `git mv`, so `git log --follow` keeps their history, and adds `work/*.yaml` to the merge-driver attributes when they are set up. Safe to run again. An unmigrated repository still loads; validation warns `misplaced_file` for each item in the wrong folder.
+- Sync, the change check, the watcher, baselines, change sets, doctor and the merge driver cover `work/` too.
+
 ### Changed (decisions, #371)
 - **Open questions are pending decisions**: there is no separate TBD kind. A decision is Pending (`status: proposed`) until it is accepted, rejected or superseded. **+ Decision needed** creates one; **Accept decision** (`POST /decisions/{uid}/accept`) needs the decision text and records the rationale, chosen option, an optional linked decision, who and when; **Reject** (`POST /decisions/{uid}/reject`) records the reason. The Decisions list has Pending, Accepted, Rejected and Superseded tabs.
 - **Decisions named in requirement text** (`[DEC-012]`) show as chips by status. Accepting a decision never changes requirement text: each requirement that links to it or names it gets the advisory `Q007` note, *Decision accepted: check the wording*, and its owner an inbox notification (new event `decision_accepted`). **Insert decision text** or **Wording is fine** (`POST /requirements/{uid}/decision-wording`) clears it.

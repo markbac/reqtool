@@ -59,7 +59,8 @@ graph TB
     subgraph repo["Requirements repository (git)"]
         config[".reqtool/<br/>config.yaml · enums.yaml<br/>hierarchy.yaml · help.yaml"]
         reqs["requirements/&lt;uid&gt;.yaml"]
-        mods["modules/&lt;id&gt;/"]
+        work["work/&lt;uid&gt;.yaml"]
+        mods["requirements/modules/&lt;id&gt;/"]
         prods["products/&lt;id&gt;/"]
     end
 ```
@@ -143,7 +144,7 @@ reqtool has three first-class artefact kinds: **requirements**, **principles**, 
 ```
 Artefact (shared structure)
 ├── schema_version     "1.0.0"
-├── type               "requirement" | "principle" | "tbd"
+├── type               "requirement" | "principle" | "decision"
 ├── tool_version       "0.3.0"
 ├── uid                UUIDv7 string  -- immutable primary key
 ├── id                 human-readable  e.g. "US-042", "FR-007"

@@ -402,7 +402,7 @@ def test_module_pin_and_update_preview(c, repo_root, monkeypatch, tmp_path):
     from reqtool.features import registry
     from reqtool.fileio import load_yaml, save_yaml
     c.post("/modules", json={"id": "ext"})
-    path = repo_root / "modules" / "ext" / "_module.yaml"
+    path = repo_root / "requirements" / "modules" / "ext" / "_module.yaml"   # #380
     assert c.post("/modules/ext/pin", json={"ref": "v1.2.0"}).status_code == 409  # no remote yet
     m = load_yaml(path)
     m["git_remote"] = "https://example.com/ext.git"
@@ -410,7 +410,7 @@ def test_module_pin_and_update_preview(c, repo_root, monkeypatch, tmp_path):
     c.app.state.store.reload_modules()
     assert c.post("/modules/ext/pin", json={"ref": "--upload-pack=x"}).status_code == 409
     assert c.post("/modules/ext/pin", json={"ref": "v1.2.0"}).json()["git_ref"] == "v1.2.0"
-    remote = repo_root / "modules" / "ext" / "remote"
+    remote = repo_root / "requirements" / "modules" / "ext" / "remote"
     remote.mkdir()
     (remote / "a.yaml").write_text("x: 1\n")
     (remote / "b.yaml").write_text("x: 1\n")

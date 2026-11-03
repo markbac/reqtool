@@ -113,9 +113,11 @@ def demo_repo(tmp_path_factory):
 
 
 class TestInitDemo:
-    def test_init_demo_creates_requirements(self, demo_repo):
+    def test_init_demo_creates_requirements_and_work_items(self, demo_repo):
         root, _ = demo_repo
-        assert len(list((root / "requirements").glob("*.yaml"))) >= 400
+        assert len(list((root / "requirements").glob("*.yaml"))) >= 240          # needs and system requirements
+        assert len(list((root / "work").glob("*.yaml"))) >= 150                  # themes to tasks and issues (#380)
+        assert len(list((root / "requirements" / "modules").glob("*/_module.yaml"))) == 3
 
     def test_init_demo_creates_product(self, demo_repo):
         root, _ = demo_repo

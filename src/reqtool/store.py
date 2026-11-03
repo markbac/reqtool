@@ -34,6 +34,7 @@ from .artefacts import (
     DECISION, DECISION_LINK_TYPES, DECISION_MARKER, PRINCIPLE, REQUIREMENT, apply_fields, history_entry,
     is_pending_decision, legacy_decision_status, mark_deleted, new_requirement, record_change, seal_new,
 )
+from . import layout
 from .graph import TraceabilityGraph, relationship_target
 from .storage import FileStorage, Storage
 from .vcs import GitVcs, Vcs, _REMOTE_SCHEMES, _validate_remote_url, _validate_remote_ref, _git_remote  # noqa: F401
@@ -135,7 +136,9 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
             self._load_config()
             self._load_enums()
             self._load_hierarchy()
-            self._load_dir(self.root / "requirements", new_reqs, "requirements")
+            # Requirements in requirements/, work items and issues in work/ (#380); one collection in memory.
+            self._load_dir(self.root / layout.REQUIREMENTS_DIR, new_reqs, "requirements")
+            self._load_dir(self.root / layout.WORK_DIR, new_reqs, "requirements")
             for req in new_reqs.values():
                 # Older files used `iteration_id`; `iteration` is the one field the editor and filters use.
                 legacy = req.pop("iteration_id", None)
@@ -258,10 +261,15 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
     def _read_modules(self) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, dict[str, Any]]]]:
         modules: dict[str, dict[str, Any]] = {}
         module_requirements: dict[str, dict[str, dict[str, Any]]] = {}
-        modules_dir = self.root / "modules"
-        if not self.storage.exists(modules_dir):
-            return modules, module_requirements
-        for module_dir in self.storage.list_dirs(modules_dir):
+        # requirements/modules/<id>/ (#380), and the legacy modules/<id>/ until `req migrate` moves it.
+        seen: set[str] = set()
+        module_folders = []
+        for base in (self.root / layout.MODULES_DIR, self.root / layout.LEGACY_MODULES_DIR):
+            for folder in self.storage.list_dirs(base) if self.storage.exists(base) else []:
+                if folder.name not in seen:
+                    seen.add(folder.name)
+                    module_folders.append(folder)
+        for module_dir in module_folders:
             manifest = module_dir / "_module.yaml"
             if not self.storage.exists(manifest):
                 continue
@@ -364,7 +372,33 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
     # ------------------------------------------------------------------
 
     def req_path(self, uid: str) -> Path:
-        return self._file_for.get(("requirements", uid)) or self.root / "requirements" / f"{uid}.yaml"
+        """The file of a requirement or work item: where it was read from, else the folder its type belongs in."""
+        recorded = self._file_for.get(("requirements", uid))
+        if recorded is not None:
+            return recorded
+        path = self.expected_req_path(uid)
+        if uid in self.requirements:
+            self._file_for[("requirements", uid)] = path   # remembered, so a later type change can move it
+        return path
+
+    def expected_req_path(self, uid: str) -> Path:
+        """Where the item belongs by its type: requirements/ or work/ (#380)."""
+        req_type = (self.requirements.get(uid) or {}).get("req_type")
+        return layout.item_dir(self.root, req_type, self.hierarchy) / f"{uid}.yaml"
+
+    def module_dir(self, module_id: str) -> Path:
+        """A module's folder: requirements/modules/<id>/, or the legacy modules/<id>/ while it is still there."""
+        legacy = self.root / layout.LEGACY_MODULES_DIR / module_id
+        return legacy if self.storage.exists(legacy / "_module.yaml") else self.root / layout.MODULES_DIR / module_id
+
+    def misplaced_items(self) -> list[tuple[str, Path, Path]]:
+        """Items whose file is in the other family's folder: (uid, where it is, where it belongs)."""
+        out = []
+        for uid in self.requirements:
+            have, want = self._file_for.get(("requirements", uid)), self.expected_req_path(uid)
+            if have is not None and have.parent != want.parent:
+                out.append((uid, have, want))
+        return out
 
     def principle_path(self, uid: str) -> Path:
         return self._file_for.get(("principles", uid)) or self.root / "principles" / f"{uid}.yaml"
@@ -661,7 +695,14 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
             # Dated status moves are what the flow and burn-up views are built from.
             data["history"][-1]["status_from"], data["history"][-1]["status_to"] = before_status, data.get("status")
 
-        self.storage.write(self.req_path(uid), data)
+        path = self.req_path(uid)
+        if "req_type" in fields and path.parent != self.expected_req_path(uid).parent \
+                and path.parent in (self.root / layout.REQUIREMENTS_DIR, self.root / layout.WORK_DIR):
+            # The type moved to the other family (a requirement became work, or back): move the file with it.
+            self.storage.delete(path)
+            path = self.expected_req_path(uid)
+            self._file_for[("requirements", uid)] = path
+        self.storage.write(path, data)
         return data
 
     def hierarchy_problem(self, child_type: str, parent_uid: Optional[str]) -> Optional[str]:
@@ -1057,6 +1098,10 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
                 return
 
             top = parts[0]
+            if layout.is_module_path(rel):
+                top = "modules"
+            elif top == layout.WORK_DIR:
+                top = "requirements"   # work items are requirement-kind records (#380)
 
         try:
             if top == "requirements":

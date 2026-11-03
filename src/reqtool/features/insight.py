@@ -231,7 +231,7 @@ def release_readiness(store, product_id: Optional[str] = None) -> dict[str, Any]
         if approved and not (r.get("relationships") or r.get("parentId")) and r.get("req_type") not in STRATEGIC:
             add("trace_gap", r, "Approved item has no parent or traceability link")
     if is_git_repo(store.root):
-        dirty = dirty_paths(store.root, ("requirements", "principles", "decisions", "modules", "products"))
+        dirty = dirty_paths(store.root, ("requirements", "work", "principles", "decisions", "modules", "products"))
         for path in dirty:
             findings.append({"code": "dirty_baseline", "uid": "", "id": path,
                              "message": f"Uncommitted change would not be in a baseline: {path}"})

@@ -514,7 +514,7 @@ Code blocks, inline code, URLs and HTML are not checked. Findings show under the
 ## 5. Modules, Variant Overlays & Parameter Substitution
 
 ### 5.1 Reusable Modules
-Store shared requirements in `modules/<module-id>/_module.yaml`. Import external git repository modules using:
+Store shared requirements in `requirements/modules/<module-id>/`, with the manifest in `_module.yaml`. Repositories from before this layout keep their modules in `modules/<module-id>/` until `req migrate` moves them. Import external git repository modules using:
 ```bash
 reqtool import <module-id>
 ```

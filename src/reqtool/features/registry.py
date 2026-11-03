@@ -24,7 +24,7 @@ class ModuleError(ValueError):
 
 def _manifest(store, module_id: str) -> Path:
     validate_id(module_id, "module id")
-    return store.root / "modules" / module_id / "_module.yaml"
+    return store.module_dir(module_id) / "_module.yaml"
 
 
 def create_module(store, module_id: str, title: str = "", description: str = "") -> dict[str, Any]:

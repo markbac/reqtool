@@ -9,6 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 import click
 
+from .. import layout
+
 
 
 def populate_demo_data(root: Path, store) -> None:
@@ -1254,7 +1256,7 @@ def populate_demo_data(root: Path, store) -> None:
     # -----------------------------------------------------------------------
     
     # 1. MOD-COMMS-SECURITY
-    mod_sec_dir = root / "modules" / "comms-security"
+    mod_sec_dir = root / layout.MODULES_DIR / "comms-security"
     mod_sec_dir.mkdir(parents=True, exist_ok=True)
     save_yaml(mod_sec_dir / "_module.yaml", {
         "schema_version": "1.0.0",
@@ -1320,7 +1322,7 @@ def populate_demo_data(root: Path, store) -> None:
         save_yaml(mod_sec_dir / f"{uid}.yaml", data)
 
     # 2. MOD-SENSOR-CORE
-    mod_core_dir = root / "modules" / "sensor-core"
+    mod_core_dir = root / layout.MODULES_DIR / "sensor-core"
     mod_core_dir.mkdir(parents=True, exist_ok=True)
     save_yaml(mod_core_dir / "_module.yaml", {
         "schema_version": "1.0.0", "type": "module", "id": "MOD-SENSOR-CORE",
@@ -1329,7 +1331,7 @@ def populate_demo_data(root: Path, store) -> None:
     })
 
     # 3. MOD-POWER-MGMT
-    mod_pwr_dir = root / "modules" / "power-mgmt"
+    mod_pwr_dir = root / layout.MODULES_DIR / "power-mgmt"
     mod_pwr_dir.mkdir(parents=True, exist_ok=True)
     save_yaml(mod_pwr_dir / "_module.yaml", {
         "schema_version": "1.0.0", "type": "module", "id": "MOD-POWER-MGMT",

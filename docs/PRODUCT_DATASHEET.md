@@ -15,7 +15,7 @@ Combining formal systems engineering rigor (INCOSE quality linter, ISO 26262 / D
 ## 2. Exhaustive Feature Matrix & Technical Capabilities
 
 ### 📂 2.1 Git-Backed Data & Storage Engine
-- **File-per-Item Store:** Every requirement (`requirements/*.yaml`), principle (`principles/*.yaml`), TBD (`tbds/*.yaml`), module (`modules/`), and product (`products/`) is stored as an individual human-readable YAML 1.2 file.
+- **File-per-Item Store:** Every requirement (`requirements/*.yaml`), work item (`work/*.yaml`), principle (`principles/*.yaml`), decision (`decisions/*.yaml`), module (`requirements/modules/`) and product (`products/`) is stored as an individual human-readable YAML 1.2 file.
 - **SHA-256 Hashing & Semantic Versioning:** Automatic content hashing and semantic versioning (`1.0.0` → `1.1.0` on content modification; `2.0.0` on major structural changes).
 - **Incremental File System Watchdog:** Background Watchdog file system observer reloads modified files in `<10ms` without restarting the server.
 - **Native Git Branching & Diffs:** Execute `req diff HEAD~5` or `GET /diff?since=ref` to inspect field-level delta histories across commits, branches, and baseline tags.
@@ -80,7 +80,7 @@ Combining formal systems engineering rigor (INCOSE quality linter, ISO 26262 / D
 
 | Parameter | Specification |
 | :--- | :--- |
-| **Storage Architecture** | File-per-item Git-backed YAML store (`requirements/*.yaml`, `principles/*.yaml`, `tbds/*.yaml`) |
+| **Storage Architecture** | File-per-item Git-backed YAML store (`requirements/*.yaml`, `work/*.yaml`, `principles/*.yaml`, `decisions/*.yaml`) |
 | **Supported OS** | Windows 10/11 (x64), Linux (Ubuntu/Debian/RHEL x64), macOS (Apple Silicon / Intel) |
 | **Deployment Options** | Standalone Executables (`.exe` / binary), Python Wheel, Docker Container, Multi-User Server Host |
 | **Backend Engine** | Python 3.12 / FastAPI / Uvicorn / PyInstaller / Watchdog |

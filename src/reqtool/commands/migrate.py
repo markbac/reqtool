@@ -141,11 +141,68 @@ def migrate_decisions(root: Path) -> dict:
     return result
 
 
+def _move(root: Path, src: Path, dest: Path, use_git: bool) -> None:
+    """Move a file or folder, with ``git mv`` when it is tracked so ``git log --follow`` keeps its history."""
+    from ..git_ops import run_git
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if use_git:
+        rc, _, _ = run_git(["mv", "-k", str(src.relative_to(root)), str(dest.relative_to(root))], root)
+        if rc == 0 and not src.exists():
+            return
+    shutil.move(str(src), str(dest))
+
+
+def migrate_layout(root: Path) -> dict:
+    """Move work items and issues from requirements/ to work/, and modules from modules/<id>/ to
+    requirements/modules/<id>/ (#380). File contents are not changed. Safe to run again: anything already in
+    place is left alone, and a module already present at the new place is reported, not overwritten."""
+    from .. import layout
+    from ..fileio import load_yaml
+    from ..git_ops import is_git_repo
+    from ..stores import hierarchy_store
+    result: dict = {"work": 0, "modules": 0, "skipped_modules": []}
+    if not (root / ".reqtool").is_dir():
+        return result
+    use_git = is_git_repo(root)
+    hierarchy = hierarchy_store.load_hierarchy(root)
+    for path in sorted((root / layout.REQUIREMENTS_DIR).glob("*.yaml")):
+        try:
+            data = load_yaml(path)
+        except Exception:
+            continue
+        if isinstance(data, dict) and layout.family(data.get("req_type"), hierarchy) == "work":
+            _move(root, path, root / layout.WORK_DIR / path.name, use_git)
+            result["work"] += 1
+    legacy = root / layout.LEGACY_MODULES_DIR
+    if legacy.is_dir():
+        for folder in sorted(p for p in legacy.iterdir() if p.is_dir()):
+            dest = root / layout.MODULES_DIR / folder.name
+            if dest.exists():
+                result["skipped_modules"].append(folder.name)
+                continue
+            _move(root, folder, dest, use_git)
+            result["modules"] += 1
+        try:
+            legacy.rmdir()
+        except OSError:
+            pass  # not empty (a module left in place)
+    attrs = root / ".gitattributes"
+    if attrs.exists():
+        from ..merge import ATTRIBUTES
+        lines = attrs.read_text(encoding="utf-8").splitlines()
+        if "requirements/*.yaml merge=reqtool" in lines:
+            missing = [a for a in ATTRIBUTES if a not in lines]
+            if missing:
+                attrs.write_text("\n".join(lines + missing) + "\n", encoding="utf-8")
+    return result
+
+
 @cli.command()
 @click.option("--repo", default=None, help="Path to the requirements repository root.")
 def migrate(repo: Optional[str]):
-    """Migrate legacy layouts: TBDs move into decisions/ and become decisions, the repository gets its own
-    workflow and lint files, and principles get an area and category."""
+    """Migrate legacy layouts: TBDs move into decisions/ and become decisions, work items move to work/ and
+    modules to requirements/modules/, the repository gets its own workflow and lint files, and principles get an
+    area and category."""
     root = Path(repo).resolve() if repo else _repo_root()
     result = migrate_tbds(root)
     click.echo(f"TBDs moved to decisions/: {result['moved']}")
@@ -154,6 +211,11 @@ def migrate(repo: Optional[str]):
     converted = migrate_decisions(root)
     click.echo(f"Open questions converted to decisions: {converted['converted']}, merged into the decision they "
                f"became: {converted['merged']}, requirements relinked: {converted['links']}")
+    moved = migrate_layout(root)
+    click.echo(f"Work items moved to work/: {moved['work']}, modules moved to requirements/modules/: {moved['modules']}")
+    if moved["skipped_modules"]:
+        click.echo("Already in requirements/modules/, left in modules/ to reconcile by hand: "
+                   + ", ".join(moved["skipped_modules"]))
     for name in migrate_settings(root):
         click.echo(f"Wrote {name} (the repository now owns these settings).")
     if migrate_rules(root):
