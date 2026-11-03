@@ -73,7 +73,7 @@ export function AttachmentsSection({ uid }) {
                   {isImage && (
                     <button
                       className="btn btn-ghost"
-                      style={{ fontSize: 10, padding: '2px 6px', marginLeft: 'auto' }}
+                      style={{ fontSize: 12, padding: '2px 6px', marginLeft: 'auto' }}
                       onClick={copyImgMarkdown}
                       title="Copy inline markdown image snippet"
                     >🖼 Copy Markdown</button>

@@ -28,7 +28,7 @@ export function TemplatesPanel({ onClose }) {
         >
           <div className="template-item-header">
             <span className="template-label">{t.label}</span>
-            <button className="btn btn-primary" style={{ fontSize: 11, padding: '3px 10px' }}
+            <button className="btn btn-primary" style={{ fontSize: 12, padding: '3px 10px' }}
               onClick={e => { e.stopPropagation(); applyTemplate(t); }}>
               Use
             </button>
@@ -38,8 +38,8 @@ export function TemplatesPanel({ onClose }) {
             <div className="template-fields">
               {Object.entries(t.fields).filter(([k]) => k !== 'content').map(([k, v]) => (
                 <div key={k} className="template-field-row">
-                  <span className="mono text-secondary" style={{ fontSize: 11 }}>{k}</span>
-                  <span style={{ fontSize: 11 }}>{Array.isArray(v) ? v.join(', ') : String(v)}</span>
+                  <span className="mono text-secondary" style={{ fontSize: 12 }}>{k}</span>
+                  <span style={{ fontSize: 12 }}>{Array.isArray(v) ? v.join(', ') : String(v)}</span>
                 </div>
               ))}
             </div>

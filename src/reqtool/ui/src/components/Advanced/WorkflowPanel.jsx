@@ -38,8 +38,8 @@ export function WorkflowPanel({ onClose }) {
           <span className="wf-dot" style={{ background: s.colour }} />
           <span className="wf-state-id mono">{s.id}</span>
           <span className="wf-state-label">{s.label}</span>
-          {s.terminal && <span className="badge" style={{ fontSize: 9 }}>terminal</span>}
-          <span className="text-muted" style={{ fontSize: 11, marginLeft: 4 }}>→ {(wf.transitions?.[s.id] || []).join(', ') || '—'}</span>
+          {s.terminal && <span className="badge" style={{ fontSize: 12 }}>terminal</span>}
+          <span className="text-muted" style={{ fontSize: 12, marginLeft: 4 }}>→ {(wf.transitions?.[s.id] || []).join(', ') || '—'}</span>
         </div>
       ))}
 

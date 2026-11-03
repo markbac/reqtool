@@ -44,11 +44,11 @@ export function WebhooksPanel({ onClose }) {
             <span className={`badge ${wh.enabled ? 'badge-approved' : 'badge-deprecated'}`}>
               {wh.enabled ? 'active' : 'disabled'}
             </span>
-            <button className="btn btn-ghost" style={{ color: 'var(--accent-red)', fontSize: 11 }}
+            <button className="btn btn-ghost" style={{ color: 'var(--accent-red)', fontSize: 12 }}
               onClick={() => handleDelete(i)}>✕</button>
           </div>
           <div className="webhook-events">
-            {wh.events?.map(e => <span key={e} className="badge" style={{ fontSize: 9 }}>{e}</span>)}
+            {wh.events?.map(e => <span key={e} className="badge" style={{ fontSize: 12 }}>{e}</span>)}
           </div>
         </div>
       ))}
@@ -66,7 +66,7 @@ export function WebhooksPanel({ onClose }) {
             placeholder="Signing secret (optional)" style={{ marginTop: 4 }} />
           <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {ALL_EVENTS.map(ev => (
-              <label key={ev} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11 }}>
+              <label key={ev} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
                 <input type="checkbox"
                   checked={form.events.includes(ev)}
                   onChange={e => setForm(f => ({

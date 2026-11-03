@@ -6,6 +6,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { useApp } from '../AppContext';
+import { labelOf } from '../labels';
 import { api } from '../api';
 import { Panel } from './Advanced/Panel';
 import { MermaidView } from './MermaidView';
@@ -48,6 +49,7 @@ function Swatch({ colour }) { return <span className="vw-swatch" style={{ backgr
 
 // --- Hierarchy tree ---------------------------------------------------------------------------------
 function HierarchyView({ open, product }) {
+  const { state } = useApp();
   const [types, setTypes] = useState('');
   const [statuses, setStatuses] = useState('');
   const [collapsed, setCollapsed] = useState(() => new Set());
@@ -82,7 +84,7 @@ function HierarchyView({ open, product }) {
               : <span className="vw-twist" />}
             <Swatch colour={n.colour} />
             <button className="vw-link" onClick={() => open(n.uid)}><span className="mono">{n.id}</span> {n.title}</button>
-            <span className="ins-pill">{n.type}</span><span className="ins-pill">{n.status_label}</span>
+            <span className="ins-pill">{labelOf.type(n.type, state.hierarchy)}</span><span className="ins-pill">{n.status_label}</span>
           </li>
         ))}
       </ul>
@@ -147,11 +149,11 @@ function CoverageView({ open, product }) {
         <button className="btn btn-ghost" onClick={() => setAsTable(t => !t)} aria-pressed={asTable}>{asTable ? 'Show treemap' : 'Show table'}</button>
       </div>
       <Status {...data} />
-      {d && <ul className="vw-legend" aria-label="Legend">{keys.map(k => <li key={k}><Swatch colour={d.colours[k] || '#768390'} /> {k.replace(/_/g, ' ')} <b>{d.totals[k]}</b></li>)}</ul>}
+      {d && <ul className="vw-legend" aria-label="Legend">{keys.map(k => <li key={k}><Swatch colour={d.colours[k] || '#768390'} /> {labelOf.plain(k)} <b>{d.totals[k]}</b></li>)}</ul>}
       {d && !d.roots.length && <Empty>No items yet.</Empty>}
       {d && !asTable && <div className="vw-cells vw-top">{d.roots.map(r => <Cell key={r.uid} node={r} colours={d.colours} open={open} depth={0} />)}</div>}
       {d && asTable && (
-        <table className="vw-table" data-testid="coverage-table"><thead><tr><th>Item</th><th>Items below</th>{keys.map(k => <th key={k}>{k.replace(/_/g, ' ')}</th>)}</tr></thead>
+        <table className="vw-table" data-testid="coverage-table"><thead><tr><th>Item</th><th>Items below</th>{keys.map(k => <th key={k}>{labelOf.plain(k)}</th>)}</tr></thead>
           <tbody>{flat.map(n => (
             <tr key={n.uid}><td style={{ paddingLeft: n.depth * 14 }}><button className="vw-link" onClick={() => open(n.uid)}><span className="mono">{n.id}</span> {n.title}</button></td>
               <td>{n.count}</td>{keys.map(k => <td key={k}>{n.by[k] || ''}</td>)}</tr>))}</tbody></table>
@@ -162,6 +164,7 @@ function CoverageView({ open, product }) {
 
 // --- Impact graph -----------------------------------------------------------------------------------
 function ImpactView({ open, focus }) {
+  const { state } = useApp();
   const [uid, setUid] = useState(focus || '');
   const [depth, setDepth] = useState(2);
   const [types, setTypes] = useState('');
@@ -189,7 +192,7 @@ function ImpactView({ open, focus }) {
         <table className="vw-table"><thead><tr><th>Hops</th><th>Item</th><th>Type</th><th>Status</th></tr></thead><tbody>
           {g.nodes.map(n => (<tr key={n.key}><td>{n.distance}</td>
             <td>{n.kind === 'item' ? <button className="vw-link" onClick={() => open(n.key)}><span className="mono">{n.id}</span> {n.title}</button> : <span><span className="mono">{n.id}</span> {n.title}</span>}</td>
-            <td>{n.type}</td><td>{n.status || ''}</td></tr>))}</tbody></table>
+            <td>{labelOf.type(n.type, state.hierarchy)}</td><td>{labelOf.plain(n.status || '')}</td></tr>))}</tbody></table>
       </>}
     </div>
   );

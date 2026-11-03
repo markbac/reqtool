@@ -181,16 +181,16 @@ def test_atam_fields_round_trip(page):
     assert atam["tradeoff_points"][0]["attributes"] == ["latency", "availability"]
 
 
-def test_a_tbd_is_resolved_into_a_decision(page):
-    tbd = page.server.post("/tbds", {"title": "Pick a queue", "content": {"description": "Undecided"}})
+def test_a_pending_decision_is_accepted(page):
+    pending = page.server.post("/decisions", {"title": "Pick a queue", "content": {"description": "Undecided"}})
     open_app(page, product=None)
     open_menu_item(page, "⚖ Decisions & ADRs")
     p = panel(page, "Decisions")
-    p.get_by_role("button", name="Resolve").click()
-    page.get_by_role("dialog").get_by_role("textbox").first.fill("Use the managed queue")
-    page.get_by_role("dialog").get_by_role("button", name="Resolve").click()
-    expect(page.locator(".toast-success").last).to_contain_text("Resolved")
-    assert page.server.get(f"/decisions/{tbd['uid']}")["status"] in ("resolved", "accepted")
+    p.get_by_role("button", name="Accept").click()
+    page.get_by_role("dialog").get_by_label("Decision", exact=True).fill("Use the managed queue")
+    page.get_by_role("dialog").get_by_role("button", name="Accept decision").click()
+    expect(page.locator(".toast-success").last).to_contain_text("accepted")
+    assert page.server.get(f"/decisions/{pending['uid']}")["status"] == "accepted"
 
 
 # --- modules -------------------------------------------------------------------------------

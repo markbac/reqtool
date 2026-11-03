@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import { AppProvider, useApp } from '../AppContext';
-import Sidebar from '../components/Sidebar.jsx';
+import { RequirementsPanel } from '../components/Sidebar.jsx';
 
 const ok = (body, status = 200) => Promise.resolve({
   ok: true, status, headers: { get: () => 'application/json' },
@@ -28,7 +28,7 @@ async function setup(allowed) {
     if (String(url).includes('/tree')) return ok(TREE);
     return ok([]);
   });
-  render(<AppProvider><Pick /><Sidebar tree={[]} principles={[]} tbds={[]} onRefresh={() => {}} /></AppProvider>);
+  render(<AppProvider><Pick /><RequirementsPanel /></AppProvider>);
   fireEvent.contextMenu(await screen.findByText('Parent'));
   fireEvent.click(screen.getByText('+ Add child'));
   return calls;

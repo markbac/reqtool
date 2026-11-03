@@ -3,8 +3,10 @@
  *   CoveragePanel, BulkUpdatePanel, GlobalCommitModal
  */
 
+import { Panel } from './Advanced/Panel';
 import { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../AppContext';
+import { labelOf } from '../labels';
 import { api } from '../api';
 import './Tools.css';
 
@@ -12,6 +14,8 @@ import './Tools.css';
 // Coverage dashboard
 // ---------------------------------------------------------------------------
 export function CoveragePanel({ onClose }) {
+  const { state } = useApp();
+  const product = state.activeProduct?.id;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +24,7 @@ export function CoveragePanel({ onClose }) {
       setLoading(true);
       try {
         // One server-side summary (GET /metrics) instead of downloading every requirement.
-        const m = await api.metrics.get();
+        const m = await api.metrics.get(product);
         const gaps = m.quality_gaps || {};
         setData({
           total: m.totals?.requirements ?? 0,
@@ -35,7 +39,7 @@ export function CoveragePanel({ onClose }) {
       finally { setLoading(false); }
     };
     load();
-  }, []);
+  }, [product]);
 
   const pct = (n) => data?.total ? Math.round((n / data.total) * 100) : 0;
 
@@ -46,12 +50,7 @@ export function CoveragePanel({ onClose }) {
   };
 
   return (
-    <div className="panel-overlay" onClick={onClose}>
-      <div className="side-panel side-panel--wide" onClick={e => e.stopPropagation()}>
-        <div className="side-panel-header">
-          <span className="side-panel-title">Coverage</span>
-          <button className="btn btn-ghost" onClick={onClose}>✕</button>
-        </div>
+    <Panel title="Coverage" onClose={onClose} wide raw>
         {loading && <div className="panel-body"><div className="panel-loading"><div className="spinner" /></div></div>}
         {!loading && !data && <div className="panel-body"><p style={{color:'var(--text-muted)'}}>No data.</p></div>}
         {!loading && data && (
@@ -74,7 +73,7 @@ export function CoveragePanel({ onClose }) {
               {STATUS_ORDER.filter(s => data.byStatus[s]).map(s => (
                 <span key={s} className="cov-legend-item">
                   <span className="cov-legend-dot" style={{ background: STATUS_COLOURS[s] || 'var(--border)' }} />
-                  {s} <span className="text-muted">({data.byStatus[s]})</span>
+                  {labelOf.plain(s)} <span className="text-muted">({data.byStatus[s]})</span>
                 </span>
               ))}
             </div>
@@ -96,7 +95,7 @@ export function CoveragePanel({ onClose }) {
                   />
                 </div>
                 <span className={`cov-gap-count ${warn && n > 0 ? 'text-warn' : 'text-muted'}`}>
-                  {n} <span className="text-muted" style={{ fontSize: 10 }}>({pct(n)}%)</span>
+                  {n} <span className="text-muted" style={{ fontSize: 12 }}>({pct(n)}%)</span>
                 </span>
               </div>
             ))}
@@ -114,8 +113,7 @@ export function CoveragePanel({ onClose }) {
             ))}
           </div>
         )}
-      </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -168,12 +166,7 @@ export function BulkUpdatePanel({ onClose, onDone }) {
   };
 
   return (
-    <div className="panel-overlay" onClick={onClose}>
-      <div className="side-panel side-panel--wide" onClick={e => e.stopPropagation()}>
-        <div className="side-panel-header">
-          <span className="side-panel-title">Bulk Update <span className="text-muted" style={{fontSize:11}}>({selected.size} selected)</span></span>
-          <button className="btn btn-ghost" onClick={onClose}>✕</button>
-        </div>
+    <Panel title={`Bulk edit (${selected.size} selected)`} onClose={onClose} wide raw>
         <div className="panel-body" style={{ gap: 8 }}>
 
           {/* Fields to set */}
@@ -182,7 +175,7 @@ export function BulkUpdatePanel({ onClose, onDone }) {
               <label className="field-label">Set Status</label>
               <select value={fields.status} onChange={e => setFields(f => ({ ...f, status: e.target.value }))}>
                 <option value="">— no change —</option>
-                {(enums?.status || []).map(s => <option key={s} value={s}>{s}</option>)}
+                {(enums?.status || []).map(s => <option key={s} value={s}>{labelOf.plain(s)}</option>)}
               </select>
             </div>
             <div className="field-group" style={{ flex: 1 }}>
@@ -199,14 +192,14 @@ export function BulkUpdatePanel({ onClose, onDone }) {
           </div>
 
           {/* Filter bar */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Filter:</span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Filter:</span>
             {['', ...(enums?.status || [])].map(s => (
               <button
                 key={s}
                 className={`tbds-filter-btn ${filterStatus === s ? 'active' : ''}`}
                 onClick={() => setFilterStatus(s)}
-              >{s || 'all'}</button>
+              >{s ? labelOf.plain(s) : 'All'}</button>
             ))}
           </div>
 
@@ -217,14 +210,14 @@ export function BulkUpdatePanel({ onClose, onDone }) {
               <div className="bulk-list">
                 <div className="bulk-list-header">
                   <input type="checkbox" checked={allSelected} onChange={toggleAll} style={{ width: 'auto' }} />
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Select all ({filtered.length})</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Select all ({filtered.length})</span>
                 </div>
                 {filtered.map(r => (
                   <label key={r.uid} className={`bulk-row ${selected.has(r.uid) ? 'bulk-row--selected' : ''}`}>
                     <input type="checkbox" checked={selected.has(r.uid)} onChange={() => toggle(r.uid)} style={{ width: 'auto', flexShrink: 0 }} />
-                    <span className="mono" style={{ fontSize: 11, width: 110, flexShrink: 0 }}>{r.id}</span>
+                    <span className="mono" style={{ fontSize: 12, width: 110, flexShrink: 0 }}>{r.id}</span>
                     <span style={{ fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
-                    <span className={`badge badge-${r.status}`} style={{ flexShrink: 0 }}>{r.status}</span>
+                    <span className={`badge badge-${r.status}`} style={{ flexShrink: 0 }}>{labelOf.plain(r.status)}</span>
                   </label>
                 ))}
               </div>
@@ -240,8 +233,7 @@ export function BulkUpdatePanel({ onClose, onDone }) {
             {busy ? <span className="spinner" /> : `Apply to ${selected.size} requirement(s)`}
           </button>
         </div>
-      </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -311,7 +303,7 @@ export function VocabulariesPanel({ onClose }) {
   const [activeVocab, setActiveVocab] = useState('tags');
 
   const VOCAB_SECTIONS = [
-    { key: 'tags',        label: 'Tags',                hint: 'Labels applied to requirements, principles and TBDs. Use to group by theme, regulatory driver, etc.' },
+    { key: 'tags',        label: 'Tags',                hint: 'Labels applied to requirements, work items, principles and decisions. Use to group by theme, regulatory driver, etc.' },
     { key: 'team',        label: 'Teams',               hint: 'Used in Allocated To. Represents engineering teams or workstreams responsible for delivering requirements.' },
     { key: 'owner',       label: 'People',              hint: 'People list used in Owner, Approved By, and Reviewers fields. Use short identifiers (e.g. jane.smith or Systems Lead).' },
     { key: 'domain',      label: 'Domains',             hint: 'Requirement domain / area. Drives left-border colour coding in the tree and domain-split Markdown exports.' },
@@ -364,17 +356,9 @@ export function VocabulariesPanel({ onClose }) {
   const current = VOCAB_SECTIONS.find(s => s.key === activeVocab);
 
   return (
-    <div className="panel-overlay" onClick={onClose}>
-      <div className="side-panel side-panel--wide" onClick={e => e.stopPropagation()} style={{ width: 580 }}>
-        <div className="side-panel-header">
-          <span className="side-panel-title">Vocabularies</span>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-primary" onClick={handleSave} disabled={saving || !enums}>
+    <Panel title="Vocabularies" onClose={onClose} wide raw actions={<><button className="btn btn-primary" onClick={handleSave} disabled={saving || !enums}>
               {saving ? <span className="spinner" /> : 'Save'}
-            </button>
-            <button className="btn btn-ghost" onClick={onClose}>✕</button>
-          </div>
-        </div>
+            </button></>}>
 
         {!enums
           ? <div className="panel-body"><div className="panel-loading"><div className="spinner" /></div></div>
@@ -411,8 +395,7 @@ export function VocabulariesPanel({ onClose }) {
             </div>
           )
         }
-      </div>
-    </div>
+    </Panel>
   );
 }
 

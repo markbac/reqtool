@@ -14,7 +14,7 @@
 
   --text-primary:  #e6edf3;
   --text-secondary:#8b949e;
-  --text-muted:    #484f58;
+  --text-muted:    #848d97;   /* at least 4.5:1 on surface and elevated backgrounds (#377) */
   --text-link:     #58a6ff;
 
   --accent-blue:   #1f6feb;
@@ -55,7 +55,7 @@
 
   --text-primary:  #1f2328;
   --text-secondary:#57606a;
-  --text-muted:    #8c959f;
+  --text-muted:    #5f6771;   /* at least 4.5:1 on surface and elevated backgrounds (#377) */
   --text-link:     #0969da;
 
   --accent-blue:   #0969da;
@@ -92,7 +92,7 @@
 
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', 'Fira Code', monospace;
-  --font-size-xs:  11px;
+  --font-size-xs:  12px;   /* the smallest text (#377) */
   --font-size-sm:  12px;
   --font-size-md:  13px;
   --font-size-lg:  14px;

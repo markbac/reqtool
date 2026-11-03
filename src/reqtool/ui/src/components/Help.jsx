@@ -33,7 +33,7 @@ function AboutTab() {
       <div className="help-section">
         <h3>What is reqtool?</h3>
         <p>
-          reqtool stores requirements, principles, and TBDs as individual YAML files in a git
+          reqtool stores requirements, work items, principles and decisions as individual YAML files in a git
           repository. Every artefact has a unique ID, a content hash, and a full version history.
           The tool handles validation, workflow enforcement, traceability, and export automatically.
         </p>
@@ -246,7 +246,7 @@ function TemplatesTab({ onApply }) {
                   {t.description && <span className="help-template-desc">{t.description}</span>}
                 </div>
                 <button className="btn btn-primary help-template-use"
-                  style={{ fontSize: 11, padding: '4px 12px', flexShrink: 0 }}
+                  style={{ fontSize: 12, padding: '4px 12px', flexShrink: 0 }}
                   onClick={e => { e.stopPropagation(); onApply(t); }}>
                   Use template
                 </button>
@@ -255,8 +255,8 @@ function TemplatesTab({ onApply }) {
                 <div className="help-template-preview">
                   {Object.entries(t.fields).map(([k, v]) => (
                     <div key={k} className="help-template-field-row">
-                      <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)', minWidth: 120 }}>{k}</span>
-                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                      <span className="mono" style={{ fontSize: 12, color: 'var(--text-muted)', minWidth: 120 }}>{k}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                         {typeof v === 'object' ? JSON.stringify(v).slice(0, 80) : String(v)}
                       </span>
                     </div>

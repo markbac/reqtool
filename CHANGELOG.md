@@ -4,6 +4,23 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+### Changed (web UI, #372 to #378)
+- **One left-hand menu with six areas** (#373): Requirements, Work, Decisions, Principles, Insights and Settings, each a page with tabs. The two rows of sidebar tabs and the More menu are gone; every screen that was in More is a tab, a page menu (Requirements > Check) or a drawer. Menu badges show issues waiting for triage and pending decisions. `Ctrl+K` also finds pages.
+- **Page addresses** (#372): the area, tab, selected item, editor tab and product are in the address (`#/work/backlog?item=...&tab=relations&product=...`), so Back, bookmarks, reload and shared links work. Old `?uid=...&type=...` links still open the item. The product last used is remembered per repository.
+- **Work > Issues** (#379) and **Work > Backlog** (#378): triage queues with Make it a defect, Make it a feature or story, Reject and Needs info; the work hierarchy as a ranked tree with points, assignee, iteration, linked requirements and progress, drag to reorder or re-parent.
+- **Decisions**: Pending, Accepted, Rejected and Superseded tabs, **+ Decision needed**, **Accept decision** and **Reject**; requirement text shows decisions as chips and asks for a wording check when one is accepted (#371).
+- **One drawer pattern** (#374): quick tasks open in a 480 or 720 px drawer that keeps focus inside, closes on Escape and gives focus back; large views (Roadmap, Iterations, Traceability, Views, Settings) are pages. Iterations is no longer cut off.
+- **Plain labels** (#375): statuses, types and link types are shown by their configured label or in sentence case (`not_reproducible` reads "Not reproducible").
+- **Narrow windows** (#376): the header holds only the product, search, git status, Inbox, theme, help and account; the menu shows icons below 1200 px and opens from a menu button below 900 px; nothing is clipped at 1024 px.
+- **Smaller fixes** (#377): muted text meets 4.5:1 contrast in both themes and nothing is smaller than 12 px; the board shows work items only in workflow order; Overview and Metrics count requirements the same way, for the selected product; the start page offers the types of the area as a grid with no inner scroll; Diagrams starts from the selected item and its links instead of a made-up example.
+
+### Changed (issues, #379)
+- **Triage converts the issue**: `POST /requirements/{uid}/triage` turns an issue into a defect, feature or story (the same record, a new id for its type, the old id kept as an alias that still resolves, history, comments and attachments kept), optionally under a parent and linked to the requirement it breaks or serves; or rejects it as user error, duplicate, not reproducible or won't do; or starts triage (making the caller the owner) or asks for information.
+- **Simpler triage workflow** for new repositories: reported, in triage, needs info, then the rejections or closed. Work states (`defect`, `fixing`, `fixed`, `enhancement`, `planned`) leave the issue, because the converted item follows its own workflow.
+- **`GET /work/issues`** (the triage queue and what issues became), **`GET /work/backlog`** (work items as a ranked tree with points and progress) and **`POST /work/backlog/{uid}/rank`** (reorder within a parent).
+- **The board shows work items only**, with columns in workflow order and Cancelled last.
+- **`req migrate`** closes old issues that raised a work item and points them at it, and converts the rest in place. `POST /requirements/{uid}/raise` is deprecated.
+
 ### Changed (repository layout, #380)
 - **Every requirement is under `requirements/`, everything worked on is under `work/`**: stakeholder needs and system requirements stay in `requirements/`; themes, initiatives, epics, features, stories, tasks, defects, spikes and issues are written to `work/`; modules move from `modules/<id>/` to `requirements/modules/<id>/`. File contents do not change. A type can choose its folder with `family: requirement | work` in `hierarchy.yaml`; changing an item's type to the other family moves its file.
 - **`req migrate`** moves the files with `git mv`, so `git log --follow` keeps their history, and adds `work/*.yaml` to the merge-driver attributes when they are set up. Safe to run again. An unmigrated repository still loads; validation warns `misplaced_file` for each item in the wrong folder.

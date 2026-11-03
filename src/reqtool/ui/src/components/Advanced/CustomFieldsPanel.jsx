@@ -51,11 +51,11 @@ export function CustomFieldsPanel({ onClose }) {
             <select value={field.type} onChange={e => updateField(i, { type: e.target.value })} style={{ flex: '0 0 100px' }}>
               {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, flexShrink: 0 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, flexShrink: 0 }}>
               <input type="checkbox" checked={field.required} onChange={e => updateField(i, { required: e.target.checked })} style={{ width: 'auto' }} />
               Required
             </label>
-            <button className="btn btn-ghost" style={{ color: 'var(--accent-red)', fontSize: 11 }} onClick={() => removeField(i)}>✕</button>
+            <button className="btn btn-ghost" style={{ color: 'var(--accent-red)', fontSize: 12 }} onClick={() => removeField(i)}>✕</button>
           </div>
           {(field.type === 'select' || field.type === 'multiselect') && (
             <input

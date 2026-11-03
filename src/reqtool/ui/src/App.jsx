@@ -1,38 +1,24 @@
 /**
  * App.jsx -- Root component.
- * Handles: startup data loading, deep-link routing, theme persistence,
- * global Ctrl+K command palette, and all overlay panel wiring.
+ * Startup data, the page address (#372), the left-hand menu and area pages (#373), theme, Ctrl+K, and the
+ * drawers for quick tasks (#374).
  */
 
-import { ViewsPanel } from './components/Views';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { AppProvider, useApp } from './AppContext';
 import Header from './components/Header';
-import Sidebar from './components/Sidebar';
-import Editor from './components/Editor';
-import { KanbanPanel } from './components/Kanban';
+import Nav from './components/Nav';
+import AreaPage from './components/Areas';
 import { HelpPanel } from './components/Help';
 import { ValidationPanel, ExportPanel } from './components/Panels';
-import {
-  CoveragePanel, BulkUpdatePanel, GlobalCommitModal, VocabulariesPanel,
-} from './components/Tools';
-import {
-  BaselinesPanel, MetricsPanel, ImportPanel,
-  TraceabilityPanel, CmdPalette, WorkflowPanel, TemplatesPanel,
-  CustomFieldsPanel, WebhooksPanel, AutomationRulesPanel, DuplicateDetectorPanel,
-} from './components/Advanced';
-import { WorkflowEditor } from './components/WorkflowEditor';
-import { WritingCheckPanel } from './components/WritingCheck';
-import { RepoModal } from './components/RepoModal';
+import { BulkUpdatePanel, GlobalCommitModal } from './components/Tools';
+import { ImportPanel, CmdPalette } from './components/Advanced';
 import { LoginModal } from './components/LoginModal';
-import { DiagramPanel } from './components/DiagramPanel';
-import { IterationsPanel } from './components/IterationsPanel';
-import {
-  OverviewPanel, RoadmapPanel, DecisionsPanel, ModulesPanel, ChangeSetsPanel, InboxPanel, QueryPanel,
-} from './components/Insight';
+import { InboxPanel } from './components/Insight';
 import { api } from './api';
 import { createAndOpen, templateBody } from './createItem';
+import { buildRoute, parseRoute, rememberedProduct, rememberProduct } from './route';
 import './index.css';
 
 function AppShell() {
@@ -69,14 +55,13 @@ function AppShell() {
       dispatch({ type: 'SET_HIERARCHY', payload: hierarchy });
       dispatch({ type: 'SET_TEMPLATES', payload: templates });
 
-      // Active product
-      const defaultId = config?.ui?.default_product;
-      if (defaultId) {
-        const p = products.find(p => p.id === defaultId);
-        if (p) dispatch({ type: 'SET_ACTIVE_PRODUCT', payload: p });
-      } else if (products.length === 1) {
-        dispatch({ type: 'SET_ACTIVE_PRODUCT', payload: products[0] });
-      }
+      // Active product: the one in the address, else the last one used here, else the configured default,
+      // else the only one (#372).
+      repoId.current = config?.repo_id || '';
+      const wanted = state.routeProduct || rememberedProduct(repoId.current) || config?.ui?.default_product;
+      const p = products.find(x => x.id === wanted) || (products.length === 1 ? products[0] : null);
+      if (p) dispatch({ type: 'SET_ACTIVE_PRODUCT', payload: p, keepSelection: true });
+      productsReady.current = true;
 
       // Theme -- prefer localStorage over config
       const savedTheme = localStorage.getItem('reqtool:theme');
@@ -89,29 +74,41 @@ function AppShell() {
     });
   }, []);
 
-  // ── Deep linking: read ?uid= from URL on load ────────────────────────────
+  // ── Page address (#372): the state writes the address; Back, Forward and pasted links write the state ──
+  const repoId = useRef('');
+  const productsReady = useRef(false);
+  const last = useRef(null);
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const uid = params.get('uid');
-    const type = params.get('type') || 'requirement';
-    if (uid) {
-      dispatch({ type: 'SELECT', uid, artefactType: type });
+    const route = { area: state.area, tab: state.tab, item: state.selectedUid, type: state.selectedType,
+      editorTab: state.editorTab, product: state.activeProduct?.id || (productsReady.current ? null : state.routeProduct) };
+    const hash = buildRoute(route);
+    const url = `${window.location.pathname}${hash}`;
+    if (window.location.search || !last.current) {
+      window.history.replaceState({}, '', url);           // first load, or an old ?uid= link: no extra history entry
+    } else if (hash !== window.location.hash) {
+      const prev = last.current;
+      const newPage = prev.area !== route.area || prev.tab !== route.tab || prev.item !== route.item;
+      if (newPage) window.history.pushState({}, '', url); else window.history.replaceState({}, '', url);
     }
-  }, []);
-
-  // ── Deep linking: write ?uid= to URL on selection ───────────────────────
+    last.current = route;
+  }, [state.area, state.tab, state.selectedUid, state.selectedType, state.editorTab, state.activeProduct?.id]);
   useEffect(() => {
-    const { selectedUid, selectedType } = state;
-    const url = new URL(window.location.href);
-    if (selectedUid) {
-      url.searchParams.set('uid', selectedUid);
-      url.searchParams.set('type', selectedType || 'requirement');
-    } else {
-      url.searchParams.delete('uid');
-      url.searchParams.delete('type');
-    }
-    window.history.replaceState({}, '', url.toString());
-  }, [state.selectedUid, state.selectedType]);
+    const onPop = () => {
+      const route = parseRoute(window.location.hash, '');
+      last.current = { ...route, product: route.product };
+      dispatch({ type: 'ROUTE', route });
+      if (route.product && route.product !== state.activeProduct?.id) {
+        const p = state.products.find(x => x.id === route.product);
+        if (p) dispatch({ type: 'SET_ACTIVE_PRODUCT', payload: p, keepSelection: true });
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [state.products, state.activeProduct?.id]);
+  useEffect(() => {
+    if (productsReady.current) rememberProduct(repoId.current, state.activeProduct?.id);
+  }, [state.activeProduct?.id]);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // ── Global Ctrl+K and ? ──────────────────────────────────────────────────
   useEffect(() => {
@@ -127,14 +124,16 @@ function AppShell() {
       if (e.key === '?' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) {
         toggle('_showHelp', !state._showHelp);
       }
-      // Escape closes kanban slide-in panel
-      if (e.key === 'Escape' && state.panel === 'tasks' && state.selectedUid) {
+      // Escape closes the editor drawer on pages that show it beside the content
+      if (e.key === 'Escape' && state.selectedUid && !document.querySelector('[role="dialog"]')
+          && !(state.area === 'requirements' && state.tab === 'tree') && state.area !== 'decisions'
+          && !(state.area === 'principles' && state.tab === 'library')) {
         dispatch({ type: 'DESELECT' });
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [state._showCmdPalette, state._showHelp, toggle]);
+  }, [state._showCmdPalette, state._showHelp, state.selectedUid, state.area, state.tab, toggle]);
 
   const handleGlobalCommitDone = () => {
     api.git.status().then(setGitStatus).catch(() => {});
@@ -143,99 +142,42 @@ function AppShell() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Header
-        onValidate={() => toggle('_showValidation')}
-        onExport={() => toggle('_showExport')}
-        onCoverage={() => toggle('_showCoverage')}
-        onBulk={() => toggle('_showBulk')}
-        onVocabularies={() => toggle('_showVocabularies')}
-        onBaselines={() => toggle('_showBaselines')}
-        onMetrics={() => toggle('_showMetrics')}
-        onImport={() => toggle('_showImport')}
-        onTraceability={() => toggle('_showTraceability')}
-        onCustomFields={() => toggle('_showCustomFields')}
-        onWebhooks={() => toggle('_showWebhooks')}
         onHelp={() => toggle('_showHelp')}
-        onRepo={() => toggle('_showRepo')}
         onLogin={() => toggle('_showLogin')}
-        onDiagram={() => toggle('_showDiagram')}
-        onIterations={() => toggle('_showIterations')}
-        onAutomation={() => toggle('_showAutomation')}
-        onTemplates={() => toggle('_showTemplates')}
-        onDuplicateDetector={() => toggle('_showDuplicateDetector')}
-        onOverview={() => toggle('_showOverview')}
-        onRoadmap={() => toggle('_showRoadmap')}
-        onDecisions={() => toggle('_showDecisions')}
-        onModules={() => toggle('_showModules')}
-        onChangeSets={() => toggle('_showChangeSets')}
         onInbox={() => toggle('_showInbox')}
-        onQuery={() => toggle('_showQuery')}
+        onSearch={() => toggle('_showCmdPalette')}
+        onMenu={() => setMenuOpen(o => !o)}
         onGlobalCommit={(status) => { setGitStatus(status); toggle('_showGlobalCommit'); }}
       />
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Sidebar />
-        <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {state.panel === 'tasks'
-            ? <>
-                <KanbanPanel />
-                {state.selectedUid && (
-                  <div className="kanban-editor-panel">
-                    <div className="kanban-editor-panel-header">
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Editing task</span>
-                      <button className="btn btn-ghost"
-                        style={{ fontSize: 13, padding: '2px 8px' }}
-                        title="Close editor"
-                        onClick={() => dispatch({ type: 'DESELECT' })}>✕</button>
-                    </div>
-                    <div className="kanban-editor-panel-body"><Editor /></div>
-                  </div>
-                )}
-              </>
-            : <Editor />
-          }
-        </main>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+        <Nav open={menuOpen} onClose={() => setMenuOpen(false)} />
+        <ErrorBoundary scope="page" onReset={() => dispatch({ type: 'NAVIGATE', area: state.area })}>
+          <AreaPage open={(key) => toggle(key)} />
+        </ErrorBoundary>
       </div>
 
-      {/* Overlay panels: a crash in one closes the panels instead of blanking the app */}
+      {/* Drawers for quick tasks: a crash in one closes them instead of blanking the app */}
       <ErrorBoundary scope="panel" onReset={() => dispatch({ type: 'CLOSE_PANELS' })}>
-      {state._showIterations   && <IterationsPanel   onClose={() => toggle('_showIterations',   false)} />}
-      {state._showDiagram      && <DiagramPanel      onClose={() => toggle('_showDiagram',      false)} />}
-      {state._showAutomation   && <AutomationRulesPanel onClose={() => toggle('_showAutomation', false)} />}
-      {state._showDuplicateDetector && <DuplicateDetectorPanel onClose={() => toggle('_showDuplicateDetector', false)} />}
-      {state._showOverview     && <OverviewPanel     onClose={() => toggle('_showOverview',     false)} />}
-      {state._showViews        && <ViewsPanel        onClose={() => toggle('_showViews',        false)} />}
-      {state._showRoadmap      && <RoadmapPanel      onClose={() => toggle('_showRoadmap',      false)} />}
-      {state._showDecisions    && <DecisionsPanel    onClose={() => toggle('_showDecisions',    false)} />}
-      {state._showModules      && <ModulesPanel      onClose={() => toggle('_showModules',      false)} />}
-      {state._showChangeSets   && <ChangeSetsPanel   onClose={() => toggle('_showChangeSets',   false)} />}
       {state._showInbox        && <InboxPanel        onClose={() => toggle('_showInbox',        false)} />}
-      {state._showQuery        && <QueryPanel        onClose={() => toggle('_showQuery',        false)} />}
       {state._showLogin        && <LoginModal        onClose={() => toggle('_showLogin',        false)} />}
-      {state._showRepo         && <RepoModal         onClose={() => toggle('_showRepo',         false)} />}
       {state._showHelp         && <HelpPanel initialTab="about"
         onClose={() => toggle('_showHelp', false)}
         onApplyTemplate={async t => { const item = await createAndOpen(templateBody(t), { dispatch, toast, hasProduct: !!state.activeProduct }); if (item) toggle('_showHelp', false); }} />}
       {state._showValidation   && <ValidationPanel   onClose={() => toggle('_showValidation',   false)} />}
       {state._showExport       && <ExportPanel        onClose={() => toggle('_showExport',        false)} />}
-      {state._showCoverage     && <CoveragePanel      onClose={() => toggle('_showCoverage',     false)} />}
       {state._showBulk         && <BulkUpdatePanel    onClose={() => toggle('_showBulk',         false)} onDone={handleGlobalCommitDone} />}
-      {state._showVocabularies && <VocabulariesPanel  onClose={() => toggle('_showVocabularies', false)} />}
-      {state._showBaselines    && <BaselinesPanel     onClose={() => toggle('_showBaselines',    false)} />}
-      {state._showMetrics      && <MetricsPanel       onClose={() => toggle('_showMetrics',      false)} />}
       {state._showImport       && <ImportPanel        onClose={() => toggle('_showImport',       false)} onDone={() => window.location.reload()} />}
-      {state._showTraceability && <TraceabilityPanel  onClose={() => toggle('_showTraceability', false)} />}
-      {state._showWorkflow     && <WorkflowPanel      onClose={() => toggle('_showWorkflow',     false)} />}
-      {state._showWorkflowEditor && <WorkflowEditor   onClose={() => toggle('_showWorkflowEditor', false)} />}
-      {state._showWritingCheck && <WritingCheckPanel  onClose={() => toggle('_showWritingCheck', false)} />}
-      {state._showTemplates    && <TemplatesPanel     onClose={() => toggle('_showTemplates',    false)} />}
-      {state._showCustomFields && <CustomFieldsPanel  onClose={() => toggle('_showCustomFields', false)} />}
-      {state._showWebhooks     && <WebhooksPanel      onClose={() => toggle('_showWebhooks',     false)} />}
       {state._showCmdPalette   && (
         <CmdPalette
           onClose={() => toggle('_showCmdPalette', false)}
           onSelect={(uid, type) => {
-            dispatch({ type: 'SELECT', uid, artefactType: type });
+            // Open the item in its own area: decisions and principles have theirs; the rest open where you are.
+            if (type === 'decision' || type === 'tbd') dispatch({ type: 'NAVIGATE', area: 'decisions', uid, artefactType: 'decision' });
+            else if (type === 'principle') dispatch({ type: 'NAVIGATE', area: 'principles', tab: 'library', uid, artefactType: 'principle' });
+            else dispatch({ type: 'SELECT', uid, artefactType: type });
             toggle('_showCmdPalette', false);
           }}
+          onNavigate={(area, tab) => { dispatch({ type: 'NAVIGATE', area, tab }); toggle('_showCmdPalette', false); }}
         />
       )}
       {state._showGlobalCommit && (

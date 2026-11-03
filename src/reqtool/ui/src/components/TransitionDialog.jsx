@@ -185,7 +185,7 @@ export function TransitionDialog({ option, draft, onApply, onCancel }) {
           ))}
         </div>
         <div className="modal-footer">
-          {missing.length > 0 && <span className="text-muted" style={{ marginRight: 'auto', fontSize: 11 }}>Still needed: {missing.join(', ')}</span>}
+          {missing.length > 0 && <span className="text-muted" style={{ marginRight: 'auto', fontSize: 12 }}>Still needed: {missing.join(', ')}</span>}
           <button className="btn btn-secondary" onClick={onCancel}>Cancel</button>
           <button className="btn btn-secondary" disabled={missing.length > 0 || blocked}
             onClick={() => onApply(working, false, extras())}>Apply to draft</button>

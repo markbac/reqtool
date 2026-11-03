@@ -65,8 +65,8 @@ export function DiscussionSection({ uid, currentUser = 'user' }) {
         <div className="comment-edit-form">
           <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={3} />
           <div className="comment-edit-actions">
-            <button className="btn btn-primary" style={{ fontSize: 11 }} onClick={() => handleEdit(comment.uid)}>Save</button>
-            <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setEditingUid(null)}>Cancel</button>
+            <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => handleEdit(comment.uid)}>Save</button>
+            <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditingUid(null)}>Cancel</button>
           </div>
         </div>
       ) : (
@@ -91,7 +91,7 @@ export function DiscussionSection({ uid, currentUser = 'user' }) {
   return (
     <div className="discussion-section">
       {resolvedCount > 0 && (
-        <button className="btn btn-ghost" style={{ fontSize: 11, marginBottom: 8 }}
+        <button className="btn btn-ghost" style={{ fontSize: 12, marginBottom: 8 }}
           onClick={() => setShowResolved(v => !v)}>
           {showResolved ? 'Hide' : 'Show'} {resolvedCount} resolved
         </button>
@@ -107,7 +107,7 @@ export function DiscussionSection({ uid, currentUser = 'user' }) {
         {replyTo && (
           <div className="reply-indicator">
             Replying to thread
-            <button className="btn btn-ghost" style={{ fontSize: 10 }} onClick={() => setReplyTo(null)}>✕</button>
+            <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setReplyTo(null)}>✕</button>
           </div>
         )}
         <textarea

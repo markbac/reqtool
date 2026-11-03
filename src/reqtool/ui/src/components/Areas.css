@@ -1,0 +1,53 @@
+/* Area pages (#373, #374) */
+.area { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--bg-base); }
+.page-head { flex: none; padding: 14px 24px 0; border-bottom: 1px solid var(--border); background: var(--bg-base); }
+.page-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-height: 34px; }
+.page-title { margin: 0; font-size: 18px; font-weight: 600; color: var(--text-primary); }
+.page-context { font-size: 13px; color: var(--text-secondary); }
+.page-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.page-tabs { display: flex; gap: 22px; margin-top: 6px; overflow-x: auto; scrollbar-width: thin; }
+.page-tab {
+  display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 2px; white-space: nowrap;
+  color: var(--text-secondary); font-size: 14px; text-decoration: none; border-bottom: 2px solid transparent;
+}
+.page-tab:hover { color: var(--text-primary); text-decoration: none; }
+.page-tab:focus-visible { outline: 2px solid var(--text-link); outline-offset: 2px; }
+.page-tab--on { color: var(--text-primary); border-bottom-color: var(--text-link); }
+.page-tab-count { font-size: 12px; color: var(--text-link); }
+.page-menu { position: relative; }
+.page-menu-list {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 40; min-width: 180px; display: flex; flex-direction: column;
+  padding: 4px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-elevated);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+}
+.page-menu-list button { text-align: left; padding: 8px 10px; border: 0; background: transparent; color: var(--text-primary);
+  border-radius: 4px; font-size: 13px; cursor: pointer; }
+.page-menu-list button:hover, .page-menu-list button:focus-visible { background: var(--bg-hover); }
+.page-note { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13px;
+  color: var(--text-secondary); }
+
+/* A list or tree beside the editor */
+.page-split { flex: 1; min-height: 0; display: flex; }
+.page-list { width: 360px; flex: none; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+  border-right: 1px solid var(--border); background: var(--bg-surface); }
+.page-editor { flex: 1; min-width: 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+
+/* A page with the editor drawer on the right */
+.page-with-drawer { flex: 1; min-height: 0; display: flex; position: relative; }
+.page-content { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.editor-drawer { width: min(720px, 60%); flex: none; display: flex; flex-direction: column; min-height: 0;
+  border-left: 1px solid var(--border); background: var(--bg-surface); box-shadow: -8px 0 24px rgba(0, 0, 0, .25); }
+.editor-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px;
+  border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text-secondary); }
+.editor-drawer-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+
+/* Narrow windows (#376): the tree collapses above the editor, the drawer covers the page */
+@media (max-width: 1100px) {
+  .page-list { width: 300px; }
+}
+@media (max-width: 900px) {
+  .page-head { padding: 10px 16px 0; }
+  .page-split { flex-direction: column; }
+  .page-list { width: auto; max-height: 40vh; border-right: 0; border-bottom: 1px solid var(--border); }
+  .editor-drawer { position: absolute; inset: 0 0 0 auto; width: 100%; z-index: 30; }
+}

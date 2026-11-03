@@ -1,51 +1,67 @@
 /**
- * DiagramPanel.jsx -- Interactive Architecture & Visual Modeling Canvas.
+ * DiagramPanel.jsx -- Diagrams: Mermaid in the browser, PlantUML on the server.
  * Supports Mermaid (Client-side) and PlantUML (Server-side via plantuml.jar)
  * flowchart, sequence, and component diagram generation with SVG preview.
  */
 
-import { useState } from 'react';
+import { Panel } from './Advanced/Panel';
+import { useEffect, useState } from 'react';
 import { useApp } from '../AppContext';
 import { api } from '../api';
 import { safeSvg } from '../sanitize';
 
-const DEFAULT_MERMAID = `graph TD
-    REQ1["REQ-SYS-001: Thermal Management System"] --> REQ2["REQ-HW-002: Temperature Sensor Array"]
-    REQ1 --> REQ3["REQ-FW-003: PID Controller Loop"]
-    REQ2 --> REQ4["REQ-HW-004: ADC Converter Interface"]
-    REQ3 --> REQ5["REQ-SW-005: Overheat Cutoff Actuator"]
+// An empty canvas says what to do (#377). With an item selected it starts from that item and its links.
+const EMPTY_MERMAID = `%% Write a Mermaid diagram here, or select an item first to start from it and its links.
+graph TD
 `;
-
-const DEFAULT_PLANTUML = `@startuml
-title Component Diagram - Thermal Control System
-
-package "Sensors" {
-  [REQ-HW-002: Temp Sensor] --> [ADC Converter]
-}
-
-package "Controller" {
-  [REQ-FW-003: PID Loop] --> [Actuator Driver]
-}
-
-[ADC Converter] --> [REQ-FW-003: PID Loop]
-[Actuator Driver] --> [REQ-SW-005: Cutoff Valve]
+const EMPTY_PLANTUML = `@startuml
+' Write a PlantUML diagram here, or select an item first to start from it and its links.
 @enduml
 `;
 
+const label = (r) => `${r.id || r.uid}: ${(r.title || '').replace(/["\[\]]/g, "'")}`;
+const node = (r) => (r.id || r.uid).replace(/[^A-Za-z0-9_]/g, '_');
+
+/** A diagram of the item and what it links to, from its relationships. */
+async function diagramFor(uid) {
+  const item = await api.requirements.get(uid);
+  const lines = ['graph TD', `    ${node(item)}["${label(item)}"]`];
+  const pumlLines = ['@startuml', `[${label(item)}] as ${node(item)}`];
+  for (const rel of item.relationships || []) {
+    const target = rel.target?.uid || rel.uid || rel.ref;
+    if (!target) continue;
+    const other = await api.requirements.get(target).catch(() => null);
+    if (!other) continue;
+    lines.push(`    ${node(item)} -->|${(rel.type || '').replace(/_/g, ' ')}| ${node(other)}["${label(other)}"]`);
+    pumlLines.push(`[${label(other)}] as ${node(other)}`, `${node(item)} --> ${node(other)} : ${(rel.type || '').replace(/_/g, ' ')}`);
+  }
+  pumlLines.push('@enduml');
+  return { mermaid: lines.join('\n') + '\n', plantuml: pumlLines.join('\n') + '\n' };
+}
+
 export function DiagramPanel({ onClose }) {
-  const { toast } = useApp();
+  const { state, toast } = useApp();
   const [engine, setEngine] = useState('mermaid'); // 'mermaid' | 'plantuml'
-  const [code, setCode] = useState(DEFAULT_MERMAID);
+  const [start, setStart] = useState({ mermaid: EMPTY_MERMAID, plantuml: EMPTY_PLANTUML });
+  const [code, setCode] = useState(EMPTY_MERMAID);
   const [plantumlSvg, setPlantumlSvg] = useState('');
   const [rendering, setRendering] = useState(false);
 
+  useEffect(() => {
+    if (!state.selectedUid || state.selectedType !== 'requirement') return;
+    let live = true;
+    diagramFor(state.selectedUid).then(d => {
+      if (!live) return;
+      setStart(d);
+      setCode(c => (c === EMPTY_MERMAID || c === EMPTY_PLANTUML ? (engine === 'mermaid' ? d.mermaid : d.plantuml) : c));
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [state.selectedUid]);
+
   const handleEngineChange = (newEngine) => {
     setEngine(newEngine);
-    if (newEngine === 'plantuml' && code === DEFAULT_MERMAID) {
-      setCode(DEFAULT_PLANTUML);
-    } else if (newEngine === 'mermaid' && code === DEFAULT_PLANTUML) {
-      setCode(DEFAULT_MERMAID);
-    }
+    // Switch the starting text with the engine, unless it has been edited.
+    if (code === start.mermaid || code === start.plantuml) setCode(start[newEngine]);
   };
 
   const handleRenderPlantUML = async () => {
@@ -69,12 +85,7 @@ export function DiagramPanel({ onClose }) {
   };
 
   return (
-    <div className="panel-overlay" onClick={onClose}>
-      <div className="side-panel" style={{ maxWidth: 840 }} onClick={e => e.stopPropagation()}>
-        <div className="side-panel-header">
-          <span className="side-panel-title">🎨 Visual Architecture & Diagram Canvas</span>
-          <button className="btn btn-ghost" onClick={onClose}>✕</button>
-        </div>
+    <Panel title="Diagrams" onClose={onClose} wide raw>
 
         <div className="panel-body" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Controls Bar */}
@@ -82,14 +93,14 @@ export function DiagramPanel({ onClose }) {
             <div style={{ display: 'flex', gap: 4, background: 'var(--bg-secondary)', padding: 3, borderRadius: 6 }}>
               <button
                 className={`btn ${engine === 'mermaid' ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ fontSize: 11, padding: '4px 10px' }}
+                style={{ fontSize: 12, padding: '4px 10px' }}
                 onClick={() => handleEngineChange('mermaid')}
               >
                 Mermaid.js (Client-side)
               </button>
               <button
                 className={`btn ${engine === 'plantuml' ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ fontSize: 11, padding: '4px 10px' }}
+                style={{ fontSize: 12, padding: '4px 10px' }}
                 onClick={() => handleEngineChange('plantuml')}
               >
                 PlantUML (Backend plantuml.jar)
@@ -97,12 +108,12 @@ export function DiagramPanel({ onClose }) {
             </div>
 
             {engine === 'plantuml' && (
-              <button className="btn btn-secondary" style={{ fontSize: 11 }} onClick={handleRenderPlantUML} disabled={rendering}>
+              <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={handleRenderPlantUML} disabled={rendering}>
                 {rendering ? 'Rendering SVG...' : '⚡ Render PlantUML SVG'}
               </button>
             )}
 
-            <button className="btn btn-primary" style={{ marginLeft: 'auto', fontSize: 11 }} onClick={handleCopyMarkdown}>
+            <button className="btn btn-primary" style={{ marginLeft: 'auto', fontSize: 12 }} onClick={handleCopyMarkdown}>
               📋 Copy Code Snippet
             </button>
           </div>
@@ -148,7 +159,7 @@ export function DiagramPanel({ onClose }) {
                 {engine === 'mermaid' ? (
                   <pre style={{
                     fontFamily: 'monospace',
-                    fontSize: 11,
+                    fontSize: 12,
                     color: 'var(--accent-color, #4ea8de)',
                     margin: 0,
                     whiteSpace: 'pre-wrap',
@@ -164,7 +175,6 @@ export function DiagramPanel({ onClose }) {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </Panel>
   );
 }

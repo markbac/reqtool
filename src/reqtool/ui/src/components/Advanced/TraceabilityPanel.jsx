@@ -1,3 +1,4 @@
+import { Panel } from './Panel';
 import { useState, useEffect } from 'react';
 import { useApp } from '../../AppContext';
 import { api } from '../../api';
@@ -19,13 +20,8 @@ export function TraceabilityPanel({ onClose }) {
   }, [activeProduct]);
 
   return (
-    <div className="panel-overlay" onClick={onClose}>
-      <div className="wide-panel" onClick={e => e.stopPropagation()}>
-        <div className="side-panel-header">
-          <span className="side-panel-title">Traceability</span>
-          <button className="btn btn-ghost" onClick={onClose}>✕</button>
-        </div>
-        <div className="wide-panel-body">
+    <Panel title="Traceability" onClose={onClose} wide raw>
+        <div className="panel-body">
           <div className="ins-tabs" role="tablist">
             <button role="tab" aria-selected={mode === 'grid'} className="ins-tab" onClick={() => setMode('grid')}>Requirements × links</button>
             <button role="tab" aria-selected={mode === 'teams'} className="ins-tab" onClick={() => setMode('teams')}>Requirements × teams</button>
@@ -69,7 +65,6 @@ export function TraceabilityPanel({ onClose }) {
           )}
           </>}
         </div>
-      </div>
-    </div>
+    </Panel>
   );
 }

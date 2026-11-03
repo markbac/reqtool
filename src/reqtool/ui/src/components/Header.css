@@ -176,7 +176,7 @@
 }
 .overflow-menu-item:hover, .overflow-menu-item:focus-visible { background: var(--bg-hover); outline: none; }
 .overflow-menu-search { display: block; width: calc(100% - 16px); margin: 8px; box-sizing: border-box; font-size: var(--font-size-sm); }
-.overflow-menu-heading { padding: 6px 14px 2px; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); border-top: 1px solid var(--border); }
+.overflow-menu-heading { padding: 6px 14px 2px; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); border-top: 1px solid var(--border); }
 .overflow-menu-empty { padding: 8px 14px; font-size: var(--font-size-sm); color: var(--text-muted); }
 
 /* ── Search hint ─────────────────────────────────────────────────────────── */
@@ -185,7 +185,7 @@
   right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-muted);
   font-family: var(--font-mono);
   background: var(--bg-elevated);
@@ -195,4 +195,33 @@
   white-space: nowrap;
   pointer-events: none;
   flex-shrink: 0;
+}
+
+/* Search opens Ctrl+K (#373); the header holds only what every page needs (#376) */
+button.header-search {
+  display: flex; align-items: center; gap: 8px; width: 100%; max-width: 420px; min-width: 34px; height: 30px; padding: 0 10px 0 28px;
+  border: 1px solid var(--border); border-radius: 15px; background: var(--bg-base); color: var(--text-secondary);
+  font: inherit; font-size: var(--font-size-sm); cursor: pointer; text-align: left;
+}
+button.header-search:hover { border-color: var(--text-secondary); }
+button.header-search:focus-visible { outline: 2px solid var(--text-link); outline-offset: 2px; }
+.header-search-placeholder { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.header-search .header-search-hint { position: static; transform: none; }
+.header-menu-btn { display: none; font-size: 16px; padding: 2px 8px; }
+.header { flex-wrap: nowrap; min-width: 0; }
+.header-centre { min-width: 0; }
+.header-left, .header-right { min-width: 0; }
+.header-right { flex-wrap: nowrap; }
+@media (max-width: 1100px) {
+  .header-brand-name, .header-unstaged-badge, .header-user-name { display: none; }
+  .header-select { max-width: 180px; }
+  button.header-search .header-search-hint { display: none; }
+}
+@media (max-width: 900px) {
+  .header-menu-btn { display: inline-flex; }
+  .header-search-placeholder, button.header-search .header-search-hint { display: none; }
+  button.header-search { width: 34px; padding: 0; justify-content: center; }
+  button.header-search .header-search-icon { position: static; transform: none; }
+  .header-action-btn[aria-label="Inbox"] { font-size: 0; }
+  .header-action-btn[aria-label="Inbox"]::before { content: '✉'; font-size: 14px; }
 }

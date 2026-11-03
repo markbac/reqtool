@@ -9,9 +9,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp, useCan } from '../AppContext';
 import { api } from '../api';
 import ResolveDialog from './ResolveDialog';
+import { DECISION_TABS, PENDING_STATUSES, decisionStatusLabel } from '../decisions';
+import { labelOf } from '../labels';
 import { parentOf, candidateParents, canMoveUnder } from '../treeMove';
 import { typeBody } from '../createItem';
-import { PrinciplesPanel } from './Principles';
 import './Sidebar.css';
 
 const DOMAIN_COLOURS = {
@@ -43,10 +44,10 @@ const TYPE_META = {
   physical:        { icon: '📐', colour: '#6e40c9', label: 'Physical' },
 };
 
-const AGILE_TYPES = ['theme', 'initiative', 'epic', 'feature', 'story', 'task', 'bug', 'spike'];
 
-function StatusBadge({ status }) {
-  return <span className={`badge badge-${status}`}>{status}</span>;
+function StatusBadge({ status, reqType }) {
+  const { state } = useApp();
+  return <span className={`badge badge-${status}`}>{labelOf.status(status, reqType, state.hierarchy)}</span>;
 }
 
 // ---------------------------------------------------------------------------
@@ -227,7 +228,7 @@ function TreeNode({ node, depth = 0, onContextMenu, forceOpen = false, dnd }) {
           <span className="tree-node-suspect" title={`${node.suspect_count} suspect link(s): an upstream item changed`}>⚠ {node.suspect_count}</span>
         )}
         {node.progress_pct != null && hasChildren && (
-          <span className="tree-node-progress" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10 }}
+          <span className="tree-node-progress" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12 }}
             title={`${Math.round(node.progress_pct)}% of the work below is done`}>
             <span role="progressbar" aria-label={`${node.id} progress`} aria-valuenow={Math.round(node.progress_pct)} aria-valuemin={0} aria-valuemax={100}
               style={{ width: 34, height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden', display: 'inline-block' }}>
@@ -236,7 +237,7 @@ function TreeNode({ node, depth = 0, onContextMenu, forceOpen = false, dnd }) {
           </span>
         )}
         {isDirty && <span className="tree-node-dirty" title="Unsaved">●</span>}
-        {!isModule && <StatusBadge status={node.status} />}
+        {!isModule && <StatusBadge status={node.status} reqType={node.req_type} />}
       </div>
       {open && hasChildren && (
         <div className="tree-children">
@@ -263,16 +264,16 @@ function HistoryOverlay({ uid, data, onClose }) {
         <div className="history-panel-body">
           {data.in_file?.map((h, i) => (
             <div key={i} className="hist-row">
-              <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>v{h.version}</span>
-              <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{h.date?.slice(0, 10)}</span>
+              <span className="mono" style={{ fontSize: 12, color: 'var(--text-muted)' }}>v{h.version}</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{h.date?.slice(0, 10)}</span>
               <span style={{ fontSize: 12 }}>{h.summary}</span>
-              {h.commit_sha && <span className="mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>{h.commit_sha}</span>}
+              {h.commit_sha && <span className="mono" style={{ fontSize: 12, color: 'var(--text-muted)' }}>{h.commit_sha}</span>}
             </div>
           ))}
           {data.git?.map((g, i) => (
             <div key={`g${i}`} className="hist-row" style={{ borderTop: i === 0 ? '1px solid var(--border)' : undefined }}>
-              <span className="mono" style={{ fontSize: 10, color: 'var(--accent-blue)' }}>{g.sha?.slice(0, 7)}</span>
-              <span style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{g.date?.slice(0, 10)}</span>
+              <span className="mono" style={{ fontSize: 12, color: 'var(--accent-blue)' }}>{g.sha?.slice(0, 7)}</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{g.date?.slice(0, 10)}</span>
               <span style={{ fontSize: 12 }}>{g.subject}</span>
             </div>
           ))}
@@ -285,7 +286,7 @@ function HistoryOverlay({ uid, data, onClose }) {
 // ---------------------------------------------------------------------------
 // 1a. Requirements tree panel
 // ---------------------------------------------------------------------------
-function RequirementsPanel() {
+export function RequirementsPanel({ family } = {}) {
   const { state, dispatch, toast } = useApp();
   const can = useCan();
   const { activeProduct, activeVariant, searchQuery } = state;
@@ -330,7 +331,10 @@ function RequirementsPanel() {
     return (match || kids.length) ? { ...node, children: kids, _forceOpen: true } : null;
   };
 
-  const displayTree = searchQuery ? tree.map(n => filterNode(n, searchQuery)).filter(Boolean) : tree;
+  // Requirements and work items each have their own area (#373): show only this family at the top level.
+  const ownFamily = (node) => !family || node._is_module_group || labelOf.family(node.req_type, state.hierarchy) === family;
+  const familyTree = tree.filter(ownFamily);
+  const displayTree = searchQuery ? familyTree.map(n => filterNode(n, searchQuery)).filter(Boolean) : familyTree;
 
   const createReq = async (parentId = null, reqType = null) => {
     try {
@@ -419,15 +423,10 @@ function RequirementsPanel() {
   if (!activeProduct) return (
     <div className="sidebar-empty">
       <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.4 }}>◈</div>
-      <div style={{ fontWeight: 600, marginBottom: 6 }}>No product selected</div>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6, marginBottom: 12, textAlign: 'center' }}>
-        Use the product dropdown in the top bar to select a product, or create a new one with <strong>+ Product</strong>.
-      </div>
-      <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6, background: 'var(--bg-elevated)', padding: '8px 12px', borderRadius: 6, border: '1px solid var(--border)', textAlign: 'left' }}>
-        <div style={{ fontWeight: 600, marginBottom: 4 }}>Don't have a repo yet?</div>
-        Run from your terminal:<br />
-        <code style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>req init demo</code><br />
-        <code style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>req serve</code>
+      <div style={{ fontWeight: 600, marginBottom: 6 }}>Choose a product</div>
+      <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 12, textAlign: 'center' }}>
+        Pick one from the product list in the top bar, or create one with <strong>+ Product</strong>.
+        The last product you used opens next time.
       </div>
     </div>
   );
@@ -435,7 +434,7 @@ function RequirementsPanel() {
   if (error)   return (
     <div className="sidebar-error">
       <div>{error}</div>
-      <button className="btn btn-secondary" style={{ marginTop: 8, fontSize: 11 }} onClick={load}>Retry</button>
+      <button className="btn btn-secondary" style={{ marginTop: 8, fontSize: 12 }} onClick={load}>Retry</button>
     </div>
   );
 
@@ -443,16 +442,22 @@ function RequirementsPanel() {
     <>
       {/* Toolbar */}
       <div className="tree-toolbar">
-        {can('write') && <button className="btn btn-ghost tree-toolbar-btn" onClick={() => createReq()} title="New requirement">+ New</button>}
+        {can('write') && <button className="btn btn-ghost tree-toolbar-btn" onClick={() => createReq(null, family === 'work' ? 'theme' : null)}
+          title={family === 'work' ? 'New theme' : 'New requirement'}>+ New</button>}
         {can('manage_modules') && <button className="btn btn-ghost tree-toolbar-btn" onClick={openModulePanel}
           title="Include a shared requirement module in this product">⊕ Module</button>}
         <div style={{ flex: 1 }} />
         <button className="btn btn-ghost tree-toolbar-btn"
-          title={expandAll ? "Collapse all" : "Expand all"}
+          title={expandAll ? "Collapse all" : "Expand all"} aria-label={expandAll ? "Collapse all" : "Expand all"}
           onClick={() => setExpandAll(v => !v)}>
           {expandAll ? '⊟' : '⊞'}
         </button>
-        <button className="btn btn-ghost tree-toolbar-btn" style={{ fontSize: 13 }} onClick={load} title="Refresh tree">↺</button>
+        <button className="btn btn-ghost tree-toolbar-btn" style={{ fontSize: 13 }} onClick={load} title="Refresh tree"
+          aria-label="Refresh tree">↺</button>
+      </div>
+      <div className="tree-filter">
+        <input type="search" aria-label="Filter the tree" placeholder="Filter by id or title"
+          value={searchQuery || ''} onChange={e => dispatch({ type: 'SET_SEARCH', payload: e.target.value })} />
       </div>
 
       {/* Module include panel */}
@@ -471,7 +476,7 @@ function RequirementsPanel() {
           {availableModules.length === 0 ? (
             <div className="module-include-empty">
               <div>No modules found in <code>modules/</code>.</div>
-              <div style={{ marginTop: 4, fontSize: 11 }}>
+              <div style={{ marginTop: 4, fontSize: 12 }}>
                 CLI: <code>req import &lt;module-id&gt; --product {activeProduct.id}</code>
               </div>
             </div>
@@ -480,14 +485,14 @@ function RequirementsPanel() {
             return (
               <div key={mod.id} className="module-include-item">
                 <div className="module-include-item-meta">
-                  <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{mod.id}</span>
+                  <span className="mono" style={{ fontSize: 12, color: 'var(--text-muted)' }}>{mod.id}</span>
                   <span style={{ fontSize: 12, fontWeight: 600, marginLeft: 8 }}>{mod.title || mod.id}</span>
-                  {mod.version && <span style={{ fontSize: 11, color: 'var(--accent-blue)', marginLeft: 6 }}>v{mod.version}</span>}
+                  {mod.version && <span style={{ fontSize: 12, color: 'var(--accent-blue)', marginLeft: 6 }}>v{mod.version}</span>}
                 </div>
-                {mod.description && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{mod.description}</div>}
+                {mod.description && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{mod.description}</div>}
                 <button
                   className={`btn ${alreadyIncluded ? 'btn-secondary' : 'btn-primary'}`}
-                  style={{ fontSize: 11, padding: '3px 10px', marginTop: 6 }}
+                  style={{ fontSize: 12, padding: '3px 10px', marginTop: 6 }}
                   disabled={alreadyIncluded}
                   onClick={async () => {
                     if (alreadyIncluded) return;
@@ -512,7 +517,7 @@ function RequirementsPanel() {
       {!tree.length && !showModulePanel && (
         <div className="sidebar-empty">
           <div>No requirements yet.</div>
-          {can('write') && <button className="btn btn-secondary" style={{ marginTop: 8, fontSize: 11 }} onClick={() => createReq()}>+ New requirement</button>}
+          {can('write') && <button className="btn btn-secondary" style={{ marginTop: 8, fontSize: 12 }} onClick={() => createReq()}>+ New requirement</button>}
         </div>
       )}
       {searchQuery && !displayTree.length && <div className="sidebar-empty">No matches for <em>{searchQuery}</em></div>}
@@ -537,295 +542,87 @@ function RequirementsPanel() {
 }
 
 // ---------------------------------------------------------------------------
-// 1c. Decisions: decisions, ADRs and open questions (TBDs) in one list
+// 1c. Decisions: one list, by status. A decision that is still needed is Pending (stored as `proposed`).
 // ---------------------------------------------------------------------------
-const KINDS = [['', 'All'], ['decision', 'Decisions & ADRs'], ['tbd', 'Open questions (TBD)']];
-const OPEN_STATUSES = ['open', 'in_progress', 'proposed'];
+const PENDING = PENDING_STATUSES;
 
-function DecisionsList() {
+export function DecisionsList() {
   const can = useCan();
   const { state, dispatch, toast } = useApp();
   const [items, setItems]     = useState([]);
-  const [kind, setKind]       = useState('');
-  const [filter, setFilter]   = useState('');
+  const [tab, setTab]         = useState('proposed');
   const [loading, setLoading] = useState(false);
-  const [resolving, setResolving] = useState(null);
-  const [newKind, setNewKind] = useState('decision');
+  const [accepting, setAccepting] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
-    api.decisions.list(filter ? { status: filter } : {}).then(setItems).catch(() => {}).finally(() => setLoading(false));
-  }, [filter]);
+    api.decisions.list({}).then(setItems).catch(() => {}).finally(() => setLoading(false));
+  }, []);
   useEffect(() => { load(); }, [load]);
-  // Reload when something is saved elsewhere, so a resolved question moves on at once.
+  // Reload when something is saved elsewhere, so an accepted decision moves on at once.
   useEffect(() => { load(); }, [state._lastCommit]);
 
-  const shown = items.filter(d => !kind || (d.type || 'decision') === kind);
+  const inTab = (d, t) => !t || (t === 'proposed' ? PENDING.includes(d.status) : decisionStatusLabel(d.status).toLowerCase() === t);
+  const shown = items.filter(d => inTab(d, tab));
 
   const create = async () => {
     try {
-      const body = newKind === 'tbd'
-        ? { title: 'New open question', type: 'tbd', content: { description: '', impact: '', resolution_criteria: '', resolution: null } }
-        : { title: 'New decision', content: { context: '', description: '', rationale: '' } };
-      const t = newKind === 'tbd' ? await api.tbds.create(body) : await api.decisions.create(body);
-      dispatch({ type: 'SELECT', uid: t.uid, artefactType: t.type || newKind });
-      load();
+      const t = await api.decisions.create({ title: 'New decision',
+        content: { context: '', description: '', impact: '', resolution_criteria: '', rationale: '', resolution: null } });
+      dispatch({ type: 'SELECT', uid: t.uid, artefactType: 'decision' });
+      setTab('proposed'); load();
     } catch (err) { toast(err.message, 'error'); }
   };
 
   return (
     <div className="tbds-panel" data-testid="decisions-list">
-      {resolving && (
-        <ResolveDialog tbd={resolving} onClose={() => setResolving(null)}
+      {accepting && (
+        <ResolveDialog tbd={accepting} onClose={() => setAccepting(null)}
           onResolved={async body => {
-            await api.tbds.resolve(resolving.uid, body);
-            setResolving(null); load(); toast('Resolved into a decision', 'success');
+            await api.decisions.accept(accepting.uid, body);
+            setAccepting(null); load(); toast('Decision accepted', 'success');
           }} />
       )}
-      <div className="list-panel-toolbar" style={{ gap: 4 }}>
-        <select aria-label="Kind" value={kind} onChange={e => setKind(e.target.value)}>
-          {KINDS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
-        </select>
-        {can('write') && <>
-          <select aria-label="New kind" value={newKind} onChange={e => setNewKind(e.target.value)}>
-            <option value="decision">Decision</option><option value="tbd">Open question (TBD)</option>
-          </select>
-          <button className="btn btn-ghost list-new-btn" onClick={create}>+ New</button>
-        </>}
-      </div>
-      <div className="tbds-filter">
-        {['', 'open', 'in_progress', 'proposed', 'accepted', 'resolved'].map(s => (
-          <button key={s} className={`tbds-filter-btn ${filter === s ? 'active' : ''}`} onClick={() => setFilter(s)}>{s ? s.replace('_', ' ') : 'all'}</button>
+      {can('write') && (
+        <div className="list-panel-toolbar" style={{ gap: 4 }}>
+          <button className="btn btn-primary list-new-btn" onClick={create}>+ Decision needed</button>
+        </div>
+      )}
+      <div className="tbds-filter" role="tablist" aria-label="Decision status">
+        {DECISION_TABS.map(([s, label]) => (
+          <button key={s} role="tab" aria-selected={tab === s} className={`tbds-filter-btn ${tab === s ? 'active' : ''}`}
+            onClick={() => setTab(s)}>
+            {label} <span className="tbds-filter-count">{items.filter(d => inTab(d, s)).length}</span>
+          </button>
         ))}
       </div>
       {loading && <div className="sidebar-loading"><div className="spinner" /></div>}
       {!loading && !shown.length && <div className="sidebar-empty">Nothing here.</div>}
       {!loading && shown.map(t => (
         <div key={t.uid} className={`list-item ${state.selectedUid === t.uid ? 'list-item--selected' : ''}`}
-          onClick={() => dispatch({ type: 'SELECT', uid: t.uid, artefactType: t.type === 'tbd' ? 'tbd' : 'decision' })}>
+          onClick={() => dispatch({ type: 'SELECT', uid: t.uid, artefactType: 'decision' })}>
           <div className="list-item-header">
             <span className="list-item-id mono">{t.id}</span>
-            <span className="badge" title={t.type === 'tbd' ? 'Open question' : 'Decision'}>{t.type === 'tbd' ? 'question' : 'decision'}</span>
-            <span className={`badge badge-${t.status}`}>{t.status}</span>
-            {t.type === 'tbd' && OPEN_STATUSES.includes(t.status) && can('write') ? (
+            <span className={`badge badge-${PENDING.includes(t.status) ? 'proposed' : t.status}`}>{decisionStatusLabel(t.status)}</span>
+            {t.in_progress && <span className="badge" title="Someone is working on this decision">Being worked on</span>}
+            {PENDING.includes(t.status) && can('write') ? (
               <button
                 className="btn btn-ghost"
-                style={{ fontSize: 10, padding: '1px 6px', marginLeft: 'auto' }}
-                title="Resolve into a decision"
-                onClick={e => { e.stopPropagation(); setResolving(t); }}>
-                ✓ Resolve
+                style={{ fontSize: 12, padding: '1px 6px', marginLeft: 'auto' }}
+                title="Accept this decision"
+                onClick={e => { e.stopPropagation(); setAccepting(t); }}>
+                Accept
               </button>
             ) : null}
           </div>
           <div className="list-item-title">{t.title}</div>
-          {t.affected_requirements?.length > 0 && <div className="list-item-meta">{t.affected_requirements.length} affected reqs</div>}
+          <div className="list-item-meta">
+            {[t.owner, t.due && `Needed by ${t.due}`, t.aliases?.length && `was ${t.aliases.join(', ')}`,
+              t.affected_requirements?.length && `${t.affected_requirements.length} requirement(s) waiting`]
+              .filter(Boolean).join(' · ')}
+          </div>
         </div>
       ))}
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 1d. Modules panel -- module library, independent of products
-// ---------------------------------------------------------------------------
-function ModulesPanel() {
-  const { state, dispatch } = useApp();
-  const [modules, setModules]   = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [moduleReqs, setModuleReqs] = useState([]);
-  const [loading, setLoading]   = useState(false);
-  const [loadingReqs, setLoadingReqs] = useState(false);
-
-  const loadModules = () => {
-    setLoading(true);
-    api.modules.list().then(d => setModules(Array.isArray(d) ? d : [])).catch(() => setModules([])).finally(() => setLoading(false));
-  };
-  useEffect(() => { loadModules(); }, []);
-
-  const selectModule = async (mod) => {
-    setSelected(mod); setLoadingReqs(true);
-    try { const d = await api.modules.get(mod.id); setModuleReqs(d.requirements || []); }
-    catch { setModuleReqs([]); }
-    finally { setLoadingReqs(false); }
-  };
-
-  if (loading) return <div className="sidebar-loading"><div className="spinner" /></div>;
-  if (!modules.length) return (
-    <div className="sidebar-empty">
-      <div>No modules found.</div>
-      <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
-        Add a <code>modules/</code> directory with module manifests to use shared requirement sets.
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="modules-panel">
-      <div className="modules-list">
-        {modules.map(mod => (
-          <button key={mod.id}
-            className={`module-item ${selected?.id === mod.id ? 'module-item--selected' : ''}`}
-            onClick={() => selectModule(mod)}>
-            <span className="module-item-id mono">{mod.id}</span>
-            <span className="module-item-title">{mod.title || mod.id}</span>
-            {mod.version && <span className="module-item-version">v{mod.version}</span>}
-          </button>
-        ))}
-      </div>
-      {selected && (
-        <div className="module-reqs">
-          <div className="module-reqs-header">
-            <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{selected.id}</span>
-            <span style={{ fontSize: 12, fontWeight: 600 }}>{selected.title || selected.id}</span>
-            {selected.version && <span style={{ fontSize: 11, color: 'var(--accent-blue)' }}>v{selected.version}</span>}
-          </div>
-          {loadingReqs && <div className="sidebar-loading"><div className="spinner" /></div>}
-          {!loadingReqs && !moduleReqs.length && <div className="sidebar-empty" style={{ padding: 8 }}>No requirements in module.</div>}
-          {!loadingReqs && moduleReqs.map(req => (
-            <div key={req.uid}
-              className={`list-item ${state.selectedUid === req.uid ? 'list-item--selected' : ''}`}
-              onClick={() => dispatch({ type: 'SELECT', uid: req.uid, artefactType: 'requirement' })}>
-              <div className="list-item-header">
-                <span className="list-item-id mono">{req.id}</span>
-                <StatusBadge status={req.status} />
-              </div>
-              <div className="list-item-title">{req.title}</div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Task sidebar -- quick stats and sprint filter while kanban is open
-// ---------------------------------------------------------------------------
-function TaskSidebarPanel() {
-  const { state, dispatch, toast } = useApp();
-  const [stats, setStats] = useState(null);
-
-  useEffect(() => {
-    api.kanban.get({}).then(board => {
-      if (!board) return;
-      const cols = board.columns || {};
-      const total = Object.values(cols).flat().length;
-      const done  = (cols.done || []).length;
-      const inProg = (cols.in_progress || []).length;
-      const blocked = (cols.backlog || []).filter(c => c.priority === 'critical').length;
-      setStats({ total, done, inProg, blocked, states: board.states || [] });
-    }).catch(() => {});
-  }, [state._lastCommit]);
-
-  const createItem = async (req_type) => {
-    try {
-      const item = await api.requirements.create({ title: `New ${req_type}`, req_type });
-      dispatch({ type: 'SELECT', uid: item.uid, artefactType: 'requirement' });
-      toast(`Created ${item.id}`, 'success');
-    } catch (err) { toast(err.message, 'error'); }
-  };
-
-  return (
-    <div className="task-sidebar">
-      <div className="task-sidebar-section">
-        <div className="task-sidebar-label">Quick create</div>
-        <div className="task-sidebar-actions">
-          {[
-            { icon: '🎯', label: 'Theme',      type: 'theme' },
-            { icon: '🚀', label: 'Initiative', type: 'initiative' },
-            { icon: '📦', label: 'Epic',       type: 'epic' },
-            { icon: '✨', label: 'Feature',    type: 'feature' },
-            { icon: '📖', label: 'Story',   type: 'story' },
-            { icon: '✅', label: 'Task',    type: 'task' },
-            { icon: '🐛', label: 'Bug',     type: 'bug' },
-            { icon: '🔬', label: 'Spike',   type: 'spike' },
-          ].map(q => (
-            <button key={q.type} className="task-quick-btn"
-              onClick={() => createItem(q.type)}>
-              <span>{q.icon}</span> {q.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {stats && (
-        <div className="task-sidebar-section">
-          <div className="task-sidebar-label">Sprint snapshot</div>
-          <div className="task-stats-grid">
-            <div className="task-stat"><div className="task-stat-value">{stats.total}</div><div className="task-stat-label">Total</div></div>
-            <div className="task-stat"><div className="task-stat-value" style={{ color: 'var(--accent-blue)' }}>{stats.inProg}</div><div className="task-stat-label">In progress</div></div>
-            <div className="task-stat"><div className="task-stat-value" style={{ color: 'var(--accent-green)' }}>{stats.done}</div><div className="task-stat-label">Done</div></div>
-            {stats.blocked > 0 && <div className="task-stat"><div className="task-stat-value" style={{ color: 'var(--accent-red)' }}>{stats.blocked}</div><div className="task-stat-label">Critical backlog</div></div>}
-          </div>
-        </div>
-      )}
-
-      <div className="task-sidebar-section">
-        <div className="task-sidebar-hint">
-          Drag cards between columns to update status. Click a card to open the editor.
-          Press <kbd>Esc</kbd> to close the editor panel.
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-const TOP_SECTIONS = [
-  { id: 'requirements', label: 'Requirements' },
-  { id: 'tasks',        label: 'Task Mgmt'    },
-];
-
-const REQ_SUBTABS = [
-  { id: 'requirements', label: 'Reqs'       },
-  { id: 'principles',   label: 'Principles' },
-  { id: 'decisions',    label: 'Decisions'  },
-  { id: 'modules',      label: 'Modules'    },
-];
-
-export default function Sidebar() {
-  const { state, dispatch } = useApp();
-  const { panel } = state;
-
-  const topSection = panel === 'tasks' ? 'tasks' : 'requirements';
-
-  return (
-    <aside className="sidebar">
-      <nav className="sidebar-sections">
-        {TOP_SECTIONS.map(s => (
-          <button key={s.id}
-            className={`sidebar-section-tab ${topSection === s.id ? 'sidebar-section-tab--active' : ''}`}
-            onClick={() => dispatch({ type: 'SET_PANEL', payload: s.id === 'tasks' ? 'tasks' : 'requirements' })}>
-            {s.label}
-          </button>
-        ))}
-      </nav>
-
-      {topSection === 'requirements' && (
-        <nav className="sidebar-tabs">
-          {REQ_SUBTABS.map(t => (
-            <button key={t.id}
-              className={`sidebar-tab ${panel === t.id ? 'sidebar-tab--active' : ''}`}
-              onClick={() => dispatch({ type: 'SET_PANEL', payload: t.id })}>
-              {t.label}
-            </button>
-          ))}
-        </nav>
-      )}
-
-      {/* Task Mgmt: sidebar quick-actions */}
-      {topSection === 'tasks' && (
-        <div className="sidebar-content">
-          <TaskSidebarPanel />
-        </div>
-      )}
-
-      <div className="sidebar-content">
-        {topSection === 'requirements' && panel === 'requirements' && <RequirementsPanel />}
-        {topSection === 'requirements' && panel === 'principles'   && <PrinciplesPanel />}
-        {topSection === 'requirements' && panel === 'decisions'    && <DecisionsList />}
-        {topSection === 'requirements' && panel === 'modules'      && <ModulesPanel />}
-      </div>    </aside>
   );
 }

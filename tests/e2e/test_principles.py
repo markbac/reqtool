@@ -16,7 +16,7 @@ def server(tmp_path):
 
 def open_principles(page):
     open_app(page)
-    page.locator(".sidebar-tab", has_text="Principles").click()
+    page.get_by_role("navigation", name="Main").get_by_role("link", name="Principles").click()
     expect(page.locator(".principle-area-header").first).to_be_visible()
 
 

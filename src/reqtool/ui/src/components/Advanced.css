@@ -29,7 +29,7 @@
   font-size: 15px; color: var(--text-primary);
   font-family: var(--font-sans);
 }
-.cmdpalette-hint { font-size: 10px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+.cmdpalette-hint { font-size: 12px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
 .cmdpalette-results { max-height: 360px; overflow-y: auto; }
 .cmdpalette-result {
   display: flex; align-items: center; gap: 10px;
@@ -38,12 +38,12 @@
 }
 .cmdpalette-result:hover, .cmdpalette-result--selected { background: var(--bg-hover); }
 .cmdpalette-type-badge {
-  font-size: 9px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
   background: var(--bg-elevated); border: 1px solid var(--border);
   border-radius: 3px; padding: 1px 5px;
   color: var(--text-muted); flex-shrink: 0;
 }
-.cmdpalette-id { font-size: 11px; color: var(--text-secondary); width: 120px; flex-shrink: 0; }
+.cmdpalette-id { font-size: 12px; color: var(--text-secondary); width: 120px; flex-shrink: 0; }
 .cmdpalette-title { font-size: 13px; color: var(--text-primary); flex: 1;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cmdpalette-empty { padding: 16px 14px; font-size: 13px; color: var(--text-muted); }
@@ -63,9 +63,9 @@
 }
 .baseline-item-header { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 .baseline-name { font-size: 13px; font-weight: 600; color: var(--text-primary); flex: 1; }
-.baseline-date { font-size: 11px; }
+.baseline-date { font-size: 12px; }
 .baseline-msg { font-size: 12px; color: var(--text-secondary); margin-bottom: 2px; }
-.baseline-sha { font-size: 10px; }
+.baseline-sha { font-size: 12px; }
 .baseline-diff {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -78,7 +78,7 @@
 }
 .diff-group { border-bottom: 1px solid var(--border-subtle); }
 .diff-group-header {
-  padding: 5px 12px; font-size: 11px; font-weight: 600;
+  padding: 5px 12px; font-size: 12px; font-weight: 600;
 }
 .diff-group--added   .diff-group-header { color: var(--status-approved); background: rgba(35,134,54,.08); }
 .diff-group--removed .diff-group-header { color: var(--accent-red);      background: rgba(218,54,51,.08); }
@@ -95,7 +95,7 @@
 }
 .metrics-headline-value { font-size: 26px; font-weight: 700; color: var(--text-primary); }
 .metrics-headline-value.metrics-warn { color: var(--accent-orange); }
-.metrics-headline-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.metrics-headline-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
 .metrics-section-title {
   font-size: var(--font-size-xs); text-transform: uppercase; letter-spacing: .5px;
   color: var(--text-muted); font-weight: 600; margin: 12px 0 6px;
@@ -104,7 +104,7 @@
 .metrics-bar-label { width: 120px; font-size: 12px; color: var(--text-secondary); flex-shrink: 0; }
 .metrics-bar-track { flex: 1; height: 6px; background: var(--bg-elevated); border-radius: 3px; overflow: hidden; }
 .metrics-bar-fill  { height: 100%; border-radius: 3px; min-width: 2px; transition: width .3s ease; }
-.metrics-bar-count { width: 36px; text-align: right; font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+.metrics-bar-count { width: 36px; text-align: right; font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
 .metrics-approval-rate { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 .metrics-velocity  { font-size: 13px; color: var(--text-primary); }
 .metrics-domain-grid { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -112,11 +112,11 @@
   display: flex; align-items: center; gap: 5px;
   padding: 3px 8px; border-radius: 12px;
   background: var(--bg-elevated); border: 1px solid var(--border);
-  font-size: 11px; color: var(--text-secondary);
+  font-size: 12px; color: var(--text-secondary);
 }
 .metrics-domain-count {
   background: var(--bg-surface); border: 1px solid var(--border);
-  border-radius: 8px; padding: 0 5px; font-size: 10px; color: var(--text-muted);
+  border-radius: 8px; padding: 0 5px; font-size: 12px; color: var(--text-muted);
 }
 
 /* ── Import ──────────────────────────────────────────────────────────────── */
@@ -125,12 +125,12 @@
   background: var(--bg-elevated); border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: 8px 10px;
 }
-.import-hint code { font-family: var(--font-mono); font-size: 11px; }
+.import-hint code { font-family: var(--font-mono); font-size: 12px; }
 .import-preview { margin-top: 4px; }
-.import-preview-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+.import-preview-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
 .import-preview-text {
   background: var(--bg-elevated); border: 1px solid var(--border);
-  border-radius: var(--radius-sm); padding: 8px; font-size: 10px;
+  border-radius: var(--radius-sm); padding: 8px; font-size: 12px;
   font-family: var(--font-mono); overflow-x: auto; max-height: 120px;
   color: var(--text-secondary); white-space: pre;
 }
@@ -159,7 +159,7 @@
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   padding: 6px 10px; text-align: left;
-  font-size: 11px; font-weight: 600; color: var(--text-secondary);
+  font-size: 12px; font-weight: 600; color: var(--text-secondary);
   white-space: nowrap;
 }
 .trace-th--id    { min-width: 100px; }
@@ -167,7 +167,7 @@
 .trace-th--team  { min-width: 60px; text-align: center; }
 .trace-row:hover { background: var(--bg-hover); }
 .trace-td { border: 1px solid var(--border-subtle); padding: 5px 10px; vertical-align: middle; }
-.trace-td--id    { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+.trace-td--id    { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
 .trace-td--title { max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .trace-td--cell  { text-align: center; }
 .trace-check { color: var(--status-approved); font-weight: 700; }
@@ -178,7 +178,7 @@
   background: var(--bg-elevated); border: 1px solid var(--border);
   border-radius: var(--radius-sm); padding: 8px 10px; margin-bottom: 4px;
 }
-.wf-hint code { font-family: var(--font-mono); font-size: 11px; }
+.wf-hint code { font-family: var(--font-mono); font-size: 12px; }
 .wf-state-row {
   display: flex; align-items: center; gap: 8px;
   padding: 7px 10px; border: 1px solid var(--border);
@@ -229,7 +229,7 @@
 .attachment-icon { font-size: 14px; flex-shrink: 0; }
 .attachment-name { flex: 1; color: var(--text-link); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-name:hover { text-decoration: underline; }
-.attachment-meta { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+.attachment-meta { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
 .attachment-dropzone {
   border: 2px dashed var(--border);
   border-radius: var(--radius-md);
@@ -260,17 +260,17 @@
 .comment-node--resolved { opacity: .6; }
 .comment-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .comment-author { font-size: 12px; font-weight: 600; color: var(--text-primary); }
-.comment-date  { font-size: 11px; color: var(--text-muted); }
-.comment-edited { font-size: 10px; }
+.comment-date  { font-size: 12px; color: var(--text-muted); }
+.comment-edited { font-size: 12px; }
 .comment-resolved-badge {
-  font-size: 9px; padding: 1px 5px; border-radius: 8px;
+  font-size: 12px; padding: 1px 5px; border-radius: 8px;
   background: rgba(63,185,80,.15); color: var(--status-approved);
   border: 1px solid rgba(63,185,80,.3);
 }
 .comment-body { font-size: 13px; color: var(--text-primary); line-height: 1.5; white-space: pre-wrap; }
 .comment-actions { display: flex; gap: 8px; margin-top: 5px; }
 .comment-action-btn {
-  background: none; font-size: 11px; color: var(--text-muted);
+  background: none; font-size: 12px; color: var(--text-muted);
   cursor: pointer; padding: 2px 4px; border-radius: 3px;
 }
 .comment-action-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
@@ -280,7 +280,7 @@
 .reply-indicator {
   display: flex; align-items: center; gap: 8px; padding: 4px 8px;
   background: rgba(31,111,235,.1); border-radius: var(--radius-sm);
-  font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;
+  font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;
 }
 .discussion-compose { display: flex; flex-direction: column; }
 

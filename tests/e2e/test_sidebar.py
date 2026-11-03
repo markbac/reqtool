@@ -152,7 +152,7 @@ def test_expand_all_toggle_opens_every_level(page):
 
 def test_principles_list_creates_and_filters(page):
     open_app(page)
-    page.locator(".sidebar-tab", has_text="Principles").click()
+    page.get_by_role("navigation", name="Main").get_by_role("link", name="Principles").click()
     page.get_by_role("button", name="+ New", exact=True).click()
     wait_until(lambda: page.server.get("/principles"), what="the new principle")
     expect(field(page, "Title")).to_have_value("New principle")
@@ -163,41 +163,43 @@ def test_principles_list_creates_and_filters(page):
     expect(page.locator(".list-item")).to_have_count(1)
 
 
-def test_decisions_list_creates_filters_and_resolves(page):
+def test_decisions_list_creates_a_needed_decision_filters_by_status_and_accepts(page):
     open_app(page)
-    page.locator(".sidebar-tab", has_text="Decisions").click()
-    expect(page.locator(".sidebar-tab", has_text="TBDs")).to_have_count(0)      # one area, not two
-    page.get_by_label("New kind").select_option("tbd")
-    page.get_by_role("button", name="+ New", exact=True).click()
-    wait_until(lambda: page.server.get("/tbds"), what="the new open question")
-    expect(page.locator(".list-item", has_text="New open question")).to_be_visible()
-    expect(page.get_by_test_id("decision-kind")).to_contain_text("Open question (TBD)")   # the same editor opens
-
-    page.get_by_label("New kind").select_option("decision")
-    page.get_by_role("button", name="+ New", exact=True).click()
+    page.get_by_role("navigation", name="Main").get_by_role("link", name="Decisions").click()
+    page.get_by_role("button", name="+ Decision needed").click()
     wait_until(lambda: page.server.get("/decisions?status=proposed"), what="the new decision")
-    expect(page.locator(".list-item")).to_have_count(2)
-    page.get_by_label("Kind", exact=True).select_option("tbd")
-    expect(page.locator(".list-item")).to_have_count(1)
-    page.get_by_label("Kind", exact=True).select_option("decision")
-    expect(page.locator(".list-item", has_text="New decision")).to_have_count(1)
+    expect(page.locator(".list-item", has_text="New decision")).to_be_visible()
+    expect(page.get_by_test_id("decision-status")).to_have_text("Pending")       # the editor opens on it
 
-    page.get_by_label("Kind", exact=True).select_option("tbd")
-    page.locator(".list-item").get_by_role("button", name="✓ Resolve").click()
-    expect(page.locator(".modal, [role=dialog]").first).to_be_visible()
+    made = page.server.post("/decisions", {"title": "Use REST", "content": {"description": "REST."}})
+    page.server.post(f"/decisions/{made['uid']}/accept", {"decision": "REST", "resolved_by": "a"}, expect=200)
+    page.reload()
+    page.get_by_role("navigation", name="Main").get_by_role("link", name="Decisions").click()
+    expect(page.locator(".list-item")).to_have_count(1)                            # Pending is the first tab
+    page.get_by_role("tab", name="Accepted").click()
+    expect(page.locator(".list-item", has_text="Use REST")).to_have_count(1)
+
+    page.get_by_role("tab", name="Pending").click()
+    page.locator(".list-item").get_by_role("button", name="Accept").click()
+    dialog = page.get_by_role("dialog")
+    dialog.get_by_label("Decision", exact=True).fill("Yes")
+    dialog.get_by_role("button", name="Accept decision").click()
+    wait_until(lambda: not page.server.get("/decisions?status=proposed"), what="the accepted decision")
 
 
-def test_a_resolved_question_and_its_decision_link_to_each_other(page):
-    q = page.server.post("/tbds", {"title": "Which database?", "content": {"description": "Pick one."}})
-    d = page.server.post("/decisions", {"title": "Use Postgres", "content": {"description": "Postgres."}})
-    page.server.post(f"/tbds/{q['uid']}/resolve", {"decision": "Postgres", "linked_decision": d["uid"]}, expect=200)
-    open_app(page)
-    page.locator(".sidebar-tab", has_text="Decisions").click()
-    page.get_by_label("Kind", exact=True).select_option("tbd")
-    page.locator(".list-item", has_text="Which database?").click()
-    expect(page.get_by_test_id("decision-links")).to_contain_text(d["id"])
-    page.get_by_test_id("decision-links").get_by_role("button").click()
-    expect(page.get_by_test_id("decision-links")).to_contain_text(q["id"])           # and the link shows from the other end
+def test_a_decision_named_in_requirement_text_shows_as_a_chip_and_asks_for_a_wording_check(page):
+    d = page.server.post("/decisions", {"id": "DEC-050", "title": "Unit cost", "content": {"description": "Cost?"}})
+    req = page.server.post("/requirements", {"title": "Unit cost target",
+                                             "content": {"description": "Cost shall meet [DEC-050]."}})
+    page.server.post(f"/decisions/{d['uid']}/accept", {"decision": "17 GBP at 10 000 units", "resolved_by": "a"},
+                     expect=200)
+    page.goto(f"{page.server.url}/?uid={req['uid']}")
+    markers = page.get_by_test_id("decision-markers")
+    expect(markers.locator(".decision-chip--accepted")).to_contain_text("DEC-050")
+    expect(markers).to_contain_text("Decision accepted: check the wording")
+    markers.get_by_role("button", name="Wording is fine").click()
+    expect(markers.locator(".decision-note")).to_have_count(0)
+    assert d["uid"] in page.server.get(f"/requirements/{req['uid']}")["decision_wording_checked"]
 
 
 # --- Re-parenting from the tree (#320) --------------------------------------------------------------
@@ -314,8 +316,8 @@ def test_moving_the_open_item_updates_its_editor(page):
     expect(page.locator(".editor-breadcrumb")).to_contain_text("EP-002")
 
 
-def test_a_deep_link_with_type_tbd_opens_the_decision_editor(page):
+def test_an_old_deep_link_with_type_tbd_opens_the_decision_editor(page):
     q = page.server.post("/tbds", {"title": "Which queue?", "content": {"description": "Pick one."}})
     page.goto(f"{page.server.url}/?uid={q['uid']}&type=tbd")
-    expect(page.get_by_test_id("decision-kind")).to_contain_text("Open question (TBD)")
+    expect(page.get_by_test_id("decision-status")).to_have_text("Pending")
     expect(page.locator(".editor-id")).to_contain_text(q["id"])

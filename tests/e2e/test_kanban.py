@@ -6,7 +6,8 @@ from .helpers import drag_and_drop, open_app, seed_tree, wait_until
 
 
 def open_board(page):
-    page.get_by_text("TASK MGMT").click()
+    page.get_by_role("navigation", name="Main").get_by_role("link", name="Work").click()
+    page.get_by_role("tab", name="Board", exact=True).click()
     expect(page.locator(".kanban-page")).to_be_visible()
 
 

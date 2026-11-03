@@ -20,7 +20,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { AppProvider } from '../AppContext';
 import Header from '../components/Header.jsx';
-import Sidebar from '../components/Sidebar.jsx';
+import Nav from '../components/Nav.jsx';
 import Editor from '../components/Editor.jsx';
 import App from '../App.jsx';
 
@@ -81,33 +81,17 @@ describe('Header', () => {
 // Sidebar
 // ---------------------------------------------------------------------------
 
-describe('Sidebar', () => {
+describe('Nav (#373)', () => {
   beforeEach(() => { global.fetch = makeFetch(); });
   afterEach(() => vi.restoreAllMocks());
 
-  it('renders without throwing', () => {
-    expect(() =>
-      render(<AppProvider>
-        <Sidebar tree={[]} principles={[]} tbds={[]} onRefresh={() => {}} />
-      </AppProvider>)
-    ).not.toThrow();
-  });
-
-  it('renders Requirements, Principles, Decisions tabs', () => {
-    render(<AppProvider>
-      <Sidebar tree={[]} principles={[]} tbds={[]} onRefresh={() => {}} />
-    </AppProvider>);
-    // Use getAllByText since "Requirements" may appear in both tab and empty-state text
-    expect(screen.getAllByText(/requirements/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/principles/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/decisions/i).length).toBeGreaterThan(0);
-  });
-
-  it('shows non-empty DOM when tree is empty', () => {
-    render(<AppProvider>
-      <Sidebar tree={[]} principles={[]} tbds={[]} onRefresh={() => {}} />
-    </AppProvider>);
-    expect(document.body.textContent.length).toBeGreaterThan(5);
+  it('lists the six areas as links to their pages', () => {
+    render(<AppProvider><Nav /></AppProvider>);
+    for (const [name, href] of [['Requirements', '#/requirements'], ['Work', '#/work'], ['Decisions', '#/decisions'],
+      ['Principles', '#/principles'], ['Insights', '#/insights'], ['Settings', '#/settings']]) {
+      expect(screen.getByRole('link', { name: new RegExp(`^${name}`) }).getAttribute('href')).toBe(href);
+    }
+    expect(screen.getByRole('link', { name: /^Requirements/ }).getAttribute('aria-current')).toBe('page');
   });
 });
 
@@ -178,7 +162,7 @@ describe('App', () => {
 
   it('opens the login modal from the header identity button (UI-01)', async () => {
     await act(async () => { render(<App />); });
-    const btn = document.querySelector('button[title^="User Identity"]');
+    const btn = screen.getByRole('button', { name: 'Account' });
     expect(btn).toBeTruthy();
     await act(async () => { btn.click(); });
     expect(document.body.textContent).toMatch(/log ?in/i);

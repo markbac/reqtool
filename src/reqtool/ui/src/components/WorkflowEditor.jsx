@@ -74,7 +74,7 @@ function StateRows({ def, setDef, locked }) {
         <div className="we-add">
           <input placeholder="new_state_id" aria-label="New state id" value={newId} onChange={e => setNewId(e.target.value.trim())} />
           <button className="btn btn-secondary" disabled={!valid} onClick={() => { setDef(edit.addState(def, newId)); setNewId(''); }}>Add state</button>
-          {newId && !valid && <span className="text-muted" style={{ fontSize: 11 }}>{taken ? 'Already used' : 'Lower case letters, digits and underscores, starting with a letter'}</span>}
+          {newId && !valid && <span className="text-muted" style={{ fontSize: 12 }}>{taken ? 'Already used' : 'Lower case letters, digits and underscores, starting with a letter'}</span>}
         </div>
       )}
     </section>
@@ -263,7 +263,7 @@ export function WorkflowEditor({ onClose }) {
           <button className="btn btn-danger" disabled={busy || usedBy.length > 0} title={usedBy.length ? 'In use: give those item types another workflow first' : 'Delete this workflow'} onClick={remove}>Delete</button>
         </>}
       </div>
-      <div className="text-muted" style={{ fontSize: 11 }}>Used by: {usedBy.join(', ') || 'no item type'}</div>
+      <div className="text-muted" style={{ fontSize: 12 }}>Used by: {usedBy.join(', ') || 'no item type'}</div>
 
       <section className="we-section">
         <div className="metrics-section-title">Diagram</div>
@@ -305,7 +305,7 @@ export function WorkflowEditor({ onClose }) {
 
       <section className="we-section">
         <div className="metrics-section-title">Fallback workflow</div>
-        <div className="text-muted" style={{ fontSize: 11 }}>Item types with no workflow of their own use the one in <code>.reqtool/config.yaml</code>.</div>
+        <div className="text-muted" style={{ fontSize: 12 }}>Item types with no workflow of their own use the one in <code>.reqtool/config.yaml</code>.</div>
         {fallback ? <MermaidView source={fallback} title="Fallback workflow diagram" /> : <button className="btn btn-secondary" onClick={showFallback}>Show its diagram</button>}
         {can('manage_workflow') && <button className="btn btn-secondary" style={{ marginLeft: 6 }}
           onClick={() => { onClose(); dispatch({ type: 'TOGGLE_PANEL', key: '_showWorkflow', value: true }); }}>Edit the fallback workflow</button>}

@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../AppContext';
 import { api } from '../api';
+import { labelOf } from '../labels';
 import { Bar, pct } from './Insight';
 import './Insight.css';
 
@@ -34,27 +35,40 @@ export function StatusStrip({ uid, isDirty, version }) {
   );
 }
 
-function Lifecycle({ lc }) {
-  const idx = lc.stages.indexOf(lc.stage);
+/** One lifecycle per item (#375): the states of the item's own workflow, in order, with the current one marked,
+ * and approval and verification as separate badges. */
+function Lifecycle({ lc, draft }) {
+  const { state } = useApp();
+  const wfId = state.hierarchy?.types?.[draft?.req_type]?.workflow;
+  const wf = wfId ? state.hierarchy?.workflows?.[wfId] : null;
+  const states = (wf?.states || []).map(st => (typeof st === 'string' ? { id: st } : st)).filter(st => !st.terminal || st.id === draft?.status
+    || ['done', 'approved', 'closed', 'fixed'].includes(st.id));
+  const idx = states.findIndex(st => st.id === draft?.status);
+  const approval = draft?.approval?.status;
+  const verification = draft?.verification?.status;
   return (
     <>
       <div className="ins-strip" role="list" aria-label="Lifecycle">
-        {lc.stages.map((s, i) => (
-          <div key={s} role="listitem" className={`ins-step ${i < idx ? 'done' : ''} ${i === idx ? 'current' : ''}`}
-            aria-current={i === idx ? 'step' : undefined}>{s}</div>))}
+        {states.map((st, i) => (
+          <div key={st.id} role="listitem" className={`ins-step ${i < idx ? 'done' : ''} ${i === idx ? 'current' : ''}`}
+            aria-current={i === idx ? 'step' : undefined}>{st.label || labelOf.plain(st.id)}</div>))}
+      </div>
+      <div className="ins-row">
+        {approval && <span className={`ins-pill ${approval === 'approved' ? 'green' : ''}`}>{approval === 'approved' ? 'Approved' : `Approval: ${labelOf.plain(approval)}`}</span>}
+        {verification && <span className={`ins-pill ${verification === 'passed' ? 'green' : ''}`}>{verification === 'passed' ? 'Verified' : `Verification: ${labelOf.plain(verification)}`}</span>}
       </div>
       {lc.blockers.length === 0
         ? <div className="ins-muted">Nothing blocks the next step.</div>
-        : lc.blockers.map((b, i) => <div key={i} className="ins-row"><span className="ins-pill amber">{b.code}</span><span className="grow">{b.message}</span></div>)}
+        : lc.blockers.map((b, i) => <div key={i} className="ins-row"><span className="ins-pill amber">{labelOf.plain(b.code)}</span><span className="grow">{b.message}</span></div>)}
     </>
   );
 }
 
 const Link = ({ r, onOpen }) => (
   <div className="ins-row ins-clickable" onClick={() => onOpen(r.uid)}>
-    <span className="ins-pill">{r.relationship || 'child'}</span><span className="mono">{r.id}</span>
+    <span className="ins-pill">{r.relationship ? labelOf.link(r.relationship) : 'Child'}</span><span className="mono">{r.id}</span>
     <span className="grow" title={r.title}>{r.title}</span>
-    {r.suspect && <span className="ins-pill amber">suspect</span>}<span className="ins-pill">{r.status}</span>
+    {r.suspect && <span className="ins-pill amber">Suspect</span>}<span className="ins-pill">{labelOf.plain(r.status)}</span>
   </div>
 );
 
@@ -72,7 +86,7 @@ function StrategicSummary({ uid }) {
         <div className="ins-stat"><div className="ins-stat-value">{pct(s.progress_pct)}</div><div className="ins-stat-label">Complete</div></div>
         <div className="ins-stat"><div className="ins-stat-value">{s.descendants}</div><div className="ins-stat-label">Items below</div></div>
         <div className="ins-stat"><div className="ins-stat-value">{s.done_estimate}/{s.total_estimate}</div><div className="ins-stat-label">Estimate done</div></div>
-        <div className="ins-stat"><div className="ins-stat-value">{s.open_tbds.length}</div><div className="ins-stat-label">Open questions (TBD)</div></div>
+        <div className="ins-stat"><div className="ins-stat-value">{s.open_tbds.length}</div><div className="ins-stat-label">Pending decisions</div></div>
         <div className="ins-stat"><div className="ins-stat-value">{s.validation.errors}/{s.validation.warnings}</div><div className="ins-stat-label">Errors / warnings</div></div>
       </div>
       {Object.entries(s.by_type).map(([t, counts]) => (
@@ -127,7 +141,7 @@ export default function ItemInsight({ uid, draft, version }) {
     <div>
       {STRATEGIC.includes(draft?.req_type) && <StrategicSummary uid={uid} />}
       <h4>Lifecycle</h4>
-      <Lifecycle lc={lifecycle} />
+      <Lifecycle lc={lifecycle} draft={draft} />
 
       <h4>Traceability</h4>
       <div className="ins-muted">Gaps: {trace.gaps.length ? trace.gaps.join(', ') : 'none'} | children verified {pct(trace.coverage.children_verified_pct)}</div>
@@ -144,7 +158,7 @@ export default function ItemInsight({ uid, draft, version }) {
         <span>{pct(progress.progress_pct ?? progress.percent ?? progress.completion_pct ?? 0)}</span>
       </div>
       <details><summary className="ins-muted">Raw progress and impact data</summary>
-        <pre style={{ fontSize: 11, overflow: 'auto' }}>{JSON.stringify({ progress, impact }, null, 2)}</pre></details>
+        <pre style={{ fontSize: 12, overflow: 'auto', maxHeight: 320, whiteSpace: 'pre' }}>{JSON.stringify({ progress, impact }, null, 2)}</pre></details>
       <button className="btn btn-ghost" onClick={() => act(async () => { const c = await api.requirements.clone(uid); window.dispatchEvent(new Event('reqtool:tree-changed')); open(c.uid); }, 'Cloned')}>Clone this item</button>
 
       <h4>Writing quality (advisory)</h4>

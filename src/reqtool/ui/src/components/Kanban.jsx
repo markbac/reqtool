@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useApp, useCan } from '../AppContext';
+import { labelOf } from '../labels';
 import { api } from '../api';
 import { TransitionDialog, getPath, setPath, DIALOG_FIELDS } from './TransitionDialog';
 import { needsInput } from './Editor';
@@ -75,7 +76,7 @@ function KanbanCard({ card, isSelected, onClick, onDragStart, canMove, states, c
         <select className="kanban-move" aria-label={`Move ${card.id} to`} value={current}
           onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()}
           onChange={e => onMove(card.uid, e.target.value)}>
-          {states.filter(x => x !== UNCOLUMNED).map(x => <option key={x} value={x}>{x.replace(/_/g, ' ')}</option>)}
+          {states.filter(x => x !== UNCOLUMNED).map(x => <option key={x} value={x}>{labelOf.plain(x)}</option>)}
           {current === UNCOLUMNED && <option value={UNCOLUMNED}>(no matching column)</option>}
         </select>
       )}
@@ -97,7 +98,7 @@ function KanbanCard({ card, isSelected, onClick, onDragStart, canMove, states, c
 // ---------------------------------------------------------------------------
 function KanbanColumn({ stateId, cards, groups, isSelected, onCardClick, onDrop, draggingUid, canMove, states, onMove }) {
   const [dragOver, setDragOver] = useState(false);
-  const label = stateId === UNCOLUMNED ? 'no matching column' : stateId.replace(/_/g, ' ');
+  const label = stateId === UNCOLUMNED ? 'No matching column' : labelOf.plain(stateId);
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -303,7 +304,7 @@ export function KanbanPanel() {
       const result = await api.requirements.transition(uid, targetState, extra);
       window.dispatchEvent(new Event('reqtool:tree-changed'));
       const said = rollupSummary(result.rules);
-      toast(said || `Moved to ${targetState.replace(/_/g, ' ')}`, 'success', said ? 5000 : 1500);
+      toast(said || `Moved to ${labelOf.plain(targetState)}`, 'success', said ? 5000 : 1500);
       if (!quiet && result.rules?.suggested?.length) setSuggested(result.rules.suggested);
       if (result.rules || extra.force) load();   // a roll-up may have moved other cards
     } catch (err) {
@@ -371,9 +372,9 @@ export function KanbanPanel() {
           </select>
         </div>
         <div className="kanban-toolbar-section">
-          <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 8px' }}
+          <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 8px' }}
             onClick={load} title="Refresh board">↺ Refresh</button>
-          {canMove && <button className="btn btn-primary" style={{ fontSize: 11, padding: '4px 10px' }}
+          {canMove && <button className="btn btn-primary" style={{ fontSize: 12, padding: '4px 10px' }}
             onClick={createItem} title="New work item">+ New</button>}
         </div>
       </div>

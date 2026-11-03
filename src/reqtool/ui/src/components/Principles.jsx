@@ -256,7 +256,7 @@ export function PrinciplesPanel() {
 
       {!items.length && <div className="sidebar-empty">
         <div>No principles defined.</div>
-        {can('manage_config') && <button className="btn btn-secondary" style={{ marginTop: 8, fontSize: 11 }} onClick={() => setShowPacks(true)}>Add default principles</button>}
+        {can('manage_config') && <button className="btn btn-secondary" style={{ marginTop: 8, fontSize: 12 }} onClick={() => setShowPacks(true)}>Add default principles</button>}
       </div>}
       {items.length > 0 && visible.length === 0 && <div className="sidebar-empty">No principles match.</div>}
 

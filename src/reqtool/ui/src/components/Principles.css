@@ -38,7 +38,7 @@
 }
 .principle-category-add:hover { color: var(--text-primary); border-color: var(--border); background: var(--bg-hover); }
 .principle-row { padding-left: 30px; }
-.principles-status { max-width: 84px; font-size: 11px; }
+.principles-status { max-width: 84px; font-size: 12px; }
 
 /* Add default principles */
 .principle-pack-dialog { max-width: 520px; width: 92vw; }
@@ -57,11 +57,11 @@
 .principle-pack--full { opacity: 0.6; cursor: default; }
 .principle-pack-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .principle-pack-name { font-weight: 600; font-size: 13px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-.principle-pack-count { font-weight: 400; font-size: 11px; color: var(--text-muted); }
+.principle-pack-count { font-weight: 400; font-size: 12px; color: var(--text-muted); }
 .principle-pack-desc { font-size: 12px; color: var(--text-secondary); }
-.principle-pack-cats { font-size: 11px; color: var(--text-muted); }
+.principle-pack-cats { font-size: 12px; color: var(--text-muted); }
 
 /* Editor: area and category */
 .principle-add-category { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
 .principle-add-category input { flex: 1; min-width: 0; }
-.principle-add-category-btn { margin-top: 4px; font-size: 11px; padding: 2px 6px; }
+.principle-add-category-btn { margin-top: 4px; font-size: 12px; padding: 2px 6px; }

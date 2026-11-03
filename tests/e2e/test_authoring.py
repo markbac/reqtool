@@ -46,7 +46,7 @@ def test_quick_create_edit_save_and_reload(page):
 
     stored = page.server.get("/requirements?req_type=story")
     assert [r["title"] for r in stored] == ["Reset a forgotten password"]
-    on_disk = read_yaml(page.server, f"requirements/{stored[0]['uid']}.yaml")
+    on_disk = read_yaml(page.server, f"work/{stored[0]['uid']}.yaml")   # a story is a work item (#380)
     assert on_disk["title"] == "Reset a forgotten password"
 
     # the item is created without a parent, so it is not in the product tree; reopen it from the search palette
