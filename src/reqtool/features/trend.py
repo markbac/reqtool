@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from reqtool import layout
 from reqtool.artefacts import is_pending_decision
 from reqtool.fileio import yaml_loads_safe
 from reqtool.git_ops import run_git, git_list_tags, is_git_repo
@@ -28,8 +29,10 @@ def _files(root, tag: str, folder: str) -> list[tuple[str, str]]:
 
 
 def baseline_metrics(root, tag: str) -> dict[str, Any]:
-    reqs = [d for _, t in _files(root, tag, "requirements") if isinstance(d := yaml_loads_safe(t), dict)
-            and not d.get("deleted")]
+    items = [d for _, t in _files(root, tag, "requirements") + _files(root, tag, layout.WORK_DIR)
+             if isinstance(d := yaml_loads_safe(t), dict) and not d.get("deleted")]
+    # requirements only, as on the Overview; read by type so baselines from before #380 count the same way
+    reqs = [d for d in items if layout.family(d.get("req_type")) == "requirement"]
     tbds = [d for _, t in _files(root, tag, "decisions") if isinstance(d := yaml_loads_safe(t), dict)
             and is_pending_decision(d)]
     total = len(reqs)
@@ -52,8 +55,10 @@ def trend(store) -> dict[str, Any]:
     for tag in tags:
         point = baseline_metrics(store.root, tag["name"])
         if previous is not None:
-            code, out, _ = run_git(["diff", "--name-status", previous, tag["name"], "--", "requirements"], store.root)
-            rows = [line.split("\t")[0][0] for line in out.splitlines() if line] if code == 0 else []
+            code, out, _ = run_git(["diff", "--name-status", "--no-renames", previous, tag["name"], "--", *layout.ITEM_DIRS],
+                                   store.root)
+            rows = [line.split("\t")[0][0] for line in out.splitlines()
+                    if line and layout.is_item_file(line.partition("\t")[2])] if code == 0 else []
             point["churn"] = {"added": rows.count("A"), "removed": rows.count("D"), "changed": rows.count("M")}
         else:
             point["churn"] = {"added": point["requirements"], "removed": 0, "changed": 0}

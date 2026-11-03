@@ -287,3 +287,6 @@
 }
 .kanban-move { margin-top: 4px; width: 100%; font-size: 12px; opacity: 0.85; }
 .kanban-card:focus-visible, .kanban-move:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 1px; }
+
+/* Sprint snapshot in the toolbar (it used to be in the Work sidebar). */
+.kanban-snapshot { gap: 10px; font-size: 12px; color: var(--text-muted); white-space: nowrap; }

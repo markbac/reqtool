@@ -444,7 +444,7 @@ export function RequirementsPanel({ family } = {}) {
       <div className="tree-toolbar">
         {can('write') && <button className="btn btn-ghost tree-toolbar-btn" onClick={() => createReq(null, family === 'work' ? 'theme' : null)}
           title={family === 'work' ? 'New theme' : 'New requirement'}>+ New</button>}
-        {can('manage_modules') && <button className="btn btn-ghost tree-toolbar-btn" onClick={openModulePanel}
+        {can('manage_modules') && family !== 'work' && <button className="btn btn-ghost tree-toolbar-btn" onClick={openModulePanel}
           title="Include a shared requirement module in this product">⊕ Module</button>}
         <div style={{ flex: 1 }} />
         <button className="btn btn-ghost tree-toolbar-btn"
@@ -475,7 +475,7 @@ export function RequirementsPanel({ family } = {}) {
           </div>
           {availableModules.length === 0 ? (
             <div className="module-include-empty">
-              <div>No modules found in <code>modules/</code>.</div>
+              <div>No modules found in <code>requirements/modules/</code>.</div>
               <div style={{ marginTop: 4, fontSize: 12 }}>
                 CLI: <code>req import &lt;module-id&gt; --product {activeProduct.id}</code>
               </div>

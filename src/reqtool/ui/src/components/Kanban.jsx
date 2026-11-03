@@ -371,6 +371,13 @@ export function KanbanPanel() {
             {(board?.people || []).map(p => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
+        {board && (
+          <div className="kanban-toolbar-section kanban-snapshot" role="group" aria-label="Sprint snapshot">
+            <span>{allCards.length} items</span>
+            <span>{colCards('in_progress').length} in progress</span>
+            <span>{colCards('done').length} done</span>
+          </div>
+        )}
         <div className="kanban-toolbar-section">
           <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 8px' }}
             onClick={load} title="Refresh board">↺ Refresh</button>

@@ -259,10 +259,10 @@ The menu on the left has six areas. Each is a page with tabs, and the page you a
 |---|---|---|
 | **Requirements** | Tree, Query, Modules, Baselines, Change sets; **Check** menu: Writing check, Duplicates | Stakeholder needs and system requirements, including module requirements. **Validate**, **Export**, **Import** and **Bulk edit** are on the page. |
 | **Work** | Issues, Backlog, Tree, Board, Roadmap, Iterations | Issues until triage, then themes, initiatives, epics, features, stories, tasks, defects and spikes |
-| **Decisions** | Pending, Accepted, Rejected, Superseded | Decisions and ADRs |
+| **Decisions** | List (Pending, Accepted, Rejected, Superseded), Options and ADRs | Decisions and ADRs. **Options and ADRs** edits the options, ATAM analysis and status of each decision and exports them as ADRs. |
 | **Principles** | Library, Where cited | Principles |
 | **Insights** | Overview (with the release gate and metrics), Coverage, Traceability, Views, Diagrams | Figures across all of the above |
-| **Settings** | Workflows, Custom fields, Vocabularies, Templates, Automation, Webhooks, Writing check, Repository | Configuration |
+| **Settings** | Workflows, Custom fields, Vocabularies, Templates, Automation, Webhooks, Writing check, Repository | Configuration. Custom fields, Vocabularies and Templates appear for roles that may manage configuration, Webhooks and Repository for administrators. |
 
 The header holds only what every page needs: the product, search (`Ctrl+K`, which also finds pages such as "Settings: templates"), git status and **Sync**, **Inbox**, theme, help and your account. The product you choose is remembered for each repository; one in the address wins. Where a page has no editor of its own, a selected item opens in the editor on the right. Quick tasks (Validate, Export, Import, Bulk edit, Inbox, Help, Login) open in a drawer on the right; Escape closes it.
 

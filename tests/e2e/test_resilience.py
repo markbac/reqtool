@@ -8,7 +8,7 @@ from .helpers import expand, open_app, seed_tree, select_item, tree_node, wait_u
 
 
 def requirement_path(server, uid: str):
-    return server.root / "requirements" / f"{uid}.yaml"
+    return server.root / "work" / f"{uid}.yaml"   # seed_tree's items are work items (#380)
 
 
 def test_an_edit_made_on_disk_reaches_the_api_and_the_tree(page):

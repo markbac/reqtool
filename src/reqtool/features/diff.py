@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from reqtool import layout
 from reqtool.fileio import yaml_loads_safe
 from reqtool.git_ops import run_git
 
@@ -34,15 +35,16 @@ def field_changes(old: dict, new: dict, prefix: str = "") -> list[dict[str, Any]
     return out
 
 
-def ref_diff(root, ref_a: str, ref_b: str, folder: str = "requirements") -> dict[str, Any]:
-    """Added, removed and modified items between two refs, with the changed fields of each modified item."""
-    code, out, err = run_git(["diff", "--name-status", "--no-renames", ref_a, ref_b, "--", folder], root)
+def ref_diff(root, ref_a: str, ref_b: str) -> dict[str, Any]:
+    """Added, removed and modified items (requirements and work items, #380) between two refs, with the changed
+    fields of each modified item."""
+    code, out, err = run_git(["diff", "--name-status", "--no-renames", ref_a, ref_b, "--", *layout.ITEM_DIRS], root)
     if code != 0:
         raise ValueError(err.strip() or "git diff failed")
     result: dict[str, Any] = {"from": ref_a, "to": ref_b, "added": [], "removed": [], "modified": []}
     for line in out.splitlines():
         status, _, path = line.partition("\t")
-        if not path.endswith(".yaml"):
+        if not layout.is_item_file(path):
             continue
         old = _show(root, ref_a, path) if status != "A" else None
         new = _show(root, ref_b, path) if status != "D" else None

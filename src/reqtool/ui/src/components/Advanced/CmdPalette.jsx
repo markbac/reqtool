@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../../api';
+import { useCan } from '../../AppContext';
 
 // Pages Ctrl+K can open, besides items (#373).
 const PAGES = [
@@ -9,14 +10,14 @@ const PAGES = [
   ['requirements', 'duplicates', 'Requirements: duplicates'],
   ['work', 'issues', 'Work: issues'], ['work', 'backlog', 'Work: backlog'], ['work', 'tree', 'Work: tree'], ['work', 'board', 'Work: board'],
   ['work', 'roadmap', 'Work: roadmap'], ['work', 'iterations', 'Work: iterations and gates'],
-  ['decisions', '', 'Decisions'], ['principles', 'library', 'Principles'], ['principles', 'cited', 'Principles: where cited'],
+  ['decisions', '', 'Decisions'], ['decisions', 'records', 'Decisions: options, ATAM and ADR export'], ['principles', 'library', 'Principles'], ['principles', 'cited', 'Principles: where cited'],
   ['insights', 'overview', 'Insights: overview, release gate and metrics'], ['insights', 'coverage', 'Insights: coverage'],
   ['insights', 'traceability', 'Insights: traceability'], ['insights', 'views', 'Insights: views'],
   ['insights', 'diagrams', 'Insights: diagrams'],
-  ['settings', 'workflows', 'Settings: workflows'], ['settings', 'fields', 'Settings: custom fields'],
-  ['settings', 'vocabularies', 'Settings: vocabularies'], ['settings', 'templates', 'Settings: templates'],
-  ['settings', 'automation', 'Settings: automation rules'], ['settings', 'webhooks', 'Settings: webhooks'],
-  ['settings', 'writing', 'Settings: writing check'], ['settings', 'repository', 'Settings: repository'],
+  ['settings', 'workflows', 'Settings: workflows'], ['settings', 'fields', 'Settings: custom fields', 'manage_config'],
+  ['settings', 'vocabularies', 'Settings: vocabularies', 'manage_config'], ['settings', 'templates', 'Settings: templates', 'manage_config'],
+  ['settings', 'automation', 'Settings: automation rules'], ['settings', 'webhooks', 'Settings: webhooks', 'manage_webhooks'],
+  ['settings', 'writing', 'Settings: writing check'], ['settings', 'repository', 'Settings: repository', 'manage_repo'],
 ];
 
 export function CmdPalette({ onClose, onSelect, onNavigate }) {
@@ -24,6 +25,7 @@ export function CmdPalette({ onClose, onSelect, onNavigate }) {
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(0);
   const inputRef = useRef(null);
+  const can = useCan();
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
@@ -36,7 +38,9 @@ export function CmdPalette({ onClose, onSelect, onNavigate }) {
   }, [query]);
 
   const q = query.trim().toLowerCase();
-  const pages = onNavigate && q ? PAGES.filter(([, , label]) => label.toLowerCase().includes(q)).slice(0, 6) : [];
+  // a settings page the role may not use is left out, as on the Settings page
+  const pages = onNavigate && q
+    ? PAGES.filter(([, , label, need]) => (!need || can(need)) && label.toLowerCase().includes(q)).slice(0, 6) : [];
   const results = [...pages.map(([area, tab, label]) => ({ page: true, area, tab, label, key: `${area}/${tab}` })),
     ...items.map(r => ({ ...r, key: r.uid }))];
 

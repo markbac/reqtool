@@ -4,6 +4,8 @@ import pytest
 from playwright.sync_api import expect
 from ruamel.yaml import YAML
 
+from reqtool.layout import family
+
 from .helpers import open_app, open_menu_item, panel, select_item
 
 DEFAULTS = pytest.mark.parametrize("server", ["defaults"], indirect=True)
@@ -19,7 +21,7 @@ def show(page, item: dict) -> None:
     if not any(p["id"] == "p1" for p in server.get("/products")):
         server.post("/products", {"id": "p1", "title": "Product One"})
     server.put("/products/p1", {"root_requirements": [{"uid": item["uid"]}]}, expect=None)
-    open_app(page)
+    open_app(page, area="work/tree" if family(item.get("req_type")) == "work" else "requirements/tree")   # its own tree
     select_item(page, item["id"])
 
 

@@ -41,7 +41,7 @@ def test_theme_toggle_switches_and_persists_across_reload(page):
 
 def test_help_opens_and_closes(page):
     open_app(page, product=None)
-    page.get_by_role("button", name="?", exact=True).click()
+    page.get_by_role("button", name="Help").click()
     expect(page.get_by_text("About").first).to_be_visible()
     page.keyboard.press("Escape")
 

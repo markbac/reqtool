@@ -629,13 +629,29 @@ paths:
       tags:
       - metrics
       summary: Get Metrics
+      description: Requirement metrics (work items are not counted), for one product or the whole repository.
       operationId: get_metrics_metrics_get
+      parameters:
+      - name: product
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Product
       responses:
         '200':
           description: Successful Response
           content:
             application/json:
               schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /workflow:
     get:
       tags:

@@ -13,7 +13,7 @@ import AreaPage from './components/Areas';
 import { HelpPanel } from './components/Help';
 import { ValidationPanel, ExportPanel } from './components/Panels';
 import { BulkUpdatePanel, GlobalCommitModal } from './components/Tools';
-import { ImportPanel, CmdPalette } from './components/Advanced';
+import { ImportPanel, CmdPalette, WorkflowPanel } from './components/Advanced';
 import { LoginModal } from './components/LoginModal';
 import { InboxPanel } from './components/Insight';
 import { api } from './api';
@@ -166,6 +166,7 @@ function AppShell() {
       {state._showValidation   && <ValidationPanel   onClose={() => toggle('_showValidation',   false)} />}
       {state._showExport       && <ExportPanel        onClose={() => toggle('_showExport',        false)} />}
       {state._showBulk         && <BulkUpdatePanel    onClose={() => toggle('_showBulk',         false)} onDone={handleGlobalCommitDone} />}
+      {state._showWorkflow     && <WorkflowPanel      onClose={() => toggle('_showWorkflow',     false)} />}
       {state._showImport       && <ImportPanel        onClose={() => toggle('_showImport',       false)} onDone={() => window.location.reload()} />}
       {state._showCmdPalette   && (
         <CmdPalette

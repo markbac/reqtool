@@ -14,7 +14,7 @@
 export const AREAS = {
   requirements: { label: 'Requirements', tabs: ['tree', 'table', 'modules', 'baselines', 'changesets', 'writing', 'duplicates'] },
   work:         { label: 'Work',         tabs: ['issues', 'backlog', 'tree', 'board', 'roadmap', 'iterations'] },
-  decisions:    { label: 'Decisions',    tabs: [] },
+  decisions:    { label: 'Decisions',    tabs: ['records'] },
   principles:   { label: 'Principles',   tabs: ['library', 'cited'] },
   insights:     { label: 'Insights',     tabs: ['overview', 'coverage', 'traceability', 'views', 'diagrams'] },
   settings:     { label: 'Settings',     tabs: ['workflows', 'fields', 'vocabularies', 'templates', 'automation', 'webhooks', 'writing', 'repository'] },

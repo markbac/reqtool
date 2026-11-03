@@ -67,3 +67,9 @@ def is_module_path(rel: Path) -> bool:
     """True for a path (relative to the root) inside a module folder, old or new."""
     parts = rel.parts
     return (len(parts) >= 2 and parts[0] == LEGACY_MODULES_DIR) or (len(parts) >= 3 and parts[:2] == ("requirements", "modules"))
+
+
+def is_item_file(rel: str) -> bool:
+    """True for a requirement or work item file (relative to the root, ``/`` separated), not a module's (#380)."""
+    head, _, name = rel.rpartition("/")
+    return head in ITEM_DIRS and name.endswith(".yaml")

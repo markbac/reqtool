@@ -22,7 +22,7 @@ import { WritingCheckPanel } from './WritingCheck';
 import { RepoModal } from './RepoModal';
 import { DiagramPanel } from './DiagramPanel';
 import { IterationsPanel } from './IterationsPanel';
-import { OverviewPanel, RoadmapPanel, ModulesPanel, ChangeSetsPanel, QueryPanel } from './Insight';
+import { OverviewPanel, RoadmapPanel, ModulesPanel, ChangeSetsPanel, QueryPanel, DecisionsPanel } from './Insight';
 import { BacklogPage, IssuesPage } from './Work';
 import './Areas.css';
 
@@ -31,17 +31,25 @@ const stay = () => {};   // a page does not close
 const TABS = {
   requirements: [['tree', 'Tree'], ['table', 'Query'], ['modules', 'Modules'], ['baselines', 'Baselines'], ['changesets', 'Change sets']],
   work: [['issues', 'Issues'], ['backlog', 'Backlog'], ['tree', 'Tree'], ['board', 'Board'], ['roadmap', 'Roadmap'], ['iterations', 'Iterations']],
+  decisions: [['', 'List'], ['records', 'Options and ADRs']],
   principles: [['library', 'Library'], ['cited', 'Where cited']],
   insights: [['overview', 'Overview'], ['coverage', 'Coverage'], ['traceability', 'Traceability'], ['views', 'Views'], ['diagrams', 'Diagrams']],
-  settings: [['workflows', 'Workflows'], ['fields', 'Custom fields'], ['vocabularies', 'Vocabularies'], ['templates', 'Templates'],
-    ['automation', 'Automation'], ['webhooks', 'Webhooks'], ['writing', 'Writing check'], ['repository', 'Repository']],
+  settings: [['workflows', 'Workflows'], ['fields', 'Custom fields', 'manage_config'], ['vocabularies', 'Vocabularies', 'manage_config'],
+    ['templates', 'Templates', 'manage_config'], ['automation', 'Automation'], ['webhooks', 'Webhooks', 'manage_webhooks'],
+    ['writing', 'Writing check'], ['repository', 'Repository', 'manage_repo']],
 };
+
+/** The tabs of an area this role may use: a settings tab the role cannot change is left out, as the old menu did. */
+function tabsFor(area, can) {
+  return (TABS[area] || []).filter(([, , need]) => !need || can(need));
+}
 const TITLES = { requirements: 'Requirements', work: 'Work', decisions: 'Decisions', principles: 'Principles',
   insights: 'Insights', settings: 'Settings' };
 
 function PageHeader({ area, actions, badges = {} }) {
   const { state, dispatch } = useApp();
-  const tabs = TABS[area] || [];
+  const can = useCan();
+  const tabs = tabsFor(area, can);
   return (
     <div className="page-head">
       <div className="page-title-row">
@@ -52,7 +60,7 @@ function PageHeader({ area, actions, badges = {} }) {
       {tabs.length > 0 && (
         <div className="page-tabs" role="tablist" aria-label={`${TITLES[area]} views`}>
           {tabs.map(([id, label]) => (
-            <a key={id} role="tab" href={`#/${area}/${id}`} aria-selected={state.tab === id}
+            <a key={id || 'list'} role="tab" href={`#/${area}${id ? `/${id}` : ''}`} aria-selected={state.tab === id}
               className={`page-tab ${state.tab === id ? 'page-tab--on' : ''}`}
               onClick={e => { e.preventDefault(); dispatch({ type: 'NAVIGATE', area, tab: id }); }}>
               {label}{badges[id] ? <span className="page-tab-count">{badges[id]}</span> : null}
@@ -157,10 +165,13 @@ function WorkArea({ open }) {
 }
 
 function DecisionsArea() {
+  const { state } = useApp();
   return (
     <div className="area">
       <PageHeader area="decisions" />
-      <ListAndEditor label="Decision list" list={<DecisionsList />} />
+      {state.tab === 'records'
+        ? <WithEditorDrawer><DecisionsPanel onClose={stay} /></WithEditorDrawer>
+        : <ListAndEditor label="Decision list" list={<DecisionsList />} />}
     </div>
   );
 }
@@ -197,18 +208,18 @@ function InsightsArea({ open }) {
 function SettingsArea() {
   const { state } = useApp();
   const can = useCan();
-  const tab = state.tab;
-  const locked = (need) => !can(need) && <div className="page-note" role="status">Your role may look at these settings but not change them.</div>;
+  // a tab this role may not use (an old link, say) shows the first one it may
+  const tab = tabsFor('settings', can).some(([id]) => id === state.tab) ? state.tab : 'workflows';
   return (
     <div className="area">
       <PageHeader area="settings" />
       <WithEditorDrawer>
         {tab === 'workflows' && <WorkflowEditor onClose={stay} />}
-        {tab === 'fields' && <>{locked('manage_config')}<CustomFieldsPanel onClose={stay} /></>}
-        {tab === 'vocabularies' && <>{locked('manage_config')}<VocabulariesPanel onClose={stay} /></>}
-        {tab === 'templates' && <>{locked('manage_config')}<TemplatesPanel onClose={stay} /></>}
+        {tab === 'fields' && <CustomFieldsPanel onClose={stay} />}
+        {tab === 'vocabularies' && <VocabulariesPanel onClose={stay} />}
+        {tab === 'templates' && <TemplatesPanel onClose={stay} />}
         {tab === 'automation' && <AutomationRulesPanel onClose={stay} />}
-        {tab === 'webhooks' && <>{locked('manage_webhooks')}<WebhooksPanel onClose={stay} /></>}
+        {tab === 'webhooks' && <WebhooksPanel onClose={stay} />}
         {tab === 'writing' && <WritingCheckPanel onClose={stay} initialTab="settings" />}
         {tab === 'repository' && <RepoModal onClose={stay} />}
       </WithEditorDrawer>

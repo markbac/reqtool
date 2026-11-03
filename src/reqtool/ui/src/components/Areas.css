@@ -23,8 +23,6 @@
 .page-menu-list button { text-align: left; padding: 8px 10px; border: 0; background: transparent; color: var(--text-primary);
   border-radius: 4px; font-size: 13px; cursor: pointer; }
 .page-menu-list button:hover, .page-menu-list button:focus-visible { background: var(--bg-hover); }
-.page-note { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 13px;
-  color: var(--text-secondary); }
 
 /* A list or tree beside the editor */
 .page-split { flex: 1; min-height: 0; display: flex; }

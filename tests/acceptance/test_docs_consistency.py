@@ -46,6 +46,6 @@ def test_pages_named_in_the_guide_exist_in_the_ui():
     paths = re.findall(r"\*\*(Requirements|Work|Decisions|Principles|Insights|Settings) > ([^*]+)\*\*", guide)
     assert paths, "the guide names no pages; the pattern needs updating"
     missing = sorted({f"{area} > {tab}" for area, tab in paths
-                      if not re.search(r"\['[a-z]+', '" + re.escape(tab) + r"'\]", areas)       # a tab
+                      if not re.search(r"\['[a-z]*', '" + re.escape(tab) + r"'(\]|, ')", areas)   # a tab, maybe with a permission
                       and f">{tab}</button>" not in areas})                                        # a page menu
     assert not missing, f"Pages in the guide that the UI does not have: {missing}"

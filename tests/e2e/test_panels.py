@@ -4,7 +4,7 @@ baselines. Each is driven the way a person would and checked against what the se
 import pytest
 from playwright.sync_api import expect
 
-from .helpers import close_panel, field, open_app, open_menu_item, panel, seed_tree
+from .helpers import close_panel, field, go, open_app, open_menu_item, panel, seed_tree
 
 JUNIT = """<testsuite name="s" tests="2"><testcase classname="tests.TestLogin" name="US-001 login"/>
 <testcase classname="tests.TestLogin" name="US-001 logout"><failure message="boom"/></testcase></testsuite>"""
@@ -22,11 +22,16 @@ def tab(p, name):
 # --- overview, release gate, coverage, health, test results, trend ---------------------
 
 def test_overview_counts_and_percentages(page):
-    seed_tree(page.server)
+    ids = seed_tree(page.server)
+    # the Overview counts requirements, not the work items of seed_tree (#380)
+    reqs = [page.server.req(title=f"Requirement {n}", req_type="functional", content={"description": "The system shall."})
+            for n in (1, 2)]
+    page.server.put("/products/p1", {"root_requirements": [{"uid": u} for u in (ids["theme"]["uid"], *(r["uid"] for r in reqs))]},
+                    expect=None)
     open_app(page)
     open_menu_item(page, "◔ Overview & release gate")
     p = panel(page, "Overview")
-    expect(p.locator(".ins-stat", has_text="Requirements")).to_contain_text("4")
+    expect(p.locator(".ins-stat", has_text="Requirements")).to_contain_text("2")
     expect(p.get_by_text("By status")).to_be_visible()
     expect(p.get_by_text("None yet")).to_be_visible()  # no baselines
     close_panel(page)
@@ -217,8 +222,8 @@ def test_module_lifecycle_create_bump_clone_import(page):
     expect(page.locator(".toast-success").last).to_contain_text("cloned")
     assert sorted(m["id"] for m in page.server.get("/modules")) == ["safety-lib", "safety-lib-copy"]
 
-    # a product must include a module before it can import it (the sidebar does that)
-    close_panel(page)
+    # a product must include a module before it can import it (the requirement tree does that)
+    go(page, "requirements", "tree")
     page.get_by_role("button", name="⊕ Module").click()
     page.locator(".module-include-item", has_text="safety-lib").first.get_by_role("button", name="⊕ Include").click()
     expect(page.locator(".toast-success").last).to_contain_text("included")

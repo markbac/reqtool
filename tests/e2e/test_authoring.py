@@ -54,7 +54,7 @@ def test_quick_create_edit_save_and_reload(page):
     page.locator("select.header-select").first.select_option("p1")
     page.keyboard.press("Control+k")
     page.get_by_placeholder("Search", exact=False).last.fill("forgotten password")
-    page.get_by_text(stored[0]["id"]).last.click()
+    page.get_by_role("option").filter(has_text=stored[0]["id"]).click()
     expect(field(page, "Title")).to_have_value("Reset a forgotten password")
 
 
@@ -95,7 +95,7 @@ def test_status_buttons_change_the_draft_and_save_applies_it(page):
     page.get_by_role("button", name="Save", exact=True).click()
     expect(page.get_by_role("button", name="Saved ✓")).to_be_visible()
     assert page.server.get(f"/requirements/{ids['story']['uid']}")["status"] == "ready"
-    expect(tree_node(page, "US-001")).to_contain_text("ready")  # the tree follows without a refresh
+    expect(tree_node(page, "US-001")).to_contain_text("Ready")  # the tree follows without a refresh
 
 
 def test_save_and_commit_commits_only_that_item(page):
@@ -117,8 +117,8 @@ def test_save_and_commit_commits_only_that_item(page):
 
     assert page.server.git("log", "-1", "--format=%s") == "Rename the epic"
     files = page.server.git("show", "--name-only", "--format=", "HEAD").split()
-    assert files == [f"requirements/{ids['epic']['uid']}.yaml"]
-    assert "requirements/" in page.server.git("status", "--short")  # the theme edit is still uncommitted
+    assert files == [f"work/{ids['epic']['uid']}.yaml"]   # an epic is a work item (#380)
+    assert "work/" in page.server.git("status", "--short")  # the theme edit is still uncommitted
 
 
 def test_commit_requires_a_message(page):

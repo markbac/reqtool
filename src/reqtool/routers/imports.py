@@ -14,6 +14,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from reqtool import layout
 from reqtool.store import Store
 from pathlib import Path
 from reqtool.git_ops import dirty_paths, git_list_tags, git_create_tag, git_diff_tree, git_show_file
@@ -229,7 +230,7 @@ def baseline_diff(name: str, store: Store = Depends(get_store)):
     tag = f"baseline/{name}"
     _require_tag(store, tag)
     changes = git_diff_tree(store.root, tag)
-    req_changes = [c for c in changes if c["path"].startswith("requirements/") and c["path"].endswith(".yaml")]
+    req_changes = [c for c in changes if layout.is_item_file(c["path"])]
 
     result = {"baseline": tag, "added": [], "removed": [], "changed": []}
     for change in req_changes:
@@ -275,7 +276,7 @@ def compare_two_baselines(baseline_a: str, baseline_b: str, store: Store = Depen
     _require_tag(store, tag_a)
     _require_tag(store, tag_b)
     changes = git_diff_tree(store.root, tag_a, tag_b)
-    req_changes = [c for c in changes if c["path"].startswith("requirements/") and c["path"].endswith(".yaml")]
+    req_changes = [c for c in changes if layout.is_item_file(c["path"])]
 
     result = {
         "baseline_a": tag_a,

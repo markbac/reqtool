@@ -136,7 +136,7 @@ def test_switching_items_with_unsaved_changes_asks_first(page):
 
 
 def test_new_button_creates_a_requirement_and_opens_it(page):
-    open_app(page)
+    open_app(page, area="requirements")
     page.get_by_role("button", name="+ New", exact=True).first.click()
     wait_until(lambda: page.server.get("/requirements"), what="the new requirement")
     expect(field(page, "Title")).to_have_value("New requirement")

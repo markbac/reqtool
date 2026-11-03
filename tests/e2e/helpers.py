@@ -64,7 +64,7 @@ def field(page: Page, label: str):
 # header. Tests name the screen as before; this opens it the new way.
 SCREENS = {
     "Overview & release gate": ("insights", "overview"), "Roadmap": ("work", "roadmap"), "Views": ("insights", "views"),
-    "Coverage": ("insights", "coverage"), "Traceability": ("insights", "traceability"), "Decisions & ADRs": ("decisions", ""),
+    "Coverage": ("insights", "coverage"), "Traceability": ("insights", "traceability"), "Decisions & ADRs": ("decisions", "records"),
     "Query & saved views": ("requirements", "table"), "Iterations & Gates": ("work", "iterations"),
     "Change sets": ("requirements", "changesets"), "Diagram Canvas": ("insights", "diagrams"),
     "Writing check": ("requirements", "writing"), "Duplicate Detector": ("requirements", "duplicates"),
@@ -93,7 +93,7 @@ _TAB_LABELS = {("requirements", "tree"): "Tree", ("requirements", "table"): "Que
                ("requirements", "baselines"): "Baselines", ("requirements", "changesets"): "Change sets",
                ("work", "issues"): "Issues", ("work", "backlog"): "Backlog", ("work", "tree"): "Tree", ("work", "board"): "Board",
                ("work", "roadmap"): "Roadmap", ("work", "iterations"): "Iterations",
-               ("principles", "library"): "Library", ("principles", "cited"): "Where cited",
+               ("decisions", "records"): "Options and ADRs", ("principles", "library"): "Library", ("principles", "cited"): "Where cited",
                ("insights", "overview"): "Overview", ("insights", "coverage"): "Coverage",
                ("insights", "traceability"): "Traceability", ("insights", "views"): "Views", ("insights", "diagrams"): "Diagrams",
                ("settings", "workflows"): "Workflows", ("settings", "fields"): "Custom fields",
@@ -133,6 +133,9 @@ def panel(page: Page, title: str):
 
 
 def close_panel(page: Page) -> None:
+    """Close the open drawer. A screen shown as a page (#374) has nothing to close."""
+    if not page.locator(".side-panel").count():
+        return
     page.locator(".side-panel-header button[aria-label='Close']").first.click()
     expect(page.locator(".side-panel")).to_have_count(0)
 

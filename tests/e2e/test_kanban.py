@@ -25,7 +25,7 @@ def test_board_shows_delivery_items_but_not_themes_or_initiatives(page):
     expect(body).to_contain_text("US-001")
     expect(body).not_to_contain_text("TH-001")
     expect(page.locator(".kanban-card", has_text="Initiative one")).to_have_count(0)   # shown only as a parent, never as a card
-    expect(page.get_by_text("SPRINT SNAPSHOT")).to_be_visible()
+    expect(page.get_by_role("group", name="Sprint snapshot")).to_contain_text("2 items")
 
 
 def test_cards_land_in_the_column_of_their_status(page):
@@ -83,7 +83,7 @@ def test_unknown_status_gets_an_uncolumned_lane(page):
     ids = seed_tree(page.server)
     # a status that no workflow knows about, e.g. left behind by a hand edit
     import re
-    path = page.server.root / "requirements" / f"{ids['story']['uid']}.yaml"
+    path = page.server.root / "work" / f"{ids['story']['uid']}.yaml"   # a story is a work item (#380)
     path.write_text(re.sub(r"(?m)^status: .*$", "status: mystery", path.read_text()))
     wait_until(lambda: page.server.get(f"/requirements/{ids['story']['uid']}")["status"] == "mystery", what="the watcher")
     open_app(page)
@@ -105,6 +105,8 @@ def test_a_guarded_move_opens_the_pop_up_and_cancelling_leaves_the_board_alone(p
     issue = page.server.req(title="Save does nothing", req_type="issue", content={"description": "Nothing happens."})
     open_app(page)
     open_board(page)
+    # an issue is triaged on Work > Issues, so it is on the board only when the board is narrowed to issues (#379)
+    page.locator("select", has=page.locator("option", has_text="All types")).first.select_option(label="Issue")
     card = column(page, "reported").locator(".kanban-card", has_text=issue["id"])
     card.get_by_label(f"Move {issue['id']} to").select_option("in_triage")
     dialog = page.get_by_role("dialog", name="Move to In triage")
