@@ -28,6 +28,10 @@ CLEARABLE_FIELDS = {
 
 # What an issue in each triage state is raised as, when the caller does not say.
 RAISE_AS = {"defect": "bug", "enhancement": "story"}
+# Triage (#379): what an issue can become, and the states a rejected issue closes in.
+TRIAGE_CONVERSIONS = {"defect": "bug", "feature": "feature", "story": "story"}
+TRIAGE_REJECTIONS = {"user_error": "user_error", "duplicate": "duplicate", "not_reproducible": "not_reproducible",
+                     "wont_do": "wont_do"}
 
 # What a bulk edit may touch. Identity, history, hashes and soft-delete are never bulk-editable.
 BULK_EDITABLE_FIELDS = {
@@ -267,6 +271,82 @@ class RequirementService:
         if source.get("priority"):
             fields["priority"] = source["priority"]
         return self.create(fields)
+
+    # -- issue triage (#379) ---------------------------------------------------------------
+
+    def triage(self, uid: str, outcome: str, *, note: str = "", reason: str = "", duplicate_of: str = "",
+               parent: Optional[str] = None, link: Optional[str] = None, priority: Optional[str] = None,
+               actor: Optional[Mapping[str, Any]] = None, by: str = "") -> dict[str, Any]:
+        """Decide what an issue is.
+
+        ``start`` and ``needs_info`` move it through triage. ``rejected`` closes it with a reason (``user_error``,
+        ``duplicate``, ``not_reproducible`` or ``wont_do``). ``defect``, ``feature`` and ``story`` convert it: the
+        same record takes the new type, a new id for that type (the old id stays as an alias), the new type's first
+        status, a parent and a link to the requirement it breaks or serves. Comments, attachments and history stay.
+        """
+        self._no_merge_conflicts()
+        issue = self._existing(uid)
+        if issue.get("req_type") != "issue":
+            raise Invalid(f"{issue.get('id', uid)} is not an issue")
+        user = str((actor or {}).get("username") if actor and actor.get("authenticated") else (by or self._who(actor)[0]))
+        custom = dict(issue.get("custom_fields") or {})
+        if note:
+            custom["triage_note"] = note
+        if outcome == "start":
+            fields: dict[str, Any] = {"custom_fields": custom}
+            if not issue.get("assignee"):
+                fields["assignee"] = user   # someone owns the triage: the person who starts it
+            self.store.update_requirement(uid, fields, author=user, summary="Triage started")
+            return self.transition(uid, "in_triage", actor=actor)
+        if outcome == "needs_info":
+            self.store.update_requirement(uid, {"custom_fields": custom}, author=user, summary="Asked for more information")
+            return self.transition(uid, "needs_info", actor=actor)
+        if outcome == "rejected":
+            state = TRIAGE_REJECTIONS.get(reason or "user_error")
+            if state is None:
+                raise Invalid(f"Unknown reason '{reason}': use one of {', '.join(TRIAGE_REJECTIONS)}")
+            if duplicate_of:
+                custom["duplicate_of"] = duplicate_of
+            self.store.update_requirement(uid, {"custom_fields": custom}, author=user, summary=f"Rejected: {reason}")
+            return self.transition(uid, state, actor=actor)
+        target_type = TRIAGE_CONVERSIONS.get(outcome)
+        if target_type is None:
+            raise Invalid(f"Unknown outcome '{outcome}'")
+        return self._convert_issue(issue, target_type, custom, parent, link, priority, user)
+
+    def _convert_issue(self, issue: dict[str, Any], target_type: str, custom: dict[str, Any], parent: Optional[str],
+                       link: Optional[str], priority: Optional[str], user: str) -> dict[str, Any]:
+        uid, old_id = issue["uid"], issue.get("id") or issue["uid"]
+        if target_type not in self.store.hierarchy.types:
+            raise Invalid(f"This repository has no '{target_type}' type")
+        parent_uid = self.store.resolve_uid(parent) if parent else None
+        if parent and parent_uid is None:
+            raise Invalid(f"Parent '{parent}' is not an existing item")
+        link_uid = self.store.resolve_uid(link) if link else None
+        if link and link_uid is None:
+            raise Invalid(f"Requirement '{link}' is not an existing item")
+        wf = self.store.get_workflow_for_type(target_type)
+        new_id = self.store.new_id_for(target_type, uid)
+        relationships = list(issue.get("relationships") or [])
+        if link_uid:
+            rel_type = "traces_to" if target_type == "bug" else "satisfies"
+            relationships.append({"type": rel_type, "target": {"uid": link_uid, "id": self.store.requirement_map()[link_uid].get("id")}})
+        fields: dict[str, Any] = {
+            "req_type": target_type, "id": new_id, "status": wf.initial if wf else "backlog",
+            "aliases": list(dict.fromkeys([*(issue.get("aliases") or []), old_id])),
+            "converted_from": {"type": "issue", "id": old_id, "by": user, "at": utcnow_iso()},
+            "custom_fields": custom, "relationships": relationships,
+        }
+        if parent_uid:
+            fields["parentId"] = parent_uid
+        if priority:
+            fields["priority"] = priority
+        label = self.store.hierarchy.types[target_type].label
+        result = self.store.update_requirement(uid, fields, author=user, summary=f"Converted from issue {old_id} to {label.lower()} by {user}")
+        if result is None:
+            raise NotFound(uid)
+        self.publish("status_changed", {"uid": uid, "id": new_id, "from": issue.get("status"), "to": result.get("status")})
+        return result
 
     # -- bulk --------------------------------------------------------------------------------
 

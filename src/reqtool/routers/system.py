@@ -470,8 +470,10 @@ def validation_badge(store: Store = Depends(get_store)):
 
 
 @router.get("/metrics", tags=["metrics"])
-def get_metrics(store: Store = Depends(get_store)):
-    reqs = store.live_requirements()
+def get_metrics(product: Optional[str] = None, store: Store = Depends(get_store)):
+    """Requirement metrics (work items are not counted), for one product or the whole repository."""
+    from reqtool.features.insight import requirement_items
+    reqs = requirement_items(store, product)
     principles = store.live_principles()
     tbds = store.live_tbds()
 

@@ -19,7 +19,7 @@ class CoreEnums(BaseModel):
         "active",
         # Issue triage workflow
         "reported", "in_triage", "needs_info", "defect", "fixing", "fixed", "enhancement", "planned",
-        "user_error", "duplicate", "not_reproducible", "closed",
+        "user_error", "duplicate", "not_reproducible", "wont_do", "closed",
         # TBD
         "open", "resolved",
     ]

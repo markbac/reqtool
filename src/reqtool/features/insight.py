@@ -128,9 +128,17 @@ def _baselined_uids(store) -> dict[str, list[str]]:
 
 # --- ENH-03 overview --------------------------------------------------------------
 
-def overview(store, product_id: Optional[str] = None) -> dict[str, Any]:
+def requirement_items(store, product_id: Optional[str] = None) -> list[dict[str, Any]]:
+    """The live requirements (not work items or issues) of a product, its module requirements included, or of the
+    whole repository. One definition, so the Overview and Metrics counts agree (#377)."""
+    from reqtool import layout
     reqs = store.resolved_requirements(product_id) if product_id else store.requirement_map()
-    live = [r for r in reqs.values() if not r.get("deleted")]
+    return [r for r in reqs.values()
+            if not r.get("deleted") and layout.family(r.get("req_type"), store.hierarchy) == "requirement"]
+
+
+def overview(store, product_id: Optional[str] = None) -> dict[str, Any]:
+    live = requirement_items(store, product_id)
     total = len(live)
     approved = sum(1 for r in live if r.get("status") in APPROVED_STATES)
     verified = sum(1 for r in live if is_verified(r))

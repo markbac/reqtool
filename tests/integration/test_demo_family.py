@@ -15,8 +15,7 @@ from reqtool.features import visuals
 from reqtool.store import Store
 
 DELIVERY = ("theme", "initiative", "epic", "feature", "story", "task", "bug", "spike", "issue")
-TRIAGE_OUTCOMES = {"reported", "in_triage", "needs_info", "defect", "fixing", "fixed", "enhancement", "planned",
-                   "user_error", "duplicate", "not_reproducible", "closed"}
+TRIAGE_OUTCOMES = {"reported", "in_triage", "needs_info", "user_error", "duplicate", "not_reproducible", "closed"}
 
 
 @pytest.fixture(scope="module")
@@ -43,7 +42,7 @@ def test_it_is_a_family_with_plenty_of_every_kind_of_item(store):
     kinds = Counter(r["req_type"] for r in store.requirement_map().values())
     assert len(store.product_map()) >= 7
     assert kinds["theme"] >= 3 and kinds["initiative"] >= 8 and kinds["epic"] >= 12 and kinds["feature"] >= 8
-    assert kinds["story"] >= 60 and kinds["task"] >= 30 and kinds["bug"] >= 5 and kinds["spike"] >= 4 and kinds["issue"] >= 12
+    assert kinds["story"] >= 60 and kinds["task"] >= 30 and kinds["bug"] >= 5 and kinds["spike"] >= 4 and kinds["issue"] >= 8
     assert sum(n for t, n in kinds.items() if t not in DELIVERY) >= 240
     assert len([d for d in store.decision_map().values() if d.get("status") != "proposed"]) >= 12
     assert len(store.pending_decisions()) >= 12
@@ -59,10 +58,15 @@ def test_the_repository_validates_cleanly_with_and_without_the_rules(root):
 
 def test_every_status_move_is_a_legal_step_and_dates_run_forward(store):
     for r in store.requirement_map().values():
-        workflow = store.get_workflow_for_type(r["req_type"])
+        # An issue converted by triage followed the triage workflow, then its new type's (#379).
+        workflow = store.get_workflow_for_type("issue" if r.get("converted_from") else r["req_type"])
         current, dates = workflow.initial, [h["date"] for h in r["history"]]
         assert dates == sorted(dates), r["id"]
         for h in r["history"]:
+            if h.get("summary", "").startswith("Converted from issue"):
+                workflow = store.get_workflow_for_type(r["req_type"])
+                current = workflow.initial
+                continue
             if h.get("status_to"):
                 assert h["status_from"] == current, r["id"]
                 assert h["status_to"] in workflow.transitions[current], (r["id"], current, h["status_to"])
@@ -73,9 +77,11 @@ def test_every_status_move_is_a_legal_step_and_dates_run_forward(store):
 def test_issues_cover_every_triage_outcome_and_defects_come_from_issues(store):
     issues = [r for r in store.requirement_map().values() if r["req_type"] == "issue"]
     assert {i["status"] for i in issues} >= TRIAGE_OUTCOMES
-    raised = [r for r in store.requirement_map().values()
-              if r["req_type"] == "bug" and any(rel["type"] == "derived_from" for rel in r.get("relationships") or [])]
-    assert len(raised) >= 3 and all(r.get("parentId") for r in raised)
+    converted = [r for r in store.requirement_map().values() if (r.get("converted_from") or {}).get("type") == "issue"]
+    defects = [r for r in converted if r["req_type"] == "bug"]
+    assert len(defects) >= 3 and all(r.get("parentId") for r in defects)
+    assert all(r["converted_from"]["id"] in r["aliases"] for r in converted)
+    assert any(r["req_type"] == "story" for r in converted)
 
 
 def test_sprints_gates_and_the_planned_work_line_up(store):

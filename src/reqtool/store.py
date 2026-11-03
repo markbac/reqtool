@@ -749,13 +749,25 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
                 raise DuplicateId(f"ID '{rid}' is already used by another requirement")
 
     def resolve_uid(self, key: str) -> Optional[str]:
-        """Accept a UID or a human ID (unique, non-deleted) and return the UID."""
+        """Accept a UID, a human ID (unique, non-deleted) or an old ID kept as an alias, and return the UID."""
         if key in self.requirements:
             return key
         hits = [u for u, r in self.requirements.items() if r.get("id") == key and not r.get("deleted")]
         if len(hits) == 1:
             return hits[0]
-        return None if hits else ids.resolve_provisional(self.requirements, key)
+        if hits:
+            return None
+        # An issue converted to a defect or story keeps its old id as an alias (#379).
+        aliased = [u for u, r in self.requirements.items() if key in (r.get("aliases") or []) and not r.get("deleted")]
+        if len(aliased) == 1:
+            return aliased[0]
+        return ids.resolve_provisional(self.requirements, key)
+
+    def new_id_for(self, req_type: str, uid: str) -> str:
+        """The id a new item of ``req_type`` gets: the next number, or a provisional one in shared-repo mode."""
+        if ids.strategy(self.config) == "provisional":
+            return ids.provisional_id(hierarchy_store.id_prefix(self.hierarchy, req_type), uid)
+        return self.next_id_for_type(req_type)
 
     def _check_parent_exists(self, parent_uid: Optional[str]) -> None:
         """Raise UnknownParent unless ``parent_uid`` is empty or a live requirement."""

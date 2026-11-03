@@ -560,37 +560,48 @@ def issues(fam: Family) -> None:
         if spec.get("assignee"):
             fields["assignee"] = spec["assignee"]
         item = fam.create(fields, NOW - _days(first_days), author=spec["reporter"])
-        raised_at = None
+        # Triage decides what the issue is (#379): it is converted in place into a defect or story, or closed
+        # with a reason. The old demo paths named defect and enhancement states; those are where it is converted.
+        converted_at = None
         for state, days in path:
             if state == "reported":
                 continue
+            if state in ("defect", "enhancement"):
+                converted_at = NOW - _days(days)
+                break
             fam.move(item["uid"], state, NOW - _days(days), author=spec.get("assignee") or "support.lead")
-            if state in ("defect", "enhancement") and spec.get("raise") and raised_at is None:
-                raised_at = NOW - _days(days)
         fam.bump("issues")
         link = spec.get("link")
+        if converted_at is None:
+            continue
+        by = spec.get("assignee") or "support.lead"
         if spec.get("raise") == "defect":
-            bug = svc.raise_from(item["uid"], "bug")
             assert link is not None
-            parent_uid = fam.uid(link)
-            store.update_requirement(bug["uid"], {"parentId": parent_uid, "assignee": spec["assignee"],
-                                                  "target_release": fam.req(link).get("target_release")}, summary="File under the story it affects.")
+            bug = svc.triage(item["uid"], "defect", parent=fam.uid(link), priority=spec["priority"], by=by)
+            _date_last_change(fam, item["uid"], converted_at)
             fam.ids[bug["id"]] = bug["uid"]
+            store.update_requirement(bug["uid"], {"assignee": spec["assignee"],
+                                                  "target_release": fam.req(link).get("target_release")}, summary="Planned.")
             state = path[-1][0]
             plan_code = {"defect": "Y5", "fixing": "P4", "fixed": "D4", "closed": "D4"}[state]
             plan = delivery_plan(bug["id"], plan_code)
-            plan["created"] = raised_at or plan["created"]
+            plan["created"] = converted_at
             plan["steps"] = [(st, max(w, plan["created"] + _days(1))) for st, w in plan["steps"]]
             store.update_requirement(bug["uid"], {"iteration": plan["iteration"]}, summary="Assign to the sprint.")
-            fam.backdate_created(bug["uid"], plan["created"])
             fam.codes[bug["id"]] = plan_code
             fam.plans.append((bug["uid"], plan, spec["assignee"]))
             fam.bump("defects")
         elif link:
+            # An enhancement already met by a story: the issue is closed and points at the story it led to.
             target = fam.req(link)
+            fam.move(item["uid"], "closed", converted_at, author=by, extra={"converted_to": target["uid"]})
             rels = list(target.get("relationships") or [])
             rels.append({"type": "derived_from", "target": {"uid": item["uid"], "id": iid}})
             store.update_requirement(target["uid"], {"relationships": rels}, summary=f"Derived from {iid}.")
+        else:
+            story = svc.triage(item["uid"], "story", by=by)
+            _date_last_change(fam, item["uid"], converted_at)
+            fam.ids[story["id"]] = story["uid"]
     fam.issue_ids = issue_ids
 
 
@@ -721,6 +732,14 @@ def _resolve_tbd(fam: Family, tbd_id: str, spec: dict[str, Any]) -> None:
     store.update_tbd(uid, fields, summary=f"Question {spec['state'].replace('_', ' ')}.")
     if spec["state"] == "resolved" and spec.get("resolves_into"):
         fam.bump("resolved_tbds")
+
+
+def _date_last_change(fam: Family, uid: str, when: datetime) -> None:
+    """Give the item's latest history entry (and its last change) a date in the past."""
+    data = fam.store.requirement_map()[uid]
+    when = min(when, NOW - timedelta(minutes=5))
+    data["history"][-1]["date"] = data["last_modified"] = _iso(when)
+    fam._write(data)
 
 
 def _date_item(store, uid: str, when: datetime, decision: bool = False) -> None:

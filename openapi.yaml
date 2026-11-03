@@ -2268,8 +2268,9 @@ paths:
       tags:
       - requirements
       summary: Raise From Issue
-      description: 'Raise the work an issue needs: a defect (or the type you name), linked back to the issue.'
+      description: 'Deprecated (#379): use ``/triage``, which converts the issue itself. This still creates a separate item.'
       operationId: raise_from_issue_requirements__uid__raise_post
+      deprecated: true
       parameters:
       - name: uid
         in: path
@@ -2287,6 +2288,58 @@ paths:
               title: Body
       responses:
         '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/triage:
+    post:
+      tags:
+      - requirements
+      summary: Triage Issue
+      description: "Decide what an issue is (#379). ``outcome``: ``start``, ``needs_info``, ``rejected`` (with ``reason``:\n\
+        user_error, duplicate, not_reproducible, wont_do), or ``defect``, ``feature``, ``story`` to convert it in place\n\
+        (with optional ``parent``, ``link`` to a requirement, and ``priority``). ``note`` is the triage note."
+      operationId: triage_issue_requirements__uid__triage_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
+      responses:
+        '200':
           description: Successful Response
           content:
             application/json:
@@ -6127,6 +6180,97 @@ paths:
               type: array
               title: Rules
         required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /work/issues:
+    get:
+      tags:
+      - work
+      summary: Issue Queue
+      description: Issues waiting for or rejected in triage, and the work items that issues were converted into.
+      operationId: issue_queue_work_issues_get
+      parameters:
+      - name: product
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Product
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /work/backlog:
+    get:
+      tags:
+      - work
+      summary: Backlog
+      description: Work items as a tree (theme down to task), ranked within each parent, with points and roll-ups.
+      operationId: backlog_work_backlog_get
+      parameters:
+      - name: product
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Product
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /work/backlog/{uid}/rank:
+    post:
+      tags:
+      - work
+      summary: Rank
+      description: "Move an item before or after a sibling (``{\"before\": uid}`` or ``{\"after\": uid}``). Ranks are renumbered\n\
+        10, 20, 30... within the parent, so the order is kept in the files and shows up in diffs."
+      operationId: rank_work_backlog__uid__rank_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
       responses:
         '200':
           description: Successful Response

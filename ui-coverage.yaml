@@ -241,6 +241,10 @@ GET /rules:
   status: surfaced
 GET /rules/overrides:
   status: surfaced
+GET /work/backlog:
+  status: surfaced
+GET /work/issues:
+  status: surfaced
 GET /workflows:
   status: surfaced
 GET /workflows/{workflow_id}:
@@ -382,6 +386,8 @@ POST /requirements/{uid}/relationships/{rel_index}/clear-suspect:
   status: surfaced
 POST /requirements/{uid}/review-requests:
   status: surfaced
+POST /requirements/{uid}/triage:
+  status: surfaced
 POST /requirements/{uid}/transition:
   status: surfaced
 POST /tbds:
@@ -398,13 +404,16 @@ POST /tbds/{uid}/resolve:
   status: surfaced
 POST /test-results:
   status: surfaced
+POST /work/backlog/{uid}/rank:
+  status: surfaced
 POST /webhooks:
   status: surfaced
 POST /webhooks/github:
   status: backend-only
   reason: called by GitHub with an HMAC signature
 POST /requirements/{uid}/raise:
-  status: surfaced
+  status: backend-only
+  reason: deprecated (#379); triage converts the issue itself
 POST /rules/preview:
   status: surfaced
 POST /workflows:

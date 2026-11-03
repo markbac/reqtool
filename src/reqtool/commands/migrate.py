@@ -197,6 +197,46 @@ def migrate_layout(root: Path) -> dict:
     return result
 
 
+LEGACY_ISSUE_STATES = {"defect": ("bug", "backlog"), "fixing": ("bug", "in_progress"), "fixed": ("bug", "done"),
+                       "enhancement": ("story", "backlog"), "planned": ("story", "ready")}
+
+
+def migrate_issues(root: Path) -> dict:
+    """Issues left in the old triage states (#379). One that already raised a work item is closed and points at it
+    (``converted_to``); one that did not is converted in place, like triage does now, keeping its old id as an
+    alias. Safe to run again."""
+    from ..services.requirements import RequirementService
+    from ..store import Store
+    result = {"linked": 0, "converted": 0}
+    if not (root / ".reqtool").is_dir():
+        return result
+    store = Store(root)
+    store.load()
+    svc = RequirementService(store, lambda event, payload: None)
+    reqs = store.requirement_map()
+    for uid, issue in sorted(reqs.items(), key=lambda kv: kv[1].get("id", "")):
+        if issue.get("req_type") != "issue" or issue.get("deleted") or issue.get("converted_to"):
+            continue
+        raised = [r for r in reqs.values() if not r.get("deleted") and r.get("req_type") != "issue" and any(
+            rel.get("type") == "derived_from" and (rel.get("target") or {}).get("uid") == uid for rel in r.get("relationships") or [])]
+        if raised:
+            store.update_requirement(uid, {"status": "closed", "converted_to": raised[0]["uid"]},
+                                     summary=f"Converted: became {raised[0].get('id')}.")
+            result["linked"] += 1
+            continue
+        if issue.get("status") not in LEGACY_ISSUE_STATES:
+            continue
+        target_type, status = LEGACY_ISSUE_STATES[issue["status"]]
+        if target_type not in store.hierarchy.types:
+            continue
+        svc._convert_issue(issue, target_type, dict(issue.get("custom_fields") or {}), None, None, None, "req migrate")
+        wf = store.get_workflow_for_type(target_type)
+        if wf and status in {st.id for st in wf.states}:
+            store.update_requirement(uid, {"status": status}, summary="Status carried over from triage.")
+        result["converted"] += 1
+    return result
+
+
 @cli.command()
 @click.option("--repo", default=None, help="Path to the requirements repository root.")
 def migrate(repo: Optional[str]):
@@ -211,6 +251,8 @@ def migrate(repo: Optional[str]):
     converted = migrate_decisions(root)
     click.echo(f"Open questions converted to decisions: {converted['converted']}, merged into the decision they "
                f"became: {converted['merged']}, requirements relinked: {converted['links']}")
+    issues = migrate_issues(root)
+    click.echo(f"Issues pointed at the work they became: {issues['linked']}, converted in place: {issues['converted']}")
     moved = migrate_layout(root)
     click.echo(f"Work items moved to work/: {moved['work']}, modules moved to requirements/modules/: {moved['modules']}")
     if moved["skipped_modules"]:
