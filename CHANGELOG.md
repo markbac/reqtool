@@ -4,6 +4,16 @@ All notable changes to reqtool. Follows [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased]
 
+### Changed (decisions, #371)
+- **Open questions are pending decisions**: there is no separate TBD kind. A decision is Pending (`status: proposed`) until it is accepted, rejected or superseded. **+ Decision needed** creates one; **Accept decision** (`POST /decisions/{uid}/accept`) needs the decision text and records the rationale, chosen option, an optional linked decision, who and when; **Reject** (`POST /decisions/{uid}/reject`) records the reason. The Decisions list has Pending, Accepted, Rejected and Superseded tabs.
+- **Decisions named in requirement text** (`[DEC-012]`) show as chips by status. Accepting a decision never changes requirement text: each requirement that links to it or names it gets the advisory `Q007` note, *Decision accepted: check the wording*, and its owner an inbox notification (new event `decision_accepted`). **Insert decision text** or **Wording is fine** (`POST /requirements/{uid}/decision-wording`) clears it.
+- **Approval gate renamed**: `validation.block_approval_on_pending_decisions` (error `409 pending_decision`) and `warn_on_pending_decisions_in_approved` (warning `pending_decision_on_approved`).
+- **`req migrate`** converts `type: tbd` records to decisions with `DEC-nnn` ids, keeps the old id as an alias (so `[TBD-002]` and old links still resolve), folds a resolved question into the decision it became, and relinks requirement links of type `tbd`. A new demo has no TBDs.
+- **Deprecated, kept for one release**: `/tbds` (lists and creates pending decisions), `POST .../resolve` (same as accept), `req new tbd` (now `req new decision`), the error code `open_tbd`, and the settings `block_approval_on_open_tbds` and `warn_on_open_tbds_in_approved`.
+
+### Fixed (web UI)
+- **Unstyled panels**: `Advanced.css` was never loaded, so Ctrl+K search, Metrics, Traceability, Import and Baselines rendered without styles. The Ctrl+K hint sits inside the tree filter, and the Traceability header no longer has link-type checkboxes that did nothing.
+
 ### Added (deployment)
 - **`scripts/update.ps1`**: brings an install up to date after a pull, as py-doc's does. It pulls, makes or repairs `.venv`, reinstalls, checks `req` and the PATH, runs `req tools`, and rebuilds the web UI when its sources changed. `-Docker` rebuilds and restarts the server container, and `-Test` runs the tests.
 - **`run.ps1 -RepoMode local|server|shared-repo`**: starts reqtool in one of the three operating modes. `server` requires a login, listens on every address and offers to create the first administrator. `shared-repo` runs `req setup` and pulls before starting. The README has a section on starting in each mode.

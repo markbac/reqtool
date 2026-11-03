@@ -404,7 +404,7 @@ def burnup(store, iteration_id: str) -> Optional[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 def decision_ageing(store, now: Optional[datetime] = None) -> dict[str, Any]:
-    """Open decisions and open questions (TBDs), oldest and most blocking first, with the items each blocks."""
+    """Pending decisions, oldest and most blocking first, with the items each blocks."""
     now = now or _now()
     live = _live(store)
     by_id = {r.get("id"): r for r in live.values()}

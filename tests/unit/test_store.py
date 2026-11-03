@@ -308,8 +308,9 @@ class TestTbdCRUD:
     def test_create(self, store):
         t = _make_tbd(store)
         assert t["uid"]
-        assert t["status"] == "open"
-        assert t["type"] == "tbd"
+        # An open question is a pending decision (#371).
+        assert t["status"] == "proposed"
+        assert t["type"] == "decision"
 
     def test_attachments_field_initialised(self, store):
         t = _make_tbd(store)

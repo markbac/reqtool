@@ -61,7 +61,7 @@ def create_app(repo_root: Path, auth_mode: str | None = None, enable_watcher: bo
         version=__version__,
         description=(
             "Git-backed YAML requirements management tool. "
-            "Requirements, principles, and TBDs live as individual YAML files; "
+            "Requirements, principles and decisions live as individual YAML files; "
             "the API handles hashing, versioning, validation, and export."
         ),
         license_info={"name": "MIT"},
@@ -241,7 +241,7 @@ def create_app(repo_root: Path, auth_mode: str | None = None, enable_watcher: bo
             version=__version__,
             description=(
                 "Git-backed YAML requirements management tool. "
-                "Requirements, principles, and TBDs live as individual YAML files; "
+                "Requirements, principles and decisions live as individual YAML files; "
                 "the API handles hashing, versioning, validation, and export."
             ),
             routes=app.routes,

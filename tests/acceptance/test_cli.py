@@ -127,10 +127,11 @@ class TestInitDemo:
         assert {"env-sensor-v1", "thread_gateway", "cloud_platform", "companion_app",
                 "sensor_pro", "sensor_lite", "sensor_industrial"} <= products
 
-    def test_init_demo_creates_tbds(self, demo_repo):
+    def test_init_demo_creates_pending_decisions_and_no_tbds(self, demo_repo):
         root, _ = demo_repo
-        tbds = [p for p in (root / "decisions").glob("*.yaml") if "type: tbd" in p.read_text()]
-        assert len(tbds) >= 10
+        texts = [p.read_text() for p in (root / "decisions").glob("*.yaml")]
+        assert len([t for t in texts if "status: proposed" in t]) >= 10
+        assert not any("type: tbd" in t or "TBD-" in t for t in texts)
 
     def test_init_demo_creates_principles(self, demo_repo):
         root, _ = demo_repo

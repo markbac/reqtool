@@ -13,7 +13,7 @@ from reqtool.fileio import uuid7, utcnow_iso
 from reqtool.store import DuplicateId, HierarchyViolation, ParentCycle, RelationshipViolation, Store, UnknownParent
 from . import commit as commit_service
 from .errors import (
-    Forbidden, Invalid, MergeConflicts, MissingItem, NotFound, OpenTbd, StaleContent, VersionConflict, WorkflowGuard,
+    Forbidden, Invalid, MergeConflicts, MissingItem, NotFound, PendingDecision, StaleContent, VersionConflict, WorkflowGuard,
 )
 
 Publish = Callable[[str, dict], None]
@@ -378,10 +378,11 @@ class RequirementService:
                                content_hash=req.get("content_hash"))
         if req.get("status") != "approved":
             self._guard_transition(req, "approved")
-        if self.store.config.validation.block_approval_on_open_tbds:
-            open_tbds = self.store.open_tbds_for(req)
-            if open_tbds:
-                raise OpenTbd("Resolve the open TBD(s) before approval: " + ", ".join(open_tbds), tbds=open_tbds)
+        if self.store.config.validation.blocks_on_pending_decisions:
+            pending = self.store.pending_decisions_for(req)
+            if pending:
+                raise PendingDecision("Accept the pending decision(s) before approval: " + ", ".join(pending),
+                                      decisions=pending)
         result = self.store.approve_requirement(uid, approver, identity_verified=verified)
         if result is None:
             raise NotFound(uid)

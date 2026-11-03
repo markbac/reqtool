@@ -277,10 +277,15 @@ POST /changesets/{name}/merge:
   status: surfaced
 POST /decisions:
   status: surfaced
+POST /decisions/{uid}/accept:
+  status: surfaced
 POST /decisions/{uid}/commit:
   status: surfaced
-POST /decisions/{uid}/resolve:
+POST /decisions/{uid}/reject:
   status: surfaced
+POST /decisions/{uid}/resolve:
+  status: backend-only
+  reason: deprecated name for accept (#371), kept for one release
 POST /duplicates/suggest:
   status: surfaced
 POST /export/csv:
@@ -369,6 +374,8 @@ POST /requirements/{uid}/comments/{comment_uid}/resolve:
   reason: the UI uses the /artefacts/{uid}/comments routes
 POST /requirements/{uid}/commit:
   status: surfaced
+POST /requirements/{uid}/decision-wording:
+  status: surfaced
 POST /requirements/{uid}/impact-preview:
   status: surfaced
 POST /requirements/{uid}/relationships/{rel_index}/clear-suspect:
@@ -379,8 +386,14 @@ POST /requirements/{uid}/transition:
   status: surfaced
 POST /tbds:
   status: surfaced
+POST /tbds/{uid}/accept:
+  status: backend-only
+  reason: /tbds is a deprecated alias of /decisions for pending decisions (#371)
 POST /tbds/{uid}/commit:
   status: surfaced
+POST /tbds/{uid}/reject:
+  status: backend-only
+  reason: /tbds is a deprecated alias of /decisions for pending decisions (#371)
 POST /tbds/{uid}/resolve:
   status: surfaced
 POST /test-results:

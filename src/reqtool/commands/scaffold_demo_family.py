@@ -834,6 +834,52 @@ def _parse(value: str) -> datetime:
     return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
+def retire_open_questions(fam: Family) -> None:
+    """The demo data was written with TBD-nnn open questions. A new repository has none (#371): each becomes a
+    decision with a DEC-nnn id, a resolved one that became a decision is folded into it, and every mention of the
+    old id in requirement and decision text is rewritten. Hashes are sealed again by ``finalise``."""
+    import re
+    from ..artefacts import legacy_decision_status
+    store = fam.store
+    decisions = store.decision_map()
+    by_id = {d.get("id"): uid for uid, d in decisions.items()}
+    taken = [int(m.group(1)) for d in decisions.values() for m in [re.fullmatch(r"DEC-(\d+)", d.get("id", ""))] if m]
+    number = max(taken, default=0) + 1
+    rename: dict[str, str] = {}      # old id -> new id
+    redirect: dict[str, str] = {}    # merged uid -> target uid
+    for old_id in sorted(i for i in by_id if str(i).startswith("TBD-")):
+        uid = by_id[old_id]
+        d = decisions[uid]
+        target = decisions.get(d.get("resolution_ref") or "")
+        if legacy_decision_status(d.get("status")) == "accepted" and target is not None:
+            rename[old_id] = target["id"]
+            redirect[uid] = target["uid"]
+            target["affected_requirements"] = sorted(set(target.get("affected_requirements") or [])
+                                                     | set(d.get("affected_requirements") or []))
+            continue
+        d["id"] = rename[old_id] = f"DEC-{number:03d}"
+        number += 1
+        d["type"] = "decision"
+        d["in_progress"] = d.get("status") == "in_progress"
+        d["status"] = legacy_decision_status(d.get("status"))
+        d["tags"] = [t for t in d.get("tags") or [] if t != "open-question"]
+    for uid in redirect:
+        store.purge_decision(uid)
+    old = re.compile(r"\bTBD-\d+\b")
+    sub = lambda text: old.sub(lambda m: rename.get(m.group(0), m.group(0)), text) if isinstance(text, str) else text  # noqa: E731
+    for d in store.decision_map().values():
+        d["title"] = sub(d.get("title", ""))
+        d["content"] = {k: sub(v) for k, v in (d.get("content") or {}).items()}
+        if d.get("resolution_ref") in redirect:
+            d["resolution_ref"] = redirect[d["resolution_ref"]]
+    for r in store.requirement_map().values():
+        r["content"] = {k: sub(v) for k, v in (r.get("content") or {}).items()}
+        for link in r.get("links") or []:
+            if link.get("type") == "tbd":
+                link["type"] = "decision"
+            link["ref"] = redirect.get(link.get("ref"), link.get("ref"))
+
+
 def finalise(fam: Family) -> None:
     """Put each history in date order (entries written while building, such as forced moves and suspect flags, keep
     their place), then seal every artefact again: direct edits leave stale hashes."""
@@ -903,6 +949,7 @@ def populate_family(root: Path, store) -> dict[str, int]:
     force_one(fam)
     store.storage = _Deferred(real)
     try:
+        retire_open_questions(fam)
         finalise(fam)
         store.storage.flush()
     finally:

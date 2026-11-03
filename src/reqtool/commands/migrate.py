@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Mapping, Optional
 
 import click
 
@@ -79,16 +79,81 @@ def migrate_principles(root: Path) -> dict:
     return PrincipleService(store).place_existing()
 
 
+def _next_decision_number(decisions: Mapping[str, dict]) -> int:
+    import re
+    nums = [int(m.group(1)) for d in decisions.values() for m in [re.fullmatch(r"DEC-(\d+)", d.get("id", ""))] if m]
+    return max(nums, default=0) + 1
+
+
+def migrate_decisions(root: Path) -> dict:
+    """Turn every TBD into a decision (#371). A TBD that was resolved into a decision is merged into it; the rest
+    become pending (or accepted) decisions with a ``DEC-nnn`` id. The old id stays as an alias, so ``[TBD-002]``
+    markers and links still resolve, and requirement links of type ``tbd`` become ``decision``. Safe to run again."""
+    from ..artefacts import legacy_decision_status
+    from ..store import Store
+    result = {"converted": 0, "merged": 0, "links": 0}
+    if not (root / ".reqtool").is_dir():
+        return result
+    store = Store(root)
+    store.load()
+    decisions = store.decision_map()
+    redirect: dict[str, str] = {}
+    number = _next_decision_number(decisions)
+    for uid, d in sorted(decisions.items(), key=lambda kv: kv[1].get("id", "")):
+        if d.get("type") != "tbd" or d.get("deleted"):
+            continue
+        old_id = d.get("id") or uid
+        target_uid = str(d.get("resolution_ref") or "")
+        target = decisions.get(target_uid)
+        if d.get("status") == "resolved" and target and not target.get("deleted") and target.get("type") != "tbd":
+            store.update_decision(target_uid, {
+                "aliases": list(dict.fromkeys([*(target.get("aliases") or []), old_id, *(d.get("aliases") or [])])),
+                "affected_requirements": sorted(set(target.get("affected_requirements") or [])
+                                                | set(d.get("affected_requirements") or [])),
+            }, summary=f"Merged {old_id} into this decision.")
+            store.update_decision(uid, {"type": "decision", "status": "accepted"},
+                                  summary=f"Merged into {target.get('id', target_uid)}.")
+            store.delete_decision(uid)
+            redirect[uid] = target_uid
+            result["merged"] += 1
+            continue
+        status = legacy_decision_status(d.get("status"))
+        store.update_decision(uid, {
+            "type": "decision", "status": status, "id": f"DEC-{number:03d}",
+            "in_progress": d.get("status") == "in_progress",
+            "aliases": list(dict.fromkeys([*(d.get("aliases") or []), old_id])),
+        }, summary=f"Converted from open question {old_id}.")
+        number += 1
+        result["converted"] += 1
+    for uid, req in store.requirement_map().items():
+        links = req.get("links") or []
+        if not any(link.get("type") == "tbd" or link.get("ref") in redirect for link in links):
+            continue
+        new_links = []
+        for link in links:
+            link = dict(link)
+            if link.get("type") == "tbd":
+                link["type"] = "decision"
+            link["ref"] = redirect.get(str(link.get("ref")), link.get("ref"))
+            new_links.append(link)
+        store.update_requirement(uid, {"links": new_links}, summary="Links to open questions now point at decisions.")
+        result["links"] += 1
+    return result
+
+
 @cli.command()
 @click.option("--repo", default=None, help="Path to the requirements repository root.")
 def migrate(repo: Optional[str]):
-    """Migrate legacy layouts: TBDs move into decisions/, the repository gets its own workflow and lint files,
-    and principles get an area and category."""
+    """Migrate legacy layouts: TBDs move into decisions/ and become decisions, the repository gets its own
+    workflow and lint files, and principles get an area and category."""
     root = Path(repo).resolve() if repo else _repo_root()
     result = migrate_tbds(root)
     click.echo(f"TBDs moved to decisions/: {result['moved']}")
     if result["skipped"]:
         click.echo(f"{result['skipped']} file(s) differ from the copy in decisions/ and were left in tbds/ -- reconcile them by hand.")
+    converted = migrate_decisions(root)
+    click.echo(f"Open questions converted to decisions: {converted['converted']}, merged into the decision they "
+               f"became: {converted['merged']}, requirements relinked: {converted['links']}")
     for name in migrate_settings(root):
         click.echo(f"Wrote {name} (the repository now owns these settings).")
     if migrate_rules(root):

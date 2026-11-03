@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from reqtool.artefacts import is_pending_decision
 from reqtool.fileio import yaml_loads_safe
 from reqtool.git_ops import run_git, git_list_tags, is_git_repo
 from .insight import APPROVED_STATES, VERIFIED, _pct
@@ -30,7 +31,7 @@ def baseline_metrics(root, tag: str) -> dict[str, Any]:
     reqs = [d for _, t in _files(root, tag, "requirements") if isinstance(d := yaml_loads_safe(t), dict)
             and not d.get("deleted")]
     tbds = [d for _, t in _files(root, tag, "decisions") if isinstance(d := yaml_loads_safe(t), dict)
-            and not d.get("deleted") and d.get("type") == "tbd" and d.get("status") in ("open", "in_progress")]
+            and is_pending_decision(d)]
     total = len(reqs)
     _, when, _ = run_git(["log", "-1", "--format=%cI", tag], root)
     return {

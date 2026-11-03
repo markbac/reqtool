@@ -231,8 +231,8 @@ def export_markdown(
                     lines.append("")
         files["principles.md"] = "\n".join(lines)
 
-    # TBDs
-    tbds = store.live_tbds()
+    # Pending decisions (the file keeps its old name for existing sites)
+    tbds = store.pending_decisions()
     if tbds:
         lines = []
         for t in sorted(tbds, key=lambda x: x.get("id", "")):
@@ -241,12 +241,12 @@ def export_markdown(
             if c.get("description"):
                 lines.append(c["description"].strip())
                 lines.append("")
-            lines.append(f"- **Status**: {t.get('status', '')}")
+            lines.append("- **Status**: Pending")
             lines.append(f"- **Priority**: {t.get('priority', '')}")
             if t.get("owner"):
                 lines.append(f"- **Owner**: {t['owner']}")
             if t.get("due"):
-                lines.append(f"- **Due**: {t['due']}")
+                lines.append(f"- **Needed by**: {t['due']}")
             if c.get("resolution"):
                 lines.append("")
                 lines.append(f"**Resolution**: {c['resolution']}")
@@ -262,7 +262,7 @@ def export_markdown(
         if "principles.md" in files:
             nav_lines.append("  - Principles: principles.md")
         if "tbds.md" in files:
-            nav_lines.append("  - Open Items (TBDs): tbds.md")
+            nav_lines.append("  - Pending decisions: tbds.md")
         files["mkdocs_nav.yml"] = "\n".join(nav_lines) + "\n"
 
     return files
@@ -449,7 +449,7 @@ export default function {component_name}() {{
             style={{{{ padding: "6px 16px", borderRadius: 4, border: "1px solid #ccc",
               background: tab === t ? "#2563eb" : "#fff",
               color: tab === t ? "#fff" : "#333", cursor: "pointer" }}}}>
-            {{t}}
+            {{t === "tbds" ? "pending decisions" : t}}
           </button>
         ))}}
       </div>
@@ -526,7 +526,7 @@ def export_jsx(
     )
     tbds_data = (
         [{"uid": t["uid"], "id": t.get("id"), "title": t.get("title"), "status": t.get("status")}
-         for t in store.live_tbds()]
+         for t in store.pending_decisions()]
         if cfg.include_tbds else []
     )
 

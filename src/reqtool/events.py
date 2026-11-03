@@ -23,6 +23,7 @@ CATALOGUE: dict[str, str] = {
     "attachment_added": "An attachment was added to a requirement.",
     "mention": "A user was @mentioned in a comment.",
     "review_requested": "A review of a requirement was requested from a user.",
+    "decision_accepted": "A decision was accepted; sent once for each requirement that refers to it.",
 }
 
 # Names sent on the wire (webhook body, WebSocket frame) and accepted in webhook

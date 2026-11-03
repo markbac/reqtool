@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
+from .artefacts import DECISION_LINK_TYPES
 from .validation_context import ValidationContext
 from .principles import check_placement, effective_vocabulary
 from .fileio import (
@@ -552,13 +553,13 @@ def _validate_requirement(
                 uid, "acceptance_criteria",
             ))
 
-    # open TBDs on approved requirement
-    if cfg.warn_on_open_tbds_in_approved and approval_status == "approved":
+    # pending decisions on an approved requirement
+    if cfg.warns_on_pending_decisions and approval_status == "approved":
         for link in req.get("links", []):
-            if link.get("type") == "tbd" and link.get("ref") in open_tbd_uids:
+            if link.get("type") in DECISION_LINK_TYPES and link.get("ref") in open_tbd_uids:
                 warnings.append(_warn(
-                    "open_tbd_on_approved",
-                    f"Approved requirement links to open question (TBD) {link.get('ref', '')[:8]}...",
+                    "pending_decision_on_approved",
+                    f"Approved requirement links to pending decision {link.get('ref', '')[:8]}...",
                     uid, "links",
                 ))
 
@@ -692,6 +693,11 @@ def _validate_tbd(
     if priority and priority not in merged_enums.get("priority", []):
         errors.append(_err("invalid_enum",
                            f"priority '{priority}' is not valid", uid, "priority"))
+
+    if tbd.get("type") == "tbd":
+        warnings.append(_warn("legacy_tbd",
+                              "Open questions are now pending decisions: run 'req migrate' to convert this TBD",
+                              uid, "type"))
 
     return errors, warnings
 

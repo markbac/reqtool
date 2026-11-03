@@ -36,11 +36,12 @@ class SearchMixin(StoreHost):
         for uid, d in self.decisions.items():
             if d.get("deleted"):
                 continue
-            if q in d.get("id", "").lower() or q in d.get("title", "").lower():
+            aliases = [a.lower() for a in d.get("aliases") or []]
+            if q in d.get("id", "").lower() or q in d.get("title", "").lower() or any(q in a for a in aliases):
                 results.append({
                     "uid": uid,
                     "id": d.get("id", ""),
                     "title": d.get("title", ""),
-                    "type": "tbd" if d.get("type") == "tbd" else "decision",
+                    "type": "decision",
                 })
         return results[:limit]

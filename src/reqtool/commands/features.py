@@ -27,7 +27,7 @@ def _store(repo: Optional[str]):
 @click.option("--repo", default=None, help="Path to the requirements repository root.")
 @click.option("--product", default=None, help="Limit the gate to one product.")
 def gate(repo: Optional[str], product: Optional[str]):
-    """Release readiness gate. Exit 1 when open TBDs, unverified safety items, suspect links, trace gaps
+    """Release readiness gate. Exit 1 when pending decisions, unverified safety items, suspect links, trace gaps
     or uncommitted changes would make a release unsafe."""
     from ..features.insight import release_readiness
     result = release_readiness(_store(repo), product)

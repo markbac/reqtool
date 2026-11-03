@@ -52,7 +52,7 @@ def write_base_repo(root: Path, repo_id: str, title: str, theme: str = "dark") -
             "require_ac_for_approved": True,
             "require_owner": True,
             "warn_on_missing_test_ref": True,
-            "warn_on_open_tbds_in_approved": True,
+            "warn_on_pending_decisions_in_approved": True,
             "max_history_entries": 20,
         },
     }

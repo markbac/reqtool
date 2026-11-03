@@ -484,7 +484,7 @@ def get_metrics(store: Store = Depends(get_store)):
     no_rationale = sum(1 for r in reqs if not (r.get("content") or {}).get("rationale"))
     no_verification = sum(1 for r in reqs if (r.get("verification") or {}).get("status", "not_started") == "not_started")
     safety_related = sum(1 for r in reqs if r.get("safety_related"))
-    open_tbds = sum(1 for t in tbds if t.get("status") in ("open", "in_progress"))
+    open_tbds = len(tbds)  # pending decisions (#371)
     suspect_links = sum(1 for r in reqs for rel in r.get("relationships") or [] if rel.get("suspect"))
 
     approved = status_counts.get("approved", 0)

@@ -668,7 +668,7 @@ validation:
   require_ac_for_approved: true
   require_owner: true
   warn_on_missing_test_ref: true
-  warn_on_open_tbds_in_approved: true
+  warn_on_pending_decisions_in_approved: true
   max_history_entries: 20
 
 webhooks:

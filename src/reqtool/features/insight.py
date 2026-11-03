@@ -96,7 +96,7 @@ def lifecycle(store, uid: str) -> Optional[dict[str, Any]]:
         stage = "baselined"
     blockers = []
     for tbd in store.open_tbds_for(req):
-        blockers.append({"code": "open_tbd", "message": f"Open question (TBD) {tbd}"})
+        blockers.append({"code": "pending_decision", "message": f"Pending decision {tbd}"})
     if not is_verified(req) and status in APPROVED_STATES:
         blockers.append({"code": "not_verified", "message": "Verification has not passed"})
     trace = requirement_trace(store, uid)
@@ -143,7 +143,7 @@ def overview(store, product_id: Optional[str] = None) -> dict[str, Any]:
     return {
         "product": product_id,
         "counts": {"requirements": total, "modules": len(store.module_map()), "products": len(store.product_map()),
-                   "open_tbds": sum(1 for t in store.live_tbds() if t.get("status") in ("open", "in_progress")),
+                   "open_tbds": len(store.pending_decisions()),
                    "decisions": len(store.live_decision_records())},
         "by_status": by_status,
         "percentages": {"approved": _pct(approved, total), "verified": _pct(verified, total),
@@ -222,7 +222,7 @@ def release_readiness(store, product_id: Optional[str] = None) -> dict[str, Any]
         approved = r.get("status") in APPROVED_STATES
         if approved:
             for tbd in store.open_tbds_for(r):
-                add("open_tbd_on_approved", r, f"Approved item has open question (TBD) {tbd}")
+                add("pending_decision_on_approved", r, f"Approved item waits on pending decision {tbd}")
         if r.get("safety_related") and not is_verified(r):
             add("unverified_safety", r, "Safety-related item is not verified")
         for rel in r.get("relationships") or []:
@@ -241,7 +241,7 @@ def release_readiness(store, product_id: Optional[str] = None) -> dict[str, Any]
 # --- MOD-10 strategic summary ---------------------------------------------------------
 
 def strategic_summary(store, uid: str) -> Optional[dict[str, Any]]:
-    """Roll-up for a Theme, Initiative or Epic: child counts, completion, estimate, open TBDs, validation."""
+    """Roll-up for a Theme, Initiative or Epic: child counts, completion, estimate, pending decisions, validation."""
     from reqtool.validation import validate_all
     live = _live(store)
     req = live.get(uid)

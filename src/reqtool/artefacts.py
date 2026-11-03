@@ -9,6 +9,7 @@ history records. One implementation, so the three kinds cannot drift apart.
 from __future__ import annotations
 
 import copy
+import re
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
@@ -32,6 +33,26 @@ class ArtefactKind:
 REQUIREMENT = ArtefactKind("requirement", "requirements", compute_requirement_hash)
 PRINCIPLE = ArtefactKind("principle", "principles", compute_principle_hash)
 DECISION = ArtefactKind("decision", "decisions", compute_tbd_hash)
+
+# Decisions (#371). A decision is pending (status ``proposed``) until it is accepted, rejected or superseded.
+# ``open`` and ``in_progress`` are the statuses of the old TBD kind, still read so an unmigrated repository works.
+PENDING_DECISION_STATUSES = ("proposed", "open", "in_progress")
+DECISION_STATUSES = ("proposed", "accepted", "rejected", "superseded")
+LEGACY_DECISION_STATUS = {"open": "proposed", "in_progress": "proposed", "resolved": "accepted", "cancelled": "rejected"}
+# Link types that point a requirement at a decision. ``tbd`` is the old name.
+DECISION_LINK_TYPES = ("decision", "tbd")
+# ``[DEC-012]`` in requirement text names a decision; ``[TBD-002]`` is an old marker, resolved through an alias.
+DECISION_MARKER = re.compile(r"\[((?:DEC|TBD)-[A-Za-z0-9_-]+)\]")
+
+
+def legacy_decision_status(status: Optional[str]) -> Optional[str]:
+    """The decision status for a status of the old TBD kind; other values are returned unchanged."""
+    return LEGACY_DECISION_STATUS.get(status, status) if status else status
+
+
+def is_pending_decision(item: Mapping[str, Any]) -> bool:
+    """True for a live decision that has not been made yet."""
+    return not item.get("deleted") and item.get("status") in PENDING_DECISION_STATUSES
 
 # Nested blocks whose sub-fields a caller may send alone (for example just ``approval.approved_by``).
 DEEP_MERGE_KEYS = frozenset({"content", "approval", "review", "verification", "implementation"})

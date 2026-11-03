@@ -31,8 +31,8 @@ from .actor import resolve_author
 from . import ids
 from . import principles as principle_rules
 from .artefacts import (
-    DECISION, PRINCIPLE, REQUIREMENT, apply_fields, history_entry, mark_deleted, new_requirement, record_change,
-    seal_new,
+    DECISION, DECISION_LINK_TYPES, DECISION_MARKER, PRINCIPLE, REQUIREMENT, apply_fields, history_entry,
+    is_pending_decision, legacy_decision_status, mark_deleted, new_requirement, record_change, seal_new,
 )
 from .graph import TraceabilityGraph, relationship_target
 from .storage import FileStorage, Storage
@@ -915,15 +915,13 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
     def create_decision(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
         uid = uuid7()
         now = utcnow_iso()
-        item_type = fields.get("type", "decision")
-        prefix = "TBD" if item_type == "tbd" else "DEC"
-        default_status = "open" if item_type == "tbd" else "proposed"
+        # An open question is a decision that has not been made yet (#371): there is no separate TBD kind.
         data: dict[str, Any] = {
             "schema_version": "1.0.0",
-            "type": item_type,
+            "type": "decision",
             "tool_version": TOOL_VERSION,
             "uid": uid,
-            "id": fields.get("id", f"{prefix}-{uid[:8]}"),
+            "id": fields.get("id", f"DEC-{uid[:8]}"),
             "title": fields.get("title", ""),
             "version": "1.0.0",
             "content": fields.get("content", {
@@ -933,7 +931,7 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
             }),
             "owner": fields.get("owner"),
             "due": fields.get("due"),
-            "status": fields.get("status", default_status),
+            "status": legacy_decision_status(fields.get("status")) or "proposed",
             "priority": fields.get("priority", "medium"),
             "supersedes": fields.get("supersedes"),
             "superseded_by": fields.get("superseded_by"),
@@ -941,6 +939,8 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
             "links": fields.get("links", []),
             "attachments": fields.get("attachments", []),
             "tags": fields.get("tags", []),
+            "aliases": fields.get("aliases", []),
+            "in_progress": bool(fields.get("in_progress", False)),
             "content_hash": "",
             "created": now,
             "last_modified": now,
@@ -970,9 +970,9 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
 
     @_locked
     def create_tbd(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
+        """Deprecated name: creates a pending decision (status ``proposed``)."""
         f = dict(fields)
-        f.setdefault("type", "tbd")
-        f.setdefault("status", "open")
+        f["status"] = "proposed"
         return self.create_decision(f, author=author)
 
     @_locked
@@ -1010,6 +1010,18 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
     @_locked
     def delete_tbd(self, uid: str) -> Optional[dict[str, Any]]:
         return self.delete_decision(uid)
+
+    @_locked
+    def purge_decision(self, uid: str) -> None:
+        """Remove a decision from memory and disk without a trace. Only for building a new repository (the demo):
+        everywhere else a decision is soft-deleted so its history stays."""
+        path = self.decision_path(uid)
+        self.decisions.pop(uid, None)
+        self._file_for.pop(("decisions", uid), None)
+        pending = getattr(self.storage, "pending", None)
+        if isinstance(pending, dict):
+            pending.pop(path, None)
+        self.storage.delete(path)
 
     # ------------------------------------------------------------------
     # Affected requirements for TBDs
@@ -1135,24 +1147,72 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
         self.decisions[uid] = snapshot
         self.storage.write(self.decision_path(uid), snapshot)
 
+    def pending_decisions(self) -> list[dict[str, Any]]:
+        """Non-deleted decisions that have not been made yet (status ``proposed``, or a legacy open TBD)."""
+        return [d for d in self.decisions.values() if is_pending_decision(d)]
+
     def live_tbds(self) -> list[dict[str, Any]]:
-        """Non-deleted items of type ``tbd`` (open questions), excluding decision records."""
-        return [d for d in self.decisions.values() if not d.get("deleted") and d.get("type") == "tbd"]
+        """Deprecated name for :meth:`pending_decisions`."""
+        return self.pending_decisions()
 
     def live_decision_records(self) -> list[dict[str, Any]]:
-        """Non-deleted decision records (ADRs), excluding TBDs."""
-        return [d for d in self.decisions.values() if not d.get("deleted") and d.get("type") != "tbd"]
+        """Every non-deleted decision, pending or made."""
+        return [d for d in self.decisions.values() if not d.get("deleted")]
 
-    def open_tbds_for(self, req: dict[str, Any]) -> list[str]:
-        """Ids of unresolved TBDs the requirement links to."""
+    def resolve_decision(self, key: str) -> Optional[str]:
+        """Accept a decision uid, its id (``DEC-012``) or an alias (a migrated ``TBD-002``) and return the uid."""
+        if key in self.decisions:
+            return key
+        for uid, d in self.decisions.items():
+            if d.get("deleted"):
+                continue
+            if d.get("id") == key or key in (d.get("aliases") or []):
+                return uid
+        return None
+
+    def pending_decisions_for(self, req: dict[str, Any]) -> list[str]:
+        """Ids of pending decisions the requirement links to."""
         out = []
         for link in req.get("links", []) or []:
-            if link.get("type") != "tbd":
+            if link.get("type") not in DECISION_LINK_TYPES:
                 continue
-            t = self.decisions.get(link.get("ref", ""))
-            if t and not t.get("deleted") and t.get("type") == "tbd" and t.get("status") in ("open", "in_progress"):
-                out.append(t.get("id") or t["uid"])
+            d = self.decisions.get(self.resolve_decision(link.get("ref", "")) or "")
+            if d and is_pending_decision(d):
+                out.append(d.get("id") or d["uid"])
         return out
+
+    def open_tbds_for(self, req: dict[str, Any]) -> list[str]:
+        """Deprecated name for :meth:`pending_decisions_for`."""
+        return self.pending_decisions_for(req)
+
+    def decision_markers(self, req: dict[str, Any]) -> set[str]:
+        """Uids of decisions named by a ``[DEC-nnn]`` (or legacy ``[TBD-nnn]``) marker in the requirement's text."""
+        content = req.get("content") or {}
+        text = " ".join(str(content.get(k) or "") for k in ("description", "rationale", "extended_description"))
+        found = set()
+        for key in DECISION_MARKER.findall(text):
+            uid = self.resolve_decision(key)
+            if uid:
+                found.add(uid)
+        return found
+
+    def decisions_linked_from(self, req: dict[str, Any]) -> list[str]:
+        """Uids of the decisions this requirement links to (the reverse of compute_affected_requirements)."""
+        out = []
+        for link in req.get("links") or []:
+            if link.get("type") in DECISION_LINK_TYPES:
+                uid = self.resolve_decision(link.get("ref", ""))
+                if uid:
+                    out.append(uid)
+        return out
+
+    def requirements_referencing_decision(self, decision_uid: str) -> list[str]:
+        """Live requirements that link to the decision or name it in their text."""
+        linked = set(self.compute_affected_requirements(decision_uid))
+        for uid, req in self.requirements.items():
+            if not req.get("deleted") and decision_uid in self.decision_markers(req):
+                linked.add(uid)
+        return sorted(linked)
 
     def compute_affected_requirements(self, tbd_uid: str) -> list[str]:
         """Return UIDs of live requirements that reference ``tbd_uid``.
@@ -1167,7 +1227,7 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
                 continue
             hit = False
             for link in req.get("links") or []:
-                if link.get("type") == "tbd" and link.get("ref") == tbd_uid:
+                if link.get("type") in DECISION_LINK_TYPES and link.get("ref") == tbd_uid:
                     hit = True
                     break
             if not hit:
@@ -1227,7 +1287,7 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
         if uid in self.principles:
             return self.principles[uid], "principle"
         if uid in self.decisions:
-            return self.decisions[uid], "tbd"
+            return self.decisions[uid], "decision"
         return None
 
     def _update_artefact(self, uid: str, fields: dict, summary: str) -> Optional[dict]:
@@ -1237,7 +1297,7 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
         if uid in self.principles:
             return self.update_principle(uid, fields, summary=summary, increment="patch")
         if uid in self.decisions:
-            return self.update_tbd(uid, fields, summary=summary, increment="patch")
+            return self.update_decision(uid, fields, summary=summary, increment="patch")
         return None
 
     def add_attachment(

@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: reqtool
-  description: Git-backed YAML requirements management tool. Requirements, principles, and TBDs live as individual YAML 
-    files; the API handles hashing, versioning, validation, and export.
+  description: Git-backed YAML requirements management tool. Requirements, principles and decisions live as individual 
+    YAML files; the API handles hashing, versioning, validation, and export.
   version: 0.6.0
 paths:
   /health:
@@ -2800,13 +2800,110 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /decisions/{uid}/accept:
+    post:
+      tags:
+      - decisions
+      summary: Accept Decisions
+      description: 'Accept the decision: decision text (required), rationale, chosen option, an optional linked decision.'
+      operationId: accept_decisions_decisions__uid__accept_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /decisions/{uid}/resolve:
     post:
       tags:
       - decisions
       summary: Resolve Decisions
-      description: 'Record the outcome: decision text (required), rationale, an optional linked decision/ADR.'
+      description: Deprecated name for ``accept``.
       operationId: resolve_decisions_decisions__uid__resolve_post
+      deprecated: true
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /decisions/{uid}/reject:
+    post:
+      tags:
+      - decisions
+      summary: Reject Decisions
+      description: Reject the decision, with the reason in ``decision`` or ``rationale``.
+      operationId: reject_decisions_decisions__uid__reject_post
       parameters:
       - name: uid
         in: path
@@ -2854,6 +2951,7 @@ paths:
       - tbds
       summary: List Tbds
       operationId: list_tbds_tbds_get
+      deprecated: true
       parameters:
       - name: status
         in: query
@@ -2896,6 +2994,7 @@ paths:
       - tbds
       summary: Create Tbds
       operationId: create_tbds_tbds_post
+      deprecated: true
       requestBody:
         required: true
         content:
@@ -2920,6 +3019,7 @@ paths:
       - tbds
       summary: Get Tbds
       operationId: get_tbds_tbds__uid__get
+      deprecated: true
       parameters:
       - name: uid
         in: path
@@ -2944,6 +3044,7 @@ paths:
       - tbds
       summary: Update Tbds
       operationId: update_tbds_tbds__uid__put
+      deprecated: true
       parameters:
       - name: uid
         in: path
@@ -2974,6 +3075,7 @@ paths:
       - tbds
       summary: Delete Tbds
       operationId: delete_tbds_tbds__uid__delete
+      deprecated: true
       parameters:
       - name: uid
         in: path
@@ -2999,6 +3101,7 @@ paths:
       - tbds
       summary: Commit Tbds
       operationId: commit_tbds_tbds__uid__commit_post
+      deprecated: true
       parameters:
       - name: uid
         in: path
@@ -3024,13 +3127,112 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /tbds/{uid}/accept:
+    post:
+      tags:
+      - tbds
+      summary: Accept Tbds
+      description: 'Accept the decision: decision text (required), rationale, chosen option, an optional linked decision.'
+      operationId: accept_tbds_tbds__uid__accept_post
+      deprecated: true
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /tbds/{uid}/resolve:
     post:
       tags:
       - tbds
       summary: Resolve Tbds
-      description: 'Record the outcome: decision text (required), rationale, an optional linked decision/ADR.'
+      description: Deprecated name for ``accept``.
       operationId: resolve_tbds_tbds__uid__resolve_post
+      deprecated: true
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /tbds/{uid}/reject:
+    post:
+      tags:
+      - tbds
+      summary: Reject Tbds
+      description: Reject the decision, with the reason in ``decision`` or ``rationale``.
+      operationId: reject_tbds_tbds__uid__reject_post
+      deprecated: true
       parameters:
       - name: uid
         in: path
@@ -4430,6 +4632,56 @@ paths:
         schema:
           type: string
           title: Uid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /requirements/{uid}/decision-wording:
+    post:
+      tags:
+      - quality
+      summary: Decision Wording Fine
+      description: "Record that the requirement's wording still fits an accepted decision: clears its Q007 note."
+      operationId: decision_wording_fine_requirements__uid__decision_wording_post
+      parameters:
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Uid
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Authorization
+      - name: X-API-Key
+        in: header
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: X-Api-Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              title: Body
       responses:
         '200':
           description: Successful Response
@@ -6512,6 +6764,11 @@ components:
           - type: string
           - type: 'null'
           title: Rationale
+        chosen_option:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Chosen Option
         linked_decision:
           anyOf:
           - type: string
@@ -6524,7 +6781,7 @@ components:
           title: Resolved By
       type: object
       title: ResolveRequest
-      description: Resolve a TBD or accept a decision. ``resolution`` is the older name for ``decision``.
+      description: Accept (or reject) a decision. ``resolution`` is the older name for ``decision``.
     UpdateACRequest:
       properties:
         id:

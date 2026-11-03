@@ -45,8 +45,9 @@ def test_it_is_a_family_with_plenty_of_every_kind_of_item(store):
     assert kinds["theme"] >= 3 and kinds["initiative"] >= 8 and kinds["epic"] >= 12 and kinds["feature"] >= 8
     assert kinds["story"] >= 60 and kinds["task"] >= 30 and kinds["bug"] >= 5 and kinds["spike"] >= 4 and kinds["issue"] >= 12
     assert sum(n for t, n in kinds.items() if t not in DELIVERY) >= 240
-    assert len([d for d in store.decision_map().values() if d.get("type") != "tbd"]) >= 12
-    assert len([d for d in store.decision_map().values() if d.get("type") == "tbd"]) >= 12
+    assert len([d for d in store.decision_map().values() if d.get("status") != "proposed"]) >= 12
+    assert len(store.pending_decisions()) >= 12
+    assert not [d for d in store.decision_map().values() if d.get("type") == "tbd"]
 
 
 def test_the_repository_validates_cleanly_with_and_without_the_rules(root):
@@ -91,11 +92,15 @@ def test_a_story_was_forced_closed_with_a_reason(store):
     assert forced and forced[0]["attributes"]["forced"]["reason"]
 
 
-def test_decisions_have_lineage_and_questions_resolve_into_them(store):
+def test_decisions_have_lineage_and_no_open_questions_are_left_as_tbds(store):
     decisions = store.decision_map()
     assert any(d.get("superseded_by") for d in decisions.values())
-    assert any(d.get("resolution_ref") for d in decisions.values() if d.get("type") == "tbd")
-    assert {d["status"] for d in decisions.values()} >= {"accepted", "proposed", "rejected", "superseded", "open", "resolved"}
+    assert any(d.get("in_progress") for d in decisions.values() if d.get("status") == "proposed")
+    assert {d["status"] for d in decisions.values()} == {"accepted", "proposed", "rejected", "superseded"}
+    assert not any(str(d.get("id", "")).startswith("TBD-") or d.get("aliases") for d in decisions.values())
+    # Requirement text names decisions by their DEC id; every marker resolves.
+    markers = [m for r in store.requirement_map().values() for m in store.decision_markers(r)]
+    assert len(markers) >= 10 and all(m in decisions for m in markers)
 
 
 def test_principles_are_placed_and_cited(store):

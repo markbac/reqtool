@@ -318,7 +318,7 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     req_list = store.live_requirements()
     principle_list = store.live_principles()
     decision_list = store.live_decision_records()
-    tbd_list = store.live_tbds()
+    tbd_list = store.pending_decisions()
     module_list = list(store.module_map().values())
     product_list = list(store.product_map().values())
 
@@ -328,7 +328,7 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
         [Paragraph("<b>Requirements:</b>", style_meta_label), Paragraph(str(len(req_list)), style_meta_val),
          Paragraph("<b>Principles:</b>", style_meta_label), Paragraph(str(len(principle_list)), style_meta_val)],
         [Paragraph("<b>Decisions (ADRs):</b>", style_meta_label), Paragraph(str(len(decision_list)), style_meta_val),
-         Paragraph("<b>Open TBDs:</b>", style_meta_label), Paragraph(str(len(tbd_list)), style_meta_val)],
+         Paragraph("<b>Pending decisions:</b>", style_meta_label), Paragraph(str(len(tbd_list)), style_meta_val)],
         [Paragraph("<b>Reusable Modules:</b>", style_meta_label), Paragraph(str(len(module_list)), style_meta_val),
          Paragraph("<b>Product Variants:</b>", style_meta_label), Paragraph(str(len(product_list)), style_meta_val)],
         [Paragraph("<b>Source Revision:</b>", style_meta_label),
@@ -584,13 +584,13 @@ def generate_pdf_bytes(store: "Store", product_id: Optional[str] = None) -> byte
     story.append(Spacer(1, 15))
 
     # =========================================================================
-    # SECTION 6: OPEN QUESTIONS & TBDS
+    # SECTION 6: PENDING DECISIONS
     # =========================================================================
-    story.append(Paragraph('<a name="section-tbds"/>6. Open Questions & Pending Decisions (TBDs)', style_h1))
+    story.append(Paragraph('<a name="section-tbds"/>6. Pending Decisions', style_h1))
     story.append(HRFlowable(width="100%", thickness=1, color=SECONDARY, spaceAfter=10))
 
     if not tbd_list:
-        story.append(Paragraph("<i>No open TBDs in repository.</i>", style_body))
+        story.append(Paragraph("<i>No pending decisions in the repository.</i>", style_body))
     else:
         for t in sorted(tbd_list, key=lambda x: x.get("id", "")):
             tid = _clean_text(t.get("id", ""))

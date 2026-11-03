@@ -370,15 +370,16 @@ def test_dat27_children_of_a_deleted_parent_move_up_a_level(client):
 
 # --- DAT-28 --------------------------------------------------------------------
 
-def test_dat28_counts_exports_and_search_separate_decisions_from_tbds(client):
-    client.post("/decisions", json={"title": "Use Postgres"})
+def test_dat28_counts_exports_and_search_count_pending_decisions(client):
+    made = client.post("/decisions", json={"title": "Use Postgres"}).json()
     client.post("/tbds", json={"title": "Which broker"})
+    client.post(f"/decisions/{made['uid']}/accept", json={"decision": "Postgres", "resolved_by": "a"})
     info = client.get("/repo").json()
-    assert info["tbds_count"] == 1 and info["decisions_count"] == 1
+    assert info["tbds_count"] == 1 and info["decisions_count"] == 2   # tbds_count: pending decisions (#371)
     totals = client.get("/metrics").json()["totals"]
-    assert totals["tbds"] == 1
+    assert totals["tbds"] == 1 and totals["open_tbds"] == 1
     adr = client.get("/export/adr").text
-    assert "Use Postgres" in adr and "Which broker" not in adr
+    assert "Use Postgres" in adr and "Which broker" in adr
     found = {r["title"]: r["type"] for r in client.get("/search", params={"q": "Postgres"}).json()}
     assert found.get("Use Postgres") == "decision"
 

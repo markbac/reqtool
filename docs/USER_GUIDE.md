@@ -106,7 +106,7 @@ reqtool init systems --principles security,operations  # a list
 ```
 Without the option, a terminal asks (the answer defaults to a set suited to the variant) and a script gets that default. An unknown area stops the command before anything is written. Later, `req principles packs` lists the packs and how many of their principles you have, `req principles add-pack <area>...` (or `all`) adds more without duplicating anything, and `req principles place` gives older principles an area and category (`req migrate` does this too).
 
-**The demo.** `reqtool init demo` builds *Sentinel*, a made-up IoT product family, so every screen has something real to show. It has seven products (the environmental sensor, a Thread gateway, a cloud platform, a companion app, and Pro, Lite and Industrial variants built from shared modules), about 250 needs and systems requirements in every workflow state, three themes down to eight initiatives, 14 epics, 10 features, 74 stories, 37 tasks, defects and spikes, and 14 issues that cover every triage outcome. Five sprints (three finished, one running, one planned) and three phase gates have dated status history, so the burn-up, flow and kanban views show real movement, a few items are stuck, and one story was closed with an open task by forcing a parent and child rule with a reason. It also has 14 decisions (including a superseded one and a rejected one), 15 open questions (some resolved into decisions), around 130 principles from the packs with citations for the heatmap, comments, review requests, attachments, saved views and automation rules. Baselines and change sets need git history, so a new demo has none: run `git init` and commit, then create them. Dates are relative to the day the demo is made.
+**The demo.** `reqtool init demo` builds *Sentinel*, a made-up IoT product family, so every screen has something real to show. It has seven products (the environmental sensor, a Thread gateway, a cloud platform, a companion app, and Pro, Lite and Industrial variants built from shared modules), about 250 needs and systems requirements in every workflow state, three themes down to eight initiatives, 14 epics, 10 features, 74 stories, 37 tasks, defects and spikes, and 14 issues that cover every triage outcome. Five sprints (three finished, one running, one planned) and three phase gates have dated status history, so the burn-up, flow and kanban views show real movement, a few items are stuck, and one story was closed with an open task by forcing a parent and child rule with a reason. It also has 14 decisions (including a superseded one and a rejected one), decisions pending, accepted, rejected and superseded, some named in requirement text, around 130 principles from the packs with citations for the heatmap, comments, review requests, attachments, saved views and automation rules. Baselines and change sets need git history, so a new demo has none: run `git init` and commit, then create them. Dates are relative to the day the demo is made.
 
 ### `reqtool serve` — Start API & Web Workstation
 Launches the FastAPI backend and serves the embedded React UI workstation:
@@ -175,7 +175,7 @@ reqtool diff v1.0.0               # Changes since tag v1.0.0
 ### `reqtool gate`, `doctor`, `query`, `test-results`, `snapshot` -- Delivery Checks
 These commands work on the repository files and need no server:
 ```bash
-reqtool gate [--product P1]            # release-readiness gate: open TBDs, unverified safety items, suspect links, trace gaps. Exits 1 on findings
+reqtool gate [--product P1]            # release-readiness gate: pending decisions, unverified safety items, suspect links, trace gaps. Exits 1 on findings
 reqtool doctor                         # configuration, secrets hygiene, dependency, hierarchy and stray-file checks. Exits 1 on errors
 reqtool query 'status = approved AND priority = high'   # query language over requirements
 reqtool test-results junit.xml [--source ci] [--run-url URL]   # set verification status from JUnit XML (test names carry a requirement id such as FR-042)
@@ -248,7 +248,7 @@ flow:
 
   Time in a state comes from the move recorded in the item's history (`status_from`, `status_to`); items moved before this was recorded count from when they were created. An item that has children (an epic waiting on its stories, say) is a container and is never counted as stuck.
 - **Burn-up:** for one iteration, the scope and the work done over time, in the repository's estimate unit (an item with no estimate counts as one). Scope is dated by when each item was created or the iteration started, because the tool does not record when an item was assigned to an iteration.
-- **Decision ageing:** open decisions and open questions, those blocking the most items first, with their age and the items they block.
+- **Decision ageing:** pending decisions, those blocking the most items first, with their age and the items they block.
 - **Principles:** a heatmap of area and category against how many requirements cite each principle. Dashed boxes are principles nothing cites; a list shows the requirements that cite none.
 
 The same data is served by `GET /views/hierarchy`, `/views/type-structure`, `/views/coverage`, `/views/impact/{uid}`, `/views/flow`, `/views/burnup/{iteration}`, `/views/decisions` and `/views/principles`.
@@ -312,7 +312,7 @@ Principles are grouped in two levels: an **area** (Architecture) and a **categor
 - **Editor, Insight tab:** trace (upstream, downstream and gaps), lifecycle stage and blockers, quality findings and impact. A status strip under the validation bar summarises the same. Saving a change shows an **impact preview** to confirm first.
 - **Overview and Roadmap** (header menu): per-product readiness and a Now/Next/Later view. Themes, initiatives and epics show a progress bar in the tree, and `GET /requirements/{uid}/summary` gives a strategic roll-up.
 - **Kanban:** columns are the union of the workflow states of the types shown, and items whose status matches no column go to an **Uncolumned** lane. Themes and initiatives are left off the default board (they have the Roadmap); choose that type explicitly to see them.
-- **Decisions, Modules and Query panels:** decisions, ADRs and TBDs (with resolve), module create, version, clone, pin, consumers, verification and update preview, and a query box.
+- **Decisions, Modules and Query panels:** decisions and ADRs (with accept), module create, version, clone, pin, consumers, verification and update preview, and a query box.
 - **Reviews and approvals:** request a review from the editor (`POST /requirements/{uid}/review-requests`). Approving with a stale `content_hash` returns `409 stale_content`. The **Inbox** lists review requests and `@mentions`; per-user notification preferences are `/notifications/preferences/{user}`.
 - **Change sets:** a change set is a `changeset/*` branch. Create, switch, diff and merge from the **Change Sets** panel (`/changesets`).
 - **Baselines:** the Baselines panel shows field-level differences (`GET /baselines/field-diff`) and `GET /trend` charts readiness between baselines.
@@ -357,13 +357,17 @@ Every type has a Definition of Ready or Done where it makes sense, including the
 
 Themes and initiatives show a **Strategic Fields** section in the editor: outcome, success measures, time horizon (`now`, `next`, `later`), target release, business value and risks. The values are stored under `custom_fields`, are included in Markdown exports and can be picked in CSV exports as `custom_fields.outcome` and so on. The field list comes from `type_fields` in `hierarchy.yaml`, so a repository can change it or add the same for other types.
 
-#### Decisions and TBDs
+#### Decisions
 
-In the app they are one **Decisions** area: the **Decisions** tab in the sidebar (and **⋯ More > Decisions & ADRs**) lists decisions, ADRs and open questions together, with a **Kind** filter (all, decisions and ADRs, open questions) and a status filter. **+ New** asks which kind first. One editor opens for all of them; an open question shows **Resolve**, and once resolved it says "Resolved into DEC-..." while the decision says "Resolves TBD-...", each a link to the other. A link such as `?uid=...&type=tbd` still opens the item. "TBD" is still the name in the files and in `/tbds`, which stays for existing clients and has no removal date yet; the screens call it an *open question (TBD)*.
+A decision is **Pending** until it is made, then **Accepted**, **Rejected** or **Superseded**. A question that needs an answer is simply a pending decision: there is no separate open-question or TBD kind. Pending is stored as `status: proposed`.
 
-A TBD is a decision record with `type: tbd`; both live in one collection and in the `decisions/` folder, served by `/decisions` (everything) and `/tbds` (TBDs only, kept for existing clients). Repositories created before this change keep working with a `tbds/` folder. Run `req migrate` to move those files into `decisions/`; it is safe to run twice and leaves a file in place if `decisions/` already holds a different copy.
+The **Decisions** tab in the sidebar (and **⋯ More > Decisions & ADRs**) lists decisions by status, with Pending first. **+ Decision needed** creates a pending decision. Each one records what has to be decided, the impact, the owner, when it is needed by, the options, and the requirements waiting on it. **Accept decision** asks for the decision text (required), the rationale, the chosen option and an optional linked decision or ADR, and records who accepted it and when (the logged-in user, or the name supplied in local mode). **Reject** records the reason. `POST /decisions/{uid}/accept` and `POST /decisions/{uid}/reject` do the same.
 
-Resolving a TBD needs a decision text. The **Resolve** dialog (and `POST /tbds/{uid}/resolve` with `decision`, `rationale` and `linked_decision`) records the decision, the rationale, an optional linked ADR, the resolver (the logged-in user, or the name supplied in local mode) and the time. Older clients that send only `resolution` still work. To refuse approval of requirements that link to an open TBD, set `validation.block_approval_on_open_tbds: true` in `config.yaml`; approval then answers `409 open_tbd` listing the TBDs. Without it the existing `open_tbd_on_approved` warning is all you get.
+**Decisions in requirement text.** Write `[DEC-012]` in a requirement to name a decision. The editor shows each one as a chip: amber while pending, green with a tick once accepted, struck through when rejected or superseded, with the decision on hover. The text is never changed for you, because that would change an approved requirement's content without a review. Instead, when a decision is accepted, every requirement that links to it or names it gets an advisory note, **Decision accepted: check the wording** (quality code `Q007`), and its owner gets an inbox notification. The editor offers **Insert decision text**, an ordinary edit that you save and commit, or **Wording is fine**, which clears the note and records that in the history (`POST /requirements/{uid}/decision-wording`).
+
+**Approval gate.** To refuse approval of a requirement that links to a pending decision, set `validation.block_approval_on_pending_decisions: true` in `config.yaml`; approval then answers `409 pending_decision` listing the decisions. Without it, an approved requirement that links to a pending decision gets the `pending_decision_on_approved` warning. The gate lifts as soon as the decision is accepted.
+
+**Repositories from before this change.** Run `req migrate`. It moves a legacy `tbds/` folder into `decisions/`, turns every `type: tbd` record into a decision with a `DEC-nnn` id (open and in-progress questions become Pending, resolved ones Accepted), and folds a resolved question that became a decision into that decision. The old id is kept as an alias, so `[TBD-002]` markers, `?type=tbd` links and requirement links still resolve; requirement links of type `tbd` become `decision`. It is safe to run twice. Until you migrate, old records still load and validation warns `legacy_tbd`. The old names keep working for one release: `/tbds` (now listing and creating pending decisions), `POST .../resolve` (now the same as accept), `req new tbd`, and the settings `block_approval_on_open_tbds` and `warn_on_open_tbds_in_approved`.
 
 ### 4.0 Where workflows live and how to edit them
 
@@ -552,7 +556,7 @@ There is no default account. Older repositories that still contain the `admin` /
 | Role | Can do |
 |---|---|
 | `viewer` | Read everything. Cannot change anything (the editor is read-only and the buttons are hidden). |
-| `editor` | Add and change requirements, principles, TBDs, comments, attachments, approvals and status. Cannot delete, and has none of the administrator functions. |
+| `editor` | Add and change requirements, principles, decisions, comments, attachments, approvals and status. Cannot delete, and has none of the administrator functions. |
 | `admin` | Everything an editor can, plus deleting items, workflows, writing-check settings, configuration, vocabularies, custom fields, templates, automation rules, repository creation and switching, modules, products, baselines, webhooks and users. |
 
 The rules are in one table (`src/reqtool/permissions.py`) and are enforced by the server in `required` mode, so the buttons the UI hides are also refused if called directly. `GET /permissions` tells a client what the signed-in role may do. In `local` mode there is one user, who is an administrator.
@@ -577,7 +581,7 @@ While a Git merge, rebase, cherry-pick or revert is in progress, or any file is 
 
 ### 6.2b Baselines
 
-`POST /baselines` tags the last commit. If requirements, principles, decisions, TBDs, modules or products have uncommitted changes, it answers `409 dirty_working_tree` and lists the affected IDs, because the tag would not contain them. Commit first, or pass `allow_dirty: true` to proceed anyway. The tag message then records which items were left out. The Baselines panel asks for confirmation in the same situation.
+`POST /baselines` tags the last commit. If requirements, principles, decisions, modules or products have uncommitted changes, it answers `409 dirty_working_tree` and lists the affected IDs, because the tag would not contain them. Commit first, or pass `allow_dirty: true` to proceed anyway. The tag message then records which items were left out. The Baselines panel asks for confirmation in the same situation.
 
 ### 6.2a Item IDs
 
@@ -628,7 +632,7 @@ With `REQTOOL_GITHUB_WEBHOOK_SECRET` set, a signed push webhook to `POST /webhoo
 
 ## 7. Behaviour Notes
 
-- **Commits:** committing a requirement or TBD commits only that file. Other staged changes stay staged. The commit SHA is no longer written into the YAML; the history view reads it from git. Committing with nothing staged returns 409.
+- **Commits:** committing a requirement or decision commits only that file. Other staged changes stay staged. The commit SHA is no longer written into the YAML; the history view reads it from git. Committing with nothing staged returns 409.
 - **History:** a requirement's change history is append-only. It is no longer cut to 20 entries.
 - **CLI and server:** the `req` commands work on the repository files directly and need no server. A running server picks up those edits through its file watcher, so the CLI and the web UI can be used side by side.
 - **Saving:** YAML files are written atomically (temporary file, then rename).

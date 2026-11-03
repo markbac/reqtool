@@ -305,14 +305,14 @@ class TestTbdsCRUD:
                         "resolution": None},
         })
         assert r.status_code == 201
-        assert r.json()["status"] == "open"
+        assert r.json()["status"] == "proposed"   # an open question is a pending decision (#371)
 
     def test_resolve_tbd(self, client):
         t = make_tbd(client)
         r = client.post(f"/tbds/{t['uid']}/resolve",
                         json={"resolution": "Decided on £25.", "resolved_by": "pm"})
         assert r.status_code == 200
-        assert r.json()["status"] == "resolved"
+        assert r.json()["status"] == "accepted"
 
     def test_list_tbds(self, client):
         make_tbd(client)
