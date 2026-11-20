@@ -18,7 +18,7 @@ def write_base_repo(root: Path, repo_id: str, title: str, theme: str = "dark") -
     """Shared scaffold used by all init variants."""
     from .fileio import save_yaml
 
-    for d in ("requirements", "principles", "decisions", "modules", "products", ".reqtool", "exports"):
+    for d in ("requirements", "requirements/modules", "work", "principles", "decisions", "products", ".reqtool", "exports"):
         (root / d).mkdir(parents=True, exist_ok=True)
 
     config = {
@@ -52,7 +52,7 @@ def write_base_repo(root: Path, repo_id: str, title: str, theme: str = "dark") -
             "require_ac_for_approved": True,
             "require_owner": True,
             "warn_on_missing_test_ref": True,
-            "warn_on_open_tbds_in_approved": True,
+            "warn_on_pending_decisions_in_approved": True,
             "max_history_entries": 20,
         },
     }

@@ -30,7 +30,7 @@
 }
 .cov-bar-seg { height: 100%; transition: width 0.3s ease; }
 .cov-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
-.cov-legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-secondary); }
+.cov-legend-item { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-secondary); }
 .cov-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
 .cov-gap-row {
@@ -43,7 +43,7 @@
 .cov-gap-label { width: 170px; flex-shrink: 0; color: var(--text-secondary); }
 .cov-gap-bar-wrap { flex: 1; height: 6px; background: var(--bg-elevated); border-radius: 3px; overflow: hidden; }
 .cov-gap-bar { height: 100%; border-radius: 3px; min-width: 1px; transition: width 0.3s ease; }
-.cov-gap-count { width: 60px; text-align: right; flex-shrink: 0; font-size: 11px; }
+.cov-gap-count { width: 60px; text-align: right; flex-shrink: 0; font-size: 12px; }
 .text-warn { color: var(--accent-orange); }
 
 /* Bulk update */
@@ -57,7 +57,7 @@
 }
 .bulk-fields .field-group { margin: 0; }
 .bulk-fields select,
-.bulk-fields input { height: 28px; font-size: 11px; }
+.bulk-fields input { height: 28px; font-size: 12px; }
 
 .bulk-list {
   flex: 1;
@@ -138,7 +138,7 @@
   overflow-y: auto;
 }
 .staged-file {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
   padding: 1px 0;
   white-space: nowrap;
@@ -174,7 +174,7 @@
   border-left-color: var(--accent-blue);
 }
 .vocab-count {
-  font-size: 10px;
+  font-size: 12px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   padding: 1px 5px;
@@ -192,7 +192,7 @@
 }
 .vocab-editor-header { display: flex; flex-direction: column; gap: 2px; }
 .vocab-editor-title { font-size: var(--font-size-md); font-weight: 600; }
-.vocab-editor-hint { font-size: 11px; color: var(--text-muted); }
+.vocab-editor-hint { font-size: 12px; color: var(--text-muted); }
 
 .vocab-list { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
 .vocab-empty { font-size: var(--font-size-sm); color: var(--text-muted); padding: 8px 0; }

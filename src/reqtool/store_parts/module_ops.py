@@ -52,7 +52,7 @@ class ModuleOpsMixin(StoreHost):
         if module_id not in self.modules:
             raise ValueError(f"Module '{module_id}' not found")
 
-        module_dir = self.root / "modules" / validate_id(module_id, "module id")
+        module_dir = self.module_dir(validate_id(module_id, "module id"))
         module_files = [p for p in self.storage.list_yaml(module_dir) if not p.name.startswith("_")]
         h = hashlib.sha256()
         for f in module_files:
@@ -117,7 +117,7 @@ class ModuleOpsMixin(StoreHost):
         if not locked:
             return {"verified": False, "reason": f"module '{module_id}' not in lock"}
 
-        module_dir = self.root / "modules" / validate_id(module_id, "module id")
+        module_dir = self.module_dir(validate_id(module_id, "module id"))
         files = [p for p in self.storage.list_yaml(module_dir) if not p.name.startswith("_")]
         h = hashlib.sha256()
         for f in files:
@@ -138,10 +138,10 @@ class ModuleOpsMixin(StoreHost):
     # ------------------------------------------------------------------
 
     def fetch_remote_module(self, module_id: str) -> dict[str, Any]:
-        """Fetch an external Git repository module into modules/<module_id>/."""
+        """Fetch an external Git repository module into its folder (requirements/modules/<module_id>/)."""
         validate_id(module_id, "module id")
 
-        manifest_path = self.root / "modules" / module_id / "_module.yaml"
+        manifest_path = self.module_dir(module_id) / "_module.yaml"
         if not self.storage.exists(manifest_path):
             raise ValueError(f"Module manifest for '{module_id}' not found")
         data = self.storage.read(manifest_path)
@@ -153,7 +153,7 @@ class ModuleOpsMixin(StoreHost):
         _validate_remote_url(git_remote)
         _validate_remote_ref(git_ref)
 
-        target_dir = self.root / "modules" / module_id / "remote"
+        target_dir = self.module_dir(module_id) / "remote"
         self.vcs.fetch_checkout(git_remote, git_ref, target_dir, self.root)
 
         # Record exactly what was fetched, so a moving branch cannot change a module unnoticed (FEAT-08).

@@ -1,3 +1,4 @@
+import { Panel } from './Panel';
 import { useState, useEffect } from 'react';
 import { useApp } from '../../AppContext';
 import { api } from '../../api';
@@ -33,12 +34,7 @@ export function DuplicateDetectorPanel({ onClose }) {
   };
 
   return (
-    <div className="panel-overlay" onClick={onClose}>
-      <div className="side-panel side-panel--wide" onClick={e => e.stopPropagation()} style={{ width: 620 }}>
-        <div className="side-panel-header">
-          <span className="side-panel-title">AI Duplicate Detector</span>
-          <button className="btn btn-ghost" onClick={onClose}>✕</button>
-        </div>
+    <Panel title="Duplicates" onClose={onClose} wide raw>
 
         <div className="panel-body">
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
@@ -77,7 +73,7 @@ export function DuplicateDetectorPanel({ onClose }) {
                 <span className="badge badge-warning">
                   Similarity: {Math.round((pair.similarity_score ?? 0) * 100)}%
                 </span>
-                <span className="text-muted" style={{ fontSize: 11 }}>Pair #{idx + 1}</span>
+                <span className="text-muted" style={{ fontSize: 12 }}>Pair #{idx + 1}</span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -85,7 +81,7 @@ export function DuplicateDetectorPanel({ onClose }) {
                   onClick={() => openReq(pair.req_a.uid)}
                   style={{ cursor: 'pointer', padding: 8, background: 'var(--bg-primary)', borderRadius: 4, border: '1px solid var(--border)' }}
                 >
-                  <div className="mono" style={{ fontWeight: 600, fontSize: 11 }}>{pair.req_a.id}</div>
+                  <div className="mono" style={{ fontWeight: 600, fontSize: 12 }}>{pair.req_a.id}</div>
                   <div style={{ fontSize: 12, marginTop: 4 }}>{pair.req_a.title}</div>
                 </div>
 
@@ -93,14 +89,13 @@ export function DuplicateDetectorPanel({ onClose }) {
                   onClick={() => openReq(pair.req_b.uid)}
                   style={{ cursor: 'pointer', padding: 8, background: 'var(--bg-primary)', borderRadius: 4, border: '1px solid var(--border)' }}
                 >
-                  <div className="mono" style={{ fontWeight: 600, fontSize: 11 }}>{pair.req_b.id}</div>
+                  <div className="mono" style={{ fontWeight: 600, fontSize: 12 }}>{pair.req_b.id}</div>
                   <div style={{ fontSize: 12, marginTop: 4 }}>{pair.req_b.title}</div>
                 </div>
               </div>
             </div>
           ))}
         </div>
-      </div>
-    </div>
+    </Panel>
   );
 }

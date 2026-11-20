@@ -104,7 +104,7 @@ export function RulesPanel() {
   return (
     <section className="we-section" aria-label="Parent and child rules">
       <div className="metrics-section-title">Parent and child rules</div>
-      <div className="text-muted" style={{ fontSize: 11 }}>
+      <div className="text-muted" style={{ fontSize: 12 }}>
         Checks run when an item changes status: <code>up</code> looks at its parent or ancestors, <code>down</code> at its children or descendants.
         Roll-up rules move another item for you (<code>suggest</code> asks first, <code>auto</code> just does it). Use state ids or
         <code> @initial @started @terminal @done @cancelled</code>.
@@ -153,7 +153,7 @@ export function RulesPanel() {
       )}
 
       <div className="metrics-section-title" style={{ marginTop: 10 }}>Forced moves</div>
-      {forced.length === 0 ? <div className="text-muted" style={{ fontSize: 11 }}>No item is currently in a state it was forced into.</div> : (
+      {forced.length === 0 ? <div className="text-muted" style={{ fontSize: 12 }}>No item is currently in a state it was forced into.</div> : (
         <table className="we-table" aria-label="Forced moves">
           <thead><tr><th>Item</th><th>Status</th><th>Rule</th><th>By</th><th>Reason</th></tr></thead>
           <tbody>

@@ -3,14 +3,14 @@ workflow, templates, CSV import, iterations, diagrams, automation rules, duplica
 
 from playwright.sync_api import expect
 
-from .helpers import open_app, open_menu_item, panel, seed_tree, wait_until
+from .helpers import go, open_app, open_menu_item, panel, seed_tree, wait_until
 
 
 def test_bulk_update_changes_the_selected_items_only(page):
     ids = seed_tree(page.server)
     open_app(page)
     open_menu_item(page, "≡ Bulk update")
-    p = panel(page, "Bulk Update")
+    p = panel(page, "Bulk")
     p.get_by_text("EP-001").click()
     p.get_by_text("US-001").click()
     expect(p.locator(".side-panel-title, button.btn-primary").filter(has_text="Apply to 2")).to_be_visible()
@@ -26,7 +26,7 @@ def test_bulk_update_without_a_change_is_refused_politely(page):
     seed_tree(page.server)
     open_app(page)
     open_menu_item(page, "≡ Bulk update")
-    p = panel(page, "Bulk Update")
+    p = panel(page, "Bulk")
     p.get_by_text("US-001").click()
     p.get_by_role("button", name="Apply to 1 requirement(s)").click()
     expect(page.locator(".toast", has_text="No fields to update")).to_be_visible()
@@ -47,11 +47,16 @@ def test_traceability_matrix_shows_allocations(page):
 
 
 def test_coverage_panel_counts_quality_gaps(page):
-    seed_tree(page.server)
+    ids = seed_tree(page.server)
+    # coverage is of requirements, not of seed_tree's work items (#380)
+    reqs = [page.server.req(title=f"Requirement {n}", req_type="functional", content={"description": "The system shall."})
+            for n in (1, 2)]
+    page.server.put("/products/p1", {"root_requirements": [{"uid": u} for u in (ids["theme"]["uid"], *(r["uid"] for r in reqs))]},
+                    expect=None)
     open_app(page)
     open_menu_item(page, "⊞ Coverage")
     p = panel(page, "Coverage")
-    expect(p).to_contain_text("4 requirements")
+    expect(p).to_contain_text("2 requirements")
     expect(p).to_contain_text("No acceptance criteria")
 
 
@@ -94,6 +99,7 @@ def test_custom_field_schema_saves_and_appears_in_the_editor(page):
     assert [f["key"] for f in page.server.get("/custom-fields")] == ["customer_ref"]
     page.reload()  # the schema is read when the app loads
     page.locator("select.header-select").first.select_option("p1")
+    go(page, "work", "tree")
     page.locator(".tree-node", has_text="TH-001").click()
     page.get_by_role("button", name="Relationships & Links").click()
     expect(page.locator(".attr-key", has_text="Customer reference")).to_be_visible()
@@ -148,9 +154,8 @@ def test_template_use_creates_the_item_at_once(page):
     label = first.locator(".template-label").inner_text()
     first.get_by_role("button", name="Use").click()
     expect(page.locator(".toast", has_text=f"from '{label}'")).to_be_visible()
-    expect(page.locator(".side-panel")).to_have_count(0)  # the panel closes itself
     wait_until(lambda: page.server.get("/requirements"), what="the item made from the template")
-    expect(page.locator(".tree-node").first).to_be_visible()
+    expect(page.get_by_role("complementary", name="Editor")).to_be_visible()   # it opens in the editor drawer
 
 
 def test_csv_import_creates_requirements(page, tmp_path):
@@ -186,10 +191,10 @@ def test_diagram_canvas_renders_mermaid_and_switches_engine(page):
     seed_tree(page.server)
     open_app(page)
     open_menu_item(page, "✐ Diagram Canvas")
-    p = panel(page, "Diagram Canvas")
+    p = panel(page, "Diagrams")
     expect(p).to_contain_text("graph TD")
     p.get_by_text("PlantUML (Backend plantuml.jar)").click()
-    expect(p).to_contain_text("Diagram")
+    expect(p).to_contain_text("@startuml")
 
 
 def test_automation_rules_open_and_save(page):

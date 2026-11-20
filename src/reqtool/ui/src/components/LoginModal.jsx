@@ -83,10 +83,10 @@ export function LoginModal({ onClose, onLoginSuccess }) {
                 <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>
                   Active User: {currentUser.full_name || currentUser.username}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 10px' }}>
                   Role: <span className="mono" style={{ color: 'var(--accent-color, #4ea8de)' }}>{currentUser.role}</span> | Username: <span className="mono">{currentUser.username}</span>
                 </div>
-                <button className="btn btn-danger" style={{ fontSize: 11 }} onClick={handleLogout}>
+                <button className="btn btn-danger" style={{ fontSize: 12 }} onClick={handleLogout}>
                   Logout
                 </button>
               </div>

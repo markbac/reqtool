@@ -3,7 +3,7 @@
 import pytest
 
 from reqtool.services.errors import (
-    Forbidden, GitFailure, Invalid, MergeConflicts, MissingItem, NotFound, OpenTbd, ServiceError,
+    Forbidden, GitFailure, Invalid, MergeConflicts, MissingItem, NotFound, PendingDecision, ServiceError,
     StaleContent, VersionConflict, WorkflowGuard,
 )
 from reqtool.identity import Attribution, Identity
@@ -139,15 +139,17 @@ def test_approve_uses_the_login_not_the_body(make):
     assert info.value.detail["content_hash"] == created["content_hash"]
 
 
-def test_approve_is_blocked_by_open_tbds_when_configured(make):
+@pytest.mark.parametrize("setting", ["block_approval_on_pending_decisions", "block_approval_on_open_tbds"])
+def test_approve_is_blocked_by_pending_decisions_when_configured(make, setting):
     service, _ = make()
     created = service.create({"id": "SV-001", "title": "A"})
-    service.store.config.validation.block_approval_on_open_tbds = True
-    service.store.open_tbds_for = lambda req: ["TBD-1"]
+    setattr(service.store.config.validation, setting, True)   # the old name still works (#371)
+    service.store.pending_decisions_for = lambda req: ["DEC-1"]
     service.store.validate_transition = lambda req, to: None
-    with pytest.raises(OpenTbd) as info:
+    with pytest.raises(PendingDecision) as info:
         service.approve(created["uid"], "a", None, {"authenticated": False})
-    assert info.value.detail["tbds"] == ["TBD-1"]
+    assert info.value.detail["decisions"] == ["DEC-1"]
+    assert info.value.detail["error"] == "pending_decision"
 
 
 def test_commit_stages_and_commits_only_that_file(make):

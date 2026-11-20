@@ -28,7 +28,7 @@ export default class ErrorBoundary extends Component {
         <div style={{ fontWeight: 600, marginBottom: 6 }}>
           {compact ? 'This panel hit an error and was closed.' : 'Something went wrong.'}
         </div>
-        <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted, #8b949e)', marginBottom: 10, wordBreak: 'break-word' }}>
+        <div className="mono" style={{ fontSize: 12, color: 'var(--text-muted, #8b949e)', marginBottom: 10, wordBreak: 'break-word' }}>
           {String(this.state.error?.message || this.state.error)}
         </div>
         <button className="btn btn-primary" onClick={this.reset}>{compact ? 'Dismiss' : 'Try again'}</button>

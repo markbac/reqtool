@@ -3,7 +3,7 @@
 import pytest
 from playwright.sync_api import expect
 
-from .helpers import open_app, seed_tree, wait_until
+from .helpers import go, open_app, seed_tree, wait_until
 from .test_kanban import column, open_board
 from .helpers import drag_and_drop
 
@@ -66,8 +66,7 @@ def test_a_blocked_drop_can_be_forced_with_a_reason(page):
 def test_the_workflow_editor_changes_and_saves_a_rule(page):
     set_rules(page.server, "warn", "suggest")
     open_app(page)
-    page.get_by_role("button", name="⋯ More").click()
-    page.get_by_text("Workflows", exact=False).first.click()
+    go(page, "settings", "workflows")
     mode = page.get_by_label("Mode for no-start-under-closed")
     expect(mode).to_have_value("warn")
     mode.select_option("error")

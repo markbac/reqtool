@@ -81,7 +81,7 @@ export function BaselinesPanel({ onClose }) {
           <div className="baseline-item-header">
             <span className="baseline-name mono">{b.name.replace('baseline/', '')}</span>
             <span className="baseline-date text-muted">{b.date?.slice(0, 10)}</span>
-            <button className="btn btn-ghost" style={{ fontSize: 11 }}
+            <button className="btn btn-ghost" style={{ fontSize: 12 }}
               onClick={() => handleDiff(b.name.replace('baseline/', ''))}>
               Diff vs now
             </button>
@@ -113,7 +113,7 @@ export function BaselinesPanel({ onClose }) {
               {diff.changed.map(r => (
                 <div key={r.id} className="diff-item">
                   <span className="mono">{r.id}</span>
-                  <span className="text-muted" style={{ fontSize: 10, marginLeft: 8 }}>v{r.current_version}</span>
+                  <span className="text-muted" style={{ fontSize: 12, marginLeft: 8 }}>v{r.current_version}</span>
                 </div>
               ))}
             </div>
@@ -125,7 +125,7 @@ export function BaselinesPanel({ onClose }) {
                 <div key={m.uid} className="diff-item">
                   <span className="mono">{m.id}</span>
                   {m.fields.map(f => (
-                    <div key={f.field} style={{ fontSize: 11, marginLeft: 12 }}>
+                    <div key={f.field} style={{ fontSize: 12, marginLeft: 12 }}>
                       <b>{f.field}</b>: <span className="text-muted">{JSON.stringify(f.old)}</span> → {JSON.stringify(f.new)}
                     </div>))}
                 </div>))}

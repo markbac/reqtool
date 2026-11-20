@@ -23,9 +23,10 @@ const HIERARCHY = {
 const TEMPLATE = { id: 'fr', label: 'Functional Requirement', description: 'A shall statement',
   fields: { req_type: 'functional', priority: 'high', content: { description: 'The system shall X', rationale: '' } } };
 
-function Setup({ product = { id: 'prod' }, permissions = null }) {
+function Setup({ product = { id: 'prod' }, permissions = null, area = null }) {
   const { dispatch } = useApp();
   useEffect(() => {
+    if (area) dispatch({ type: 'NAVIGATE', area });
     if (product) dispatch({ type: 'SET_ACTIVE_PRODUCT', payload: product });
     dispatch({ type: 'SET_TEMPLATES', payload: [TEMPLATE] });
     if (permissions) dispatch({ type: 'SET_PERMISSIONS', payload: { permissions, role: 'viewer' } });
@@ -56,15 +57,20 @@ describe('landing page create buttons', () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => vi.restoreAllMocks());
 
-  it('quick create lists the repository types, top-level types first', async () => {
+  it('quick create lists the types of the area, top-level types first (#373)', async () => {
     mount({});
+    await screen.findByTestId('quick-functional');
+    expect(screen.getAllByTestId(/^quick-/).map(b => b.dataset.testid)).toEqual(['quick-functional']);
+  });
+
+  it('in the Work area quick create offers the work item types', async () => {
+    mount({ area: 'work' });
     await screen.findByTestId('quick-theme');
-    const ids = screen.getAllByTestId(/^quick-/).map(b => b.dataset.testid);
-    expect(ids).toEqual(['quick-functional', 'quick-theme', 'quick-epic']);
+    expect(screen.getAllByTestId(/^quick-/).map(b => b.dataset.testid)).toEqual(['quick-theme', 'quick-epic']);
   });
 
   it('quick create makes the item, selects it and refreshes the tree', async () => {
-    const { calls, events } = mount({});
+    const { calls, events } = mount({ area: 'work' });
     fireEvent.click(await screen.findByTestId('quick-epic'));
     await waitFor(() => expect(calls.some(c => c.method === 'POST')).toBe(true));
     const post = calls.find(c => c.method === 'POST');

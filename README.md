@@ -124,16 +124,18 @@ my-reqs/
 │   ├── templates.yaml       # Requirement creation templates
 │   ├── custom_fields.yaml   # Custom field schema
 │   └── filter_presets.yaml  # Saved sidebar filter combinations
-├── requirements/
-│   └── <uid>.yaml           # One file per requirement
+├── requirements/            # Every requirement: stakeholder needs and system requirements
+│   ├── <uid>.yaml
+│   └── modules/
+│       └── <module-id>/
+│           ├── _module.yaml # Module manifest
+│           └── <uid>.yaml   # Module requirements
+├── work/
+│   └── <uid>.yaml           # Themes to tasks, defects, spikes and issues
 ├── principles/
 │   └── <uid>.yaml
 ├── decisions/
-│   └── <uid>.yaml           # Decisions (ADRs) and TBDs; older repositories may still have tbds/ (see `req migrate`)
-├── modules/
-│   └── <module-id>/
-│       ├── _module.yaml     # Module manifest
-│       └── <uid>.yaml       # Module requirements
+│   └── <uid>.yaml           # Decisions and ADRs, pending or made
 ├── products/
 │   └── <product-id>/
 │       ├── _product.yaml    # Product manifest (module refs, variants, root ordering)

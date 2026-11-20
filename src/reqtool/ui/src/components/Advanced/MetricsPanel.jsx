@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
+import { labelOf } from '../../labels';
 import { api } from '../../api';
+import { useApp } from '../../AppContext';
 import { Panel } from './Panel';
 
 export function MetricsPanel({ onClose }) {
+  const { state } = useApp();
+  const product = state.activeProduct?.id;
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.metrics.get().then(setData).catch(() => setData(null)).finally(() => setLoading(false));
-  }, []);
+    api.metrics.get(product).then(setData).catch(() => setData(null)).finally(() => setLoading(false));
+  }, [product]);
 
   const pct = (n, total) => total ? Math.round(n / total * 100) : 0;
 
@@ -27,8 +31,7 @@ export function MetricsPanel({ onClose }) {
           {[
             { label: 'Requirements', value: data.totals.requirements },
             { label: 'Principles',   value: data.totals.principles },
-            { label: 'TBDs',         value: data.totals.tbds, warn: data.totals.open_tbds > 0 },
-            { label: 'Open questions (TBD)',    value: data.totals.open_tbds, warn: data.totals.open_tbds > 0 },
+            { label: 'Pending decisions', value: data.totals.open_tbds, warn: data.totals.open_tbds > 0 },
           ].map(({ label, value, warn }) => (
             <div key={label} className="metrics-headline-card">
               <div className={`metrics-headline-value ${warn ? 'metrics-warn' : ''}`}>{value}</div>
@@ -41,7 +44,7 @@ export function MetricsPanel({ onClose }) {
         <div className="metrics-funnel">
           {Object.entries(data.status).sort((a,b) => b[1]-a[1]).map(([s, n]) => (
             <div key={s} className="metrics-bar-row">
-              <span className="metrics-bar-label">{s}</span>
+              <span className="metrics-bar-label">{labelOf.plain(s)}</span>
               <div className="metrics-bar-track">
                 <div className="metrics-bar-fill"
                   style={{ width: pct(n, data.totals.requirements) + '%', background: STATUS_COLOURS[s] || 'var(--border)' }} />
@@ -57,7 +60,7 @@ export function MetricsPanel({ onClose }) {
         <div className="metrics-section-title">Quality gaps</div>
         {Object.entries(data.quality_gaps).map(([key, n]) => (
           <div key={key} className="metrics-bar-row">
-            <span className="metrics-bar-label">{key.replace(/_/g,' ')}</span>
+            <span className="metrics-bar-label">{labelOf.plain(key)}</span>
             <div className="metrics-bar-track">
               <div className="metrics-bar-fill"
                 style={{ width: pct(n, data.totals.requirements) + '%', background: n > 0 ? 'var(--accent-orange)' : 'var(--border)' }} />

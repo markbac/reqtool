@@ -134,14 +134,25 @@ def new_principle(repo: Optional[str]):
     click.echo(click.style(f"Created: {result['id']} ({result['uid']})", fg="green"))
 
 
-@new.command("tbd")
+@new.command("decision")
+@click.option("--repo", default=None)
+def new_decision(repo: Optional[str]):
+    """Record a decision that is needed (it starts as Pending)."""
+    _new_pending_decision(repo)
+
+
+@new.command("tbd", hidden=True)
 @click.option("--repo", default=None)
 def new_tbd(repo: Optional[str]):
-    """Create a new TBD interactively."""
+    """Deprecated name for 'req new decision'."""
+    _new_pending_decision(repo)
+
+
+def _new_pending_decision(repo: Optional[str]) -> None:
     root = Path(repo).resolve() if repo else _repo_root()
-    tbd_id = click.prompt("ID (e.g. TBD-042)")
+    tbd_id = click.prompt("ID (e.g. DEC-042)")
     title = click.prompt("Title")
-    description = click.prompt("Description (what is unknown and why it matters)")
+    description = click.prompt("Description (what has to be decided and why it matters)")
 
     fields = {
         "id": tbd_id,
@@ -181,7 +192,7 @@ def show(id_or_uid: str, repo: Optional[str]):
                 return
 
     if _server_running():
-        for endpoint in ("/requirements", "/principles", "/tbds"):
+        for endpoint in ("/requirements", "/principles", "/decisions"):
             try:
                 items = _get(endpoint)
                 for item in items:
@@ -283,7 +294,7 @@ def stats(repo: Optional[str]):
     click.echo(click.style("Requirements", bold=True))
     click.echo(f"  Total:        {totals.get('requirements', 0)}")
     click.echo(f"  Principles:   {totals.get('principles', 0)}")
-    click.echo(f"  Open TBDs:    {totals.get('open_tbds', 0)}")
+    click.echo(f"  Pending decisions: {totals.get('open_tbds', 0)}")
     click.echo()
 
     click.echo(click.style("Status", bold=True))

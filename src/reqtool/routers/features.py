@@ -20,6 +20,7 @@ from reqtool.features import changesets, diff, doctor, insight, notifications, q
 from reqtool.features import testresults, trend
 from reqtool.intelligence import suggest_duplicates
 from reqtool.store import Store
+from .auth import get_current_user
 from .deps import get_store, not_found, publish_event, ReqUid
 
 router = APIRouter()
@@ -100,7 +101,24 @@ def requirement_quality(uid: ReqUid, store: Store = Depends(get_store)):
     req = store.get_requirement(uid)
     if req is None:
         raise not_found(uid)
-    return {"uid": uid, "findings": quality.check_requirement(req)}
+    return {"uid": uid, "findings": quality.check_requirement(req, store)}
+
+
+@router.post("/requirements/{uid}/decision-wording", tags=["quality"])
+def decision_wording_fine(uid: ReqUid, body: dict[str, Any], user: dict = Depends(get_current_user),
+                          store: Store = Depends(get_store)):
+    """Record that the requirement's wording still fits an accepted decision: clears its Q007 note."""
+    req = store.get_requirement(uid)
+    if req is None:
+        raise not_found(uid)
+    decision = store.resolve_decision(str(body.get("decision", "")))
+    if decision is None:
+        raise HTTPException(status_code=422, detail={"error": "bad_decision", "message": "Unknown decision"})
+    checked = list(dict.fromkeys([*(req.get("decision_wording_checked") or []), decision]))
+    by = user["username"] if user.get("authenticated") else str(body.get("by") or "user")
+    dec_id = store.decision_map()[decision].get("id", decision)
+    return store.update_requirement(uid, {"decision_wording_checked": checked},
+                                    summary=f"Wording checked against {dec_id} by {by}")
 
 
 @router.get("/query", tags=["query"])

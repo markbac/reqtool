@@ -88,7 +88,7 @@ def test_table_of_contents_has_page_numbers_and_outline(client):
     reader = PdfReader(io.BytesIO(r.content))
     assert len(reader.pages) > 3
     toc_lines = reader.pages[0].extract_text().splitlines()
-    i = next(n for n, ln in enumerate(toc_lines) if ln.startswith("6. Open Questions"))
+    i = next(n for n, ln in enumerate(toc_lines) if ln.startswith("6. Pending Decisions"))
     # the entry for the last section carries a page number greater than 1
     nearby = [ln.strip() for ln in toc_lines[max(0, i - 1): i + 2] if ln.strip().isdigit()]
     assert nearby and int(nearby[0]) > 1, toc_lines[max(0, i - 2): i + 3]

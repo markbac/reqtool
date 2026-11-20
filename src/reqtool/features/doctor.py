@@ -12,7 +12,7 @@ from typing import Any
 
 SECRET_PATTERNS = (".reqtool/.secret_key", ".reqtool/users.yaml", ".reqtool/api_keys.yaml")
 DEPENDENCIES = ("fastapi", "pydantic", "ruamel.yaml", "watchdog", "jwt", "reportlab")
-ARTEFACT_DIRS = ("requirements", "principles", "decisions", "modules", "products")
+ARTEFACT_DIRS = ("requirements", "work", "principles", "decisions", "modules", "products")
 
 
 def _check(level: str, code: str, message: str) -> dict[str, str]:
@@ -71,7 +71,7 @@ def run_doctor(store) -> dict[str, Any]:
         if not folder.is_dir():
             continue
         for f in folder.glob("*.yaml"):
-            if d in ("requirements", "principles", "decisions") and f.stem not in known:
+            if d in ("requirements", "work", "principles", "decisions") and f.stem not in known:
                 out.append(_check("warning", "orphan_file", f"{d}/{f.name} was not loaded as an artefact"))
 
     # operating mode

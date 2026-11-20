@@ -1,12 +1,14 @@
 """What each role sees: editors cannot delete or administer, viewers cannot change anything (auth required)."""
 
+import re
+
 import pytest
 from playwright.sync_api import expect
 
 from reqtool.auth import UserStore
 
 from .conftest import start_server
-from .helpers import field, panel, select_item
+from .helpers import field, go, panel, select_item
 
 PASSWORD = "correct-horse-battery"
 
@@ -45,6 +47,11 @@ def log_in(page, username):
 
 
 
+def settings_tabs(page):
+    go(page, "settings")
+    return page.locator(".page-tabs").get_by_role("tab")
+
+
 @pytest.mark.expect_http(401)
 def test_an_editor_edits_but_cannot_delete_or_administer(page):
     log_in(page, "ed")
@@ -52,10 +59,9 @@ def test_an_editor_edits_but_cannot_delete_or_administer(page):
     select_item(page, page.server.item["id"])
     expect(page.get_by_role("button", name="Save & Commit")).to_be_enabled()
     expect(page.get_by_role("button", name="Delete", exact=True)).to_have_count(0)
-    page.get_by_role("button", name="⋯ More").click()
-    for hidden in ("⌂ Repository", "⇌ Webhooks", "⊙ Vocabularies"):
-        expect(page.get_by_role("menuitem", name=hidden)).to_have_count(0)
-    page.get_by_role("menuitem", name="⬡ Workflows").click()
+    tabs = settings_tabs(page)
+    for hidden in ("Repository", "Webhooks", "Vocabularies"):
+        expect(tabs.filter(has_text=hidden)).to_have_count(0)
     p = panel(page, "Workflows")
     expect(p).to_contain_text("only an administrator can change them")
     expect(p.get_by_role("button", name="Save", exact=True)).to_have_count(0)
@@ -91,50 +97,50 @@ def test_an_administrator_has_everything(page):
     page.locator("select.header-select").first.select_option("p1")
     select_item(page, page.server.item["id"])
     expect(page.get_by_role("button", name="Delete", exact=True)).to_be_visible()
-    page.get_by_role("button", name="⋯ More").click()
-    for shown in ("⌂ Repository", "⇌ Webhooks", "⬡ Workflows", "✎ Writing check"):
-        expect(page.get_by_role("menuitem", name=shown)).to_be_visible()
+    tabs = settings_tabs(page)
+    for shown in ("Repository", "Webhooks", "Workflows", "Writing check"):
+        expect(tabs.filter(has_text=shown)).to_have_count(1)
 
 
 @pytest.mark.expect_http(401)
-@pytest.mark.parametrize("user, headings, hidden", [
-    ("root", ["View", "Create and import", "Quality", "Configure", "Admin", "Account"], []),
-    ("ed", ["View", "Create and import", "Quality", "Configure", "Admin", "Account"], ["⇌ Webhooks", "⌂ Repository", "⊙ Vocabularies"]),
-    ("vw", ["View", "Create and import", "Quality", "Configure", "Admin", "Account"], ["≡ Bulk update", "⇪ Import CSV", "⇌ Webhooks", "⌂ Repository"]),
+@pytest.mark.parametrize("user, hidden_tabs, page_buttons", [
+    ("root", [], ["Validate", "Export", "Import", "Bulk edit"]),
+    ("ed", ["Webhooks", "Repository"], ["Validate", "Export", "Import", "Bulk edit"]),
+    ("vw", ["Custom fields", "Vocabularies", "Templates", "Webhooks", "Repository"], ["Validate", "Export"]),
 ])
-def test_the_more_menu_is_grouped_and_follows_the_role(page, user, headings, hidden):
+def test_the_menu_and_pages_follow_the_role(page, user, hidden_tabs, page_buttons):
+    """Every role has the six areas; tabs and page buttons it cannot use are left out (#373)."""
     log_in(page, user)
-    page.get_by_role("button", name="⋯ More").click()
-    menu = page.get_by_role("menu", name="More tools")
-    for heading in headings:
-        expect(menu.get_by_role("group", name=heading)).to_be_visible()
-    for label in hidden:
-        expect(menu.get_by_role("menuitem", name=label)).to_have_count(0)
+    nav = page.get_by_role("navigation", name="Main")
+    for area in ("Requirements", "Work", "Decisions", "Principles", "Insights", "Settings"):
+        expect(nav.get_by_role("link", name=area).first).to_be_visible()
+    actions = page.locator(".page-actions")
+    for name in ("Validate", "Export", "Import", "Bulk edit"):
+        expect(actions.get_by_role("button", name=name, exact=True)).to_have_count(1 if name in page_buttons else 0)
+    tabs = settings_tabs(page)
+    expect(tabs.filter(has_text="Workflows")).to_have_count(1)
+    for name in hidden_tabs:
+        expect(tabs.filter(has_text=name)).to_have_count(0)
 
 
 @pytest.mark.expect_http(401)
-def test_a_group_with_nothing_for_the_role_is_dropped(page):
+def test_search_leaves_out_pages_the_role_cannot_use(page):
     log_in(page, "vw")
-    page.get_by_role("button", name="⋯ More").click()
-    menu = page.get_by_role("menu", name="More tools")
-    expect(menu.get_by_role("group", name="Create and import")).to_be_visible()   # iterations, diagram: open to read
-    menu.get_by_label("Find a tool").fill("webhook")
-    expect(menu.get_by_role("group")).to_have_count(0)
-    expect(menu).to_contain_text("Nothing matches")
+    page.keyboard.press("Control+k")
+    box = page.get_by_label("Search items, decisions and pages")
+    box.fill("settings: web")
+    expect(page.get_by_text('No results for "settings: web"')).to_be_visible()
 
 
 @pytest.mark.expect_http(401)
-def test_the_more_menu_is_searchable_and_works_from_the_keyboard(page):
+def test_a_page_opens_from_search_with_the_keyboard(page):
     log_in(page, "root")
-    page.get_by_role("button", name="⋯ More").click()
-    menu = page.get_by_role("menu", name="More tools")
-    expect(menu.get_by_label("Find a tool")).to_be_focused()
-    menu.get_by_label("Find a tool").fill("roadm")
-    expect(menu.get_by_role("menuitem")).to_have_count(1)
-    page.keyboard.press("Escape")
-    expect(menu).to_have_count(0)
-    page.get_by_role("button", name="⋯ More").click()
-    page.keyboard.press("ArrowDown")
+    page.keyboard.press("Control+k")
+    box = page.get_by_label("Search items, decisions and pages")
+    expect(box).to_be_focused()
+    box.fill("roadm")
+    results = page.get_by_role("dialog", name="Search").get_by_role("option")
+    expect(results.first).to_contain_text("Work: roadmap")   # pages come before items
     page.keyboard.press("Enter")
-    expect(page.get_by_role("menu", name="More tools")).to_have_count(0)
-    panel(page, "Overview")
+    expect(page).to_have_url(re.compile(r"#/work/roadmap(\?|$)"))
+    panel(page, "Roadmap")

@@ -3,7 +3,7 @@ vi.mock('@uiw/react-codemirror', () => ({ default: () => null }));
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AppProvider } from '../AppContext';
-import Header from '../components/Header.jsx';
+import { CmdPalette } from '../components/Advanced/CmdPalette.jsx';
 import { ExportPanel } from '../components/Panels.jsx';
 
 const json = (body, status = 200) => Promise.resolve({
@@ -11,16 +11,16 @@ const json = (body, status = 200) => Promise.resolve({
   json: () => Promise.resolve(body), text: () => Promise.resolve(JSON.stringify(body)),
 });
 
-describe('Templates menu entry (UI-02)', () => {
+describe('Templates page (UI-02, #373)', () => {
   beforeEach(() => { global.fetch = vi.fn(() => json([])); });
   afterEach(() => vi.restoreAllMocks());
 
-  it('is in the overflow menu and calls onTemplates', () => {
-    const onTemplates = vi.fn();
-    render(<AppProvider><Header onTemplates={onTemplates} /></AppProvider>);
-    fireEvent.click(screen.getByTitle('More tools'));
-    fireEvent.click(screen.getByText(/Templates/));
-    expect(onTemplates).toHaveBeenCalledTimes(1);
+  it('Ctrl+K finds the Settings templates page and opens it', () => {
+    const onNavigate = vi.fn();
+    render(<AppProvider><CmdPalette onClose={() => {}} onSelect={() => {}} onNavigate={onNavigate} /></AppProvider>);
+    fireEvent.change(screen.getByLabelText(/Search items/), { target: { value: 'templ' } });
+    fireEvent.click(screen.getByText('Settings: templates'));
+    expect(onNavigate).toHaveBeenCalledWith('settings', 'templates');
   });
 });
 

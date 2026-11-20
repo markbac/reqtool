@@ -6,9 +6,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useApp, useCan } from '../AppContext';
 import { RoadmapBoard } from './Views';
+import { labelOf } from '../labels';
 import { api } from '../api';
 import { Panel } from './Advanced/Panel';
 import ResolveDialog from './ResolveDialog';
+import { decisionStatusLabel, isPendingDecision } from '../decisions';
 import './Insight.css';
 
 const readText = (file) => (file.text ? file.text() : new Promise((resolve, reject) => {
@@ -87,7 +89,7 @@ export function OverviewPanel({ onClose }) {
         {overview.data && <>
           <div className="ins-grid">
             <Stat label="Requirements" value={overview.data.counts.requirements} />
-            <Stat label="Open questions (TBD)" value={overview.data.counts.open_tbds} />
+            <Stat label="Pending decisions" value={overview.data.counts.open_tbds} />
             <Stat label="Decisions" value={overview.data.counts.decisions} />
             <Stat label="Modules" value={overview.data.counts.modules} />
             <Stat label="Validation errors" value={overview.data.validation.errors} />
@@ -101,7 +103,7 @@ export function OverviewPanel({ onClose }) {
           ))}
           <h4>By status</h4>
           {Object.entries(overview.data.by_status).map(([s, n]) => (
-            <div className="ins-row" key={s}><span className="grow">{s.replace(/_/g, ' ')}</span><span>{n}</span></div>
+            <div className="ins-row" key={s}><span className="grow">{labelOf.plain(s)}</span><span>{n}</span></div>
           ))}
           <h4>Baselines</h4>
           <div className="ins-muted">{overview.data.baselines.length ? overview.data.baselines.map(b => b.replace('baseline/', '')).join(', ') : 'None yet'}</div>
@@ -125,7 +127,7 @@ export function OverviewPanel({ onClose }) {
         {trend.data && !trend.data.points.length && <div className="ins-muted">Create baselines to see a trend.</div>}
         {trend.data?.points.length > 0 && (
           <table style={{ width: '100%', fontSize: 12 }}>
-            <thead><tr><th align="left">Baseline</th><th>Reqs</th><th>Approved</th><th>Verified</th><th>Traced</th><th>TBDs</th><th>Churn</th></tr></thead>
+            <thead><tr><th align="left">Baseline</th><th>Reqs</th><th>Approved</th><th>Verified</th><th>Traced</th><th>Pending decisions</th><th>Churn</th></tr></thead>
             <tbody>{trend.data.points.map(p => (
               <tr key={p.baseline}>
                 <td className="mono">{p.baseline}</td><td align="center">{p.requirements}</td><td align="center">{pct(p.approved_pct)}</td>
@@ -189,7 +191,7 @@ function RoadmapNode({ node, depth, onOpen }) {
         <span className="mono">{node.id}</span>
         <span className="grow" title={node.title}>{node.title}</span>
         {node.target_release && <span className="ins-pill">{node.target_release}</span>}
-        <span className="ins-pill">{node.status}</span>
+        <span className="ins-pill">{labelOf.plain(node.status)}</span>
         <span style={{ width: 70 }}><Bar value={node.progress_pct} label={`${node.id} progress`} /></span>
         <span style={{ width: 34, textAlign: 'right' }}>{pct(node.progress_pct)}</span>
         <span className={`ins-pill ${HEALTH[node.health] || ''}`} title="Health: red when links are suspect, green when done">{node.health}</span>
@@ -267,7 +269,7 @@ function DecisionForm({ item, onSaved, onCancel }) {
     <div className="ins-form">
       <label>Title<input aria-label="Decision title" value={f.title} onChange={set('title')} /></label>
       <label>Status<select aria-label="Decision status" value={f.status} onChange={set('status')}>
-        {DECISION_STATUSES.map(s => <option key={s}>{s}</option>)}</select></label>
+        {DECISION_STATUSES.map(s => <option key={s} value={s}>{decisionStatusLabel(s)}</option>)}</select></label>
       <label>Context<textarea rows={2} value={f.context} onChange={set('context')} /></label>
       <label>Options (one per line: name | + pros; ... | - cons; ...)<textarea rows={3} aria-label="Options" value={f.options} onChange={set('options')} /></label>
       <label>Chosen option<input value={f.chosen} onChange={set('chosen')} /></label>
@@ -297,7 +299,7 @@ export function DecisionsPanel({ onClose }) {
   return (
     <Panel title="Decisions" onClose={onClose} width={640}>
       {resolving && <ResolveDialog tbd={resolving} onClose={() => setResolving(null)}
-        onResolved={async (body) => { await api.decisions.resolve(resolving.uid, body); setResolving(null); toast('Resolved to a decision', 'success'); list.reload(); }} />}
+        onResolved={async (body) => { await api.decisions.accept(resolving.uid, body); setResolving(null); toast('Decision accepted', 'success'); list.reload(); }} />}
       {editing ? <DecisionForm item={editing.uid ? editing : null} onSaved={done} onCancel={() => setEditing(null)} /> : <>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-primary" onClick={() => setEditing({})}>+ New decision</button>
@@ -307,11 +309,10 @@ export function DecisionsPanel({ onClose }) {
         {list.data && !list.data.length && <div className="ins-muted">No decisions yet.</div>}
         {list.data?.map(d => (
           <div className="ins-row" key={d.uid}>
-            <span className="ins-pill">{d.type}</span><span className="mono">{d.id}</span>
-            <span className="grow" title={d.title}>{d.title}</span><span className="ins-pill">{d.status}</span>
-            {d.type === 'tbd'
-              ? <button className="btn btn-ghost" onClick={() => setResolving(d)}>Resolve</button>
-              : <button className="btn btn-ghost" onClick={() => setEditing(d)}>Edit</button>}
+            <span className="mono">{d.id}</span>
+            <span className="grow" title={d.title}>{d.title}</span><span className="ins-pill">{decisionStatusLabel(d.status)}</span>
+            {isPendingDecision(d) && <button className="btn btn-ghost" onClick={() => setResolving(d)}>Accept</button>}
+            <button className="btn btn-ghost" onClick={() => setEditing(d)}>Edit</button>
           </div>
         ))}
       </>}
@@ -447,7 +448,7 @@ export function ChangeSetsPanel({ onClose }) {
 // ---------------------------------------------------------------------------
 // Inbox: notifications, review requests and preferences (FEAT-04, FEAT-10)
 // ---------------------------------------------------------------------------
-const NOTIFY_EVENTS = ['mention', 'review_requested', 'status_changed'];
+const NOTIFY_EVENTS = ['mention', 'review_requested', 'status_changed', 'decision_accepted'];
 
 export function InboxPanel({ onClose }) {
   const { state, dispatch, toast } = useApp();
@@ -483,7 +484,7 @@ export function InboxPanel({ onClose }) {
       {prefs.data && <>
         {NOTIFY_EVENTS.map(ev => (
           <label key={ev} style={{ display: 'block', fontSize: 12 }}>
-            <input type="checkbox" checked={prefs.data.events.includes(ev)} onChange={() => toggle(ev)} /> {ev.replace(/_/g, ' ')}
+            <input type="checkbox" checked={prefs.data.events.includes(ev)} onChange={() => toggle(ev)} /> {labelOf.plain(ev)}
           </label>))}
         <label style={{ display: 'block', fontSize: 12 }}>
           <input type="checkbox" checked={prefs.data.muted}
@@ -527,7 +528,7 @@ export function QueryPanel({ onClose }) {
         {result.results.map(r => (
           <div className="ins-row ins-clickable" key={r.uid}
             onClick={() => { dispatch({ type: 'SELECT', uid: r.uid, artefactType: 'requirement' }); onClose(); }}>
-            <span className="mono">{r.id}</span><span className="grow">{r.title}</span><span className="ins-pill">{r.status}</span>
+            <span className="mono">{r.id}</span><span className="grow">{r.title}</span><span className="ins-pill">{labelOf.plain(r.status)}</span>
           </div>))}
       </>}
       <h4>Saved views</h4>

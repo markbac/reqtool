@@ -223,10 +223,11 @@ class ApproveRequest(BaseModel):
 
 
 class ResolveRequest(BaseModel):
-    """Resolve a TBD or accept a decision. ``resolution`` is the older name for ``decision``."""
+    """Accept (or reject) a decision. ``resolution`` is the older name for ``decision``."""
     decision: Optional[str] = None
     resolution: Optional[str] = None
     rationale: Optional[str] = None
+    chosen_option: Optional[str] = None
     linked_decision: Optional[str] = None
     resolved_by: Optional[str] = None
 

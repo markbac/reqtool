@@ -113,9 +113,11 @@ def demo_repo(tmp_path_factory):
 
 
 class TestInitDemo:
-    def test_init_demo_creates_requirements(self, demo_repo):
+    def test_init_demo_creates_requirements_and_work_items(self, demo_repo):
         root, _ = demo_repo
-        assert len(list((root / "requirements").glob("*.yaml"))) >= 400
+        assert len(list((root / "requirements").glob("*.yaml"))) >= 240          # needs and system requirements
+        assert len(list((root / "work").glob("*.yaml"))) >= 150                  # themes to tasks and issues (#380)
+        assert len(list((root / "requirements" / "modules").glob("*/_module.yaml"))) == 3
 
     def test_init_demo_creates_product(self, demo_repo):
         root, _ = demo_repo
@@ -127,10 +129,11 @@ class TestInitDemo:
         assert {"env-sensor-v1", "thread_gateway", "cloud_platform", "companion_app",
                 "sensor_pro", "sensor_lite", "sensor_industrial"} <= products
 
-    def test_init_demo_creates_tbds(self, demo_repo):
+    def test_init_demo_creates_pending_decisions_and_no_tbds(self, demo_repo):
         root, _ = demo_repo
-        tbds = [p for p in (root / "decisions").glob("*.yaml") if "type: tbd" in p.read_text()]
-        assert len(tbds) >= 10
+        texts = [p.read_text() for p in (root / "decisions").glob("*.yaml")]
+        assert len([t for t in texts if "status: proposed" in t]) >= 10
+        assert not any("type: tbd" in t or "TBD-" in t for t in texts)
 
     def test_init_demo_creates_principles(self, demo_repo):
         root, _ = demo_repo

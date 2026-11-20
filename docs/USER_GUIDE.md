@@ -106,7 +106,7 @@ reqtool init systems --principles security,operations  # a list
 ```
 Without the option, a terminal asks (the answer defaults to a set suited to the variant) and a script gets that default. An unknown area stops the command before anything is written. Later, `req principles packs` lists the packs and how many of their principles you have, `req principles add-pack <area>...` (or `all`) adds more without duplicating anything, and `req principles place` gives older principles an area and category (`req migrate` does this too).
 
-**The demo.** `reqtool init demo` builds *Sentinel*, a made-up IoT product family, so every screen has something real to show. It has seven products (the environmental sensor, a Thread gateway, a cloud platform, a companion app, and Pro, Lite and Industrial variants built from shared modules), about 250 needs and systems requirements in every workflow state, three themes down to eight initiatives, 14 epics, 10 features, 74 stories, 37 tasks, defects and spikes, and 14 issues that cover every triage outcome. Five sprints (three finished, one running, one planned) and three phase gates have dated status history, so the burn-up, flow and kanban views show real movement, a few items are stuck, and one story was closed with an open task by forcing a parent and child rule with a reason. It also has 14 decisions (including a superseded one and a rejected one), 15 open questions (some resolved into decisions), around 130 principles from the packs with citations for the heatmap, comments, review requests, attachments, saved views and automation rules. Baselines and change sets need git history, so a new demo has none: run `git init` and commit, then create them. Dates are relative to the day the demo is made.
+**The demo.** `reqtool init demo` builds *Sentinel*, a made-up IoT product family, so every screen has something real to show. It has seven products (the environmental sensor, a Thread gateway, a cloud platform, a companion app, and Pro, Lite and Industrial variants built from shared modules), about 250 needs and systems requirements in every workflow state, three themes down to eight initiatives, 14 epics, 10 features, 74 stories, 37 tasks, defects and spikes, and 14 issues that cover every triage outcome. Five sprints (three finished, one running, one planned) and three phase gates have dated status history, so the burn-up, flow and kanban views show real movement, a few items are stuck, and one story was closed with an open task by forcing a parent and child rule with a reason. It also has 14 decisions (including a superseded one and a rejected one), decisions pending, accepted, rejected and superseded, some named in requirement text, around 130 principles from the packs with citations for the heatmap, comments, review requests, attachments, saved views and automation rules. Baselines and change sets need git history, so a new demo has none: run `git init` and commit, then create them. Dates are relative to the day the demo is made.
 
 ### `reqtool serve` — Start API & Web Workstation
 Launches the FastAPI backend and serves the embedded React UI workstation:
@@ -175,7 +175,7 @@ reqtool diff v1.0.0               # Changes since tag v1.0.0
 ### `reqtool gate`, `doctor`, `query`, `test-results`, `snapshot` -- Delivery Checks
 These commands work on the repository files and need no server:
 ```bash
-reqtool gate [--product P1]            # release-readiness gate: open TBDs, unverified safety items, suspect links, trace gaps. Exits 1 on findings
+reqtool gate [--product P1]            # release-readiness gate: pending decisions, unverified safety items, suspect links, trace gaps. Exits 1 on findings
 reqtool doctor                         # configuration, secrets hygiene, dependency, hierarchy and stray-file checks. Exits 1 on errors
 reqtool query 'status = approved AND priority = high'   # query language over requirements
 reqtool test-results junit.xml [--source ci] [--run-url URL]   # set verification status from JUnit XML (test names carry a requirement id such as FR-042)
@@ -210,10 +210,9 @@ Launching `reqtool serve` opens the interactive web workstation in your browser 
 ```
 
 ### 3.1 Multi-Level Tree Explorer View
-- Located in the left sidebar.
-- Displays nested requirement hierarchies (Themes → Initiatives → Epics → Features → Stories).
+- **Requirements > Tree** shows needs and system requirements; **Work > Backlog** shows themes → initiatives → epics → features → stories. The tree has a filter box at the top.
 - **Add child:** right-click a node and choose **+ Add child**. The type of the new item comes from the parent's allowed child types (`GET /hierarchy/children/{type}`): if only one is allowed it is created straight away, otherwise a small menu lets you pick. Types with no allowed children (for example a task) say so instead of creating an item. **+ Add sibling** creates an item of the same type as the one you clicked.
-- **Quick create:** the empty editor (nothing selected) lists every item type your repository defines in `.reqtool/hierarchy.yaml`, top-level types first, and creates the item at once, opens it and adds it to the tree. Select a product first. The **From template** cards beside it do the same with a template's fields filled in, as do **Use** in **⋯ More > Templates** and the templates in Help. Viewers see no create buttons.
+- **Quick create:** the empty editor (nothing selected) lists every item type your repository defines in `.reqtool/hierarchy.yaml`, top-level types first, and creates the item at once, opens it and adds it to the tree. Select a product first. The **From template** cards beside it do the same with a template's fields filled in, as do **Use** in **Settings > Templates** and the templates in Help. Viewers see no create buttons.
 - **Move to...:** right-click a node and choose **⇄ Move to...** to pick a new parent from a searchable list (or **(top level)** for no parent). Only parents the hierarchy allows can be chosen: the others are greyed out, and hovering shows why (for example "A story cannot go under a theme"). It works with the keyboard and screen readers.
 - **Drag and drop:** drag a node onto the parent you want, or onto the empty part of the tree to make it a top-level item. The target is outlined green when the move is allowed and red when it is not. Moving an item onto itself or one of its own descendants is refused with a message (the server also refuses it with `409 parent_cycle`). Unsaved changes to the item must be saved or discarded first. If a loop already exists in the files, validation reports `parent_cycle` and the tree shows each item once.
 
@@ -222,17 +221,17 @@ Launching `reqtool serve` opens the interactive web workstation in your browser 
 Saving a change to a requirement marks every relationship that points at it as *suspect* in the items that depend on it. Suspect links show as a warning count (`⚠ n`) on the tree node and as a `⚠ suspect` tag on the relationship row in the editor's Relations tab. The flag spreads transitively: if A changes, items that depend on A are flagged, and so are items that depend on those. Each newly flagged item gets a history entry ("Link to A became suspect") but no version bump, and the flag is not part of the content hash, so it never triggers `hash_mismatch` or makes an approval stale. Use **Review** to open the linked item, and **Clear suspect** once you have checked that the dependant is still correct. `req validate` warns (`suspect_link`) for approved items that still have suspect links, and `GET /metrics` reports `totals.suspect_links`.
 
 ### 3.2 Bulk update
-- Access via **⋯ More > Bulk update** (editors and administrators).
+- Access via **Bulk edit** on the Requirements or Work page (editors and administrators).
 - Select several requirements and set a field on all of them in one commit.
 
 ### 3.3 Traceability grid and matrix
-- Access via **⋯ More > Traceability**. It has two tabs.
+- Access via **Insights > Traceability**. It has two tabs.
 - **Requirements × links** is the grid. Pick what runs across the top (**Tests**, **Modules** or **Decisions**), tick **Only requirements with no link** to list the gaps, page through long lists, and use **Download CSV** to take the grid away. A cell is ticked when the requirement is linked and the tooltip gives the state of what it is linked to. A requirement with no link carries a red **no link** tag. Only the 40 most used columns are drawn, and the header says how many were left out. `GET /traceability/grid` returns the same data (`columns`, `gaps`, `offset`, `limit`, `format=csv`).
 - **Requirements × teams** is the older matrix of the `Allocated To` teams.
 - Tests are the test-case links on an item's acceptance criteria. Modules are its `Allocated To` list. Decisions are the decisions that name it in their affected requirements.
 
 ### 3.3a Views
-**⋯ More > Views** draws the work in eight ways. Each picture has a table or text form beside it, and every item in it opens in the editor when clicked.
+**Insights > Views** draws the work in eight ways. Each picture has a table or text form beside it, and every item in it opens in the editor when clicked.
 - **Hierarchy:** the tree of items with their status colour. Filter by type and by status (parents of matches are kept so the shape stays readable), collapse or expand all, and see "Showing N of M" when a very large tree is cut at 400 items.
 - **Type structure:** which type may sit under which (the rules in `hierarchy.yaml`) as a diagram. **Export Mermaid**, **Save SVG** and **Save PNG** take it away.
 - **Coverage:** a treemap of the hierarchy, each box sized by the items at or below it and striped by status or by verification state. **Show table** gives the same numbers as a table, and the legend names every colour.
@@ -248,21 +247,34 @@ flow:
 
   Time in a state comes from the move recorded in the item's history (`status_from`, `status_to`); items moved before this was recorded count from when they were created. An item that has children (an epic waiting on its stories, say) is a container and is never counted as stuck.
 - **Burn-up:** for one iteration, the scope and the work done over time, in the repository's estimate unit (an item with no estimate counts as one). Scope is dated by when each item was created or the iteration started, because the tool does not record when an item was assigned to an iteration.
-- **Decision ageing:** open decisions and open questions, those blocking the most items first, with their age and the items they block.
+- **Decision ageing:** pending decisions, those blocking the most items first, with their age and the items they block.
 - **Principles:** a heatmap of area and category against how many requirements cite each principle. Dashed boxes are principles nothing cites; a list shows the requirements that cite none.
 
 The same data is served by `GET /views/hierarchy`, `/views/type-structure`, `/views/coverage`, `/views/impact/{uid}`, `/views/flow`, `/views/burnup/{iteration}`, `/views/decisions` and `/views/principles`.
 
-### 3.3b The More menu
-**⋯ More** groups its tools under headings, and hides a heading when your role can use nothing under it: **View** (Overview, Roadmap, Views, Coverage, Traceability, Decisions & ADRs, Query, Inbox), **Create and import** (Bulk update, Import CSV, Iterations & Gates, Change sets, Diagram Canvas), **Quality** (Writing check, Duplicate Detector), **Configure** (Workflows, Vocabularies, Custom fields, Templates, Automation Rules), **Admin** (Modules, Baselines, Webhooks, Repository) and **Account** (Login / Server). Type in the box at the top to find a tool, press Enter to open the first match, use the arrow keys, Home and End to move and Esc to close. The fallback workflow is edited from **More > Workflows**.
+### 3.3b Finding your way: the menu and the pages
+The menu on the left has six areas. Each is a page with tabs, and the page you are on is in the address, so **Back**, bookmarks, reload and shared links all work (for example `#/work/backlog?item=<uid>&tab=relations`). The menu collapses to icons (remembered), shows icons only in a narrower window, and below 900 px wide opens from the **☰** button in the header.
+
+| Area | Tabs | Holds |
+|---|---|---|
+| **Requirements** | Tree, Query, Modules, Baselines, Change sets; **Check** menu: Writing check, Duplicates | Stakeholder needs and system requirements, including module requirements. **Validate**, **Export**, **Import** and **Bulk edit** are on the page. |
+| **Work** | Issues, Backlog, Tree, Board, Roadmap, Iterations | Issues until triage, then themes, initiatives, epics, features, stories, tasks, defects and spikes |
+| **Decisions** | List (Pending, Accepted, Rejected, Superseded), Options and ADRs | Decisions and ADRs. **Options and ADRs** edits the options, ATAM analysis and status of each decision and exports them as ADRs. |
+| **Principles** | Library, Where cited | Principles |
+| **Insights** | Overview (with the release gate and metrics), Coverage, Traceability, Views, Diagrams | Figures across all of the above |
+| **Settings** | Workflows, Custom fields, Vocabularies, Templates, Automation, Webhooks, Writing check, Repository | Configuration. Custom fields, Vocabularies and Templates appear for roles that may manage configuration, Webhooks and Repository for administrators. |
+
+The header holds only what every page needs: the product, search (`Ctrl+K`, which also finds pages such as "Settings: templates"), git status and **Sync**, **Inbox**, theme, help and your account. The product you choose is remembered for each repository; one in the address wins. Where a page has no editor of its own, a selected item opens in the editor on the right. Quick tasks (Validate, Export, Import, Bulk edit, Inbox, Help, Login) open in a drawer on the right; Escape closes it.
+
+**Work > Backlog** lists the work items as a tree under their themes, epics and features, with type, status, points, assignee, iteration, how many requirements each one satisfies or implements (a story, task or feature with none is flagged) and the progress of each parent. Filter by type, status, iteration (including **Not planned**), assignee or text. Drag an item onto the middle of another to move it under it (the parent and child rules apply), or between two items with the same parent to reorder; the order is kept as `rank` in the files. **Work > Tree** shows the same hierarchy as a tree with the editor beside it, with the tree's own gestures (add child, add sibling, drag onto a new parent). The board (**Work > Board**) shows work items only, never requirements or untriaged issues.
 
 ### 3.4 Side-by-Side Version Diff Inspector & Command Palette (`Ctrl+K`)
 - **Command Palette:** Press `Ctrl+K` (or `Cmd+K`) anywhere in the application to instantly search requirements, trigger action shortcuts, or switch products.
 - **Diff Inspector:** Compare historical git versions side-by-side with color-coded diff highlighting.
 
 ### 3.5 Release Roadmap & Kanban Board
-- **Roadmap:** **⋯ More > Roadmap** has a **List** (Theme, Initiative, Epic with progress and health) and a **Board**. The board has one lane per theme and one column per target release (or per iteration, from the **Columns** menu), with an **unplanned** column for items with no release. Each card shows its progress. Editors and administrators drag a card to another column, or use the menu on the card, to set its release or iteration; viewers see the board read-only. Dependencies (`depends_on`) between themes and initiatives are listed under the board and the longest chain is marked.
-- **Kanban:** **Task Mgmt** in the sidebar. Columns are workflow states (pick a type to see that type's own workflow). Cards show their parent, what they wait on (⛔), how many children are still open, and a **⚠ rule** marker when they break a parent and child rule.
+- **Roadmap:** **Work > Roadmap** has a **List** (Theme, Initiative, Epic with progress and health) and a **Board**. The board has one lane per theme and one column per target release (or per iteration, from the **Columns** menu), with an **unplanned** column for items with no release. Each card shows its progress. Editors and administrators drag a card to another column, or use the menu on the card, to set its release or iteration; viewers see the board read-only. Dependencies (`depends_on`) between themes and initiatives are listed under the board and the longest chain is marked.
+- **Kanban:** **Work > Board**. Work items only, in workflow order with Cancelled last. Columns are workflow states (pick a type to see that type's own workflow). Cards show their parent, what they wait on (⛔), how many children are still open, and a **⚠ rule** marker when they break a parent and child rule.
 - Drag a card to another column, or use the **Move to** menu on the card (keyboard users: Tab to the card, then the menu). A move that needs something the item lacks, or that a rule comments on, opens the same pop-up as the editor so you can fill it in, force it with a reason where your role allows it, or accept suggested moves for the parent. Cancelling leaves the board as it was.
 - Viewers see the board but cannot drag, move or create. **+ New** creates an item of the chosen type through the same path as quick create. The iteration and person filters are lists taken from the repository.
 - See 3.8 for how columns are chosen.
@@ -271,13 +283,13 @@ The same data is served by `GET /views/hierarchy`, `/views/type-structure`, `/vi
 `GET /requirements` accepts `limit` (1 to 10000) and `offset`, sorted by ID, and always returns the number of matching items in the `X-Total-Count` response header. Without `limit` it returns everything, as before. The **Coverage** panel now reads the server-side summary from `GET /metrics` (status, priority and quality gaps) instead of downloading every requirement, so it matches the Metrics dashboard.
 
 ### 3.6 Robustness and panels
-- **Duplicate Detector** (**⋯ More > Duplicate Detector**) lists likely duplicate pairs with both IDs, both titles and the similarity score. Click either side to open that requirement.
+- **Duplicate Detector** (**Requirements > Duplicates** (from the **Check** menu)) lists likely duplicate pairs with both IDs, both titles and the similarity score. Click either side to open that requirement.
 - **Iteration metrics** (`GET /iterations/{id}/metrics`) count the requirements whose **Iteration** field equals the iteration's id or title (deleted ones are excluded), so assigning a requirement changes the totals, approved/draft counts and completion percentage. The older `iteration_id` field was removed; existing files that have it are read as `iteration`.
 - **Iterations** created without a methodology (for example through the API or CLI) are shown and returned as `scrum`.
 - If a panel hits an unexpected error it is closed and a dismissable message shows the error. If the whole interface fails, a **Try again / Reload** screen is shown instead of a blank page.
 
 ### 3.7 Export and Templates
-- **Export** (top bar) offers CSV, Markdown, JSX, ReqIF 1.2, PDF and the Audit Package. PDF downloads the whole specification (or one product if you enter its id) as `specification.pdf`, the same document as `GET`/`POST /export/pdf`.
+- **Export** (on the Requirements and Insights pages) offers CSV, Markdown, JSX, ReqIF 1.2, PDF and the Audit Package. PDF downloads the whole specification (or one product if you enter its id) as `specification.pdf`, the same document as `GET`/`POST /export/pdf`.
 - **PDF details:** the PDF embeds DejaVu Sans, so Latin, Greek, Cyrillic and many technical symbols print correctly. The cover shows the **Source Revision**: the Git commit it was generated from, whether the working tree was `clean` or had `uncommitted changes`, and any `baseline/*` tag on that commit. The table of contents has page numbers and the PDF has an outline. The running header and the footer (for example the classification label) are set in `.reqtool/config.yaml`:
 
 ```yaml
@@ -289,14 +301,14 @@ export:
 ```
 
   Chinese, Japanese and Korean text needs a TrueType font with glyph outlines: set `fallback_font` to a `.ttf` or `.ttc` file, or install one that is found automatically (WenQuanYi, Droid Sans Fallback, Arial Unicode, Microsoft YaHei and SimSun are tried). Noto Sans CJK in its usual OpenType (CFF) form cannot be embedded and is skipped with a warning; without a usable font those characters are not drawn.
-- **Templates:** open **⋯ More > Templates** to view and manage the requirement templates used by the empty editor and the **+ New** button.
+- **Templates:** open **Settings > Templates** to view and manage the requirement templates used by the empty editor and the **+ New** button.
 
 #### Progress and estimate rollups
 - **Progress** (`GET /requirements/{uid}/progress`) is measured over the leaf items beneath a parent. The parent itself and any `cancelled` items are left out. An item counts as done when it is in a terminal state of its own type's workflow (for example `done`), so `active` does not count. Progress is weighted by estimate when the leaves have estimates, otherwise by item count.
 - **Estimate rollup** (`GET /requirements/{uid}/rollup`) is the sum of the estimates of all leaf descendants, at any depth, excluding cancelled items. A parent's own estimate is never added, so nothing is double counted.
 
 ### 3.9 Principles by area and category
-Principles are grouped in two levels: an **area** (Architecture) and a **category** inside it (Security), shown in the **Principles** tab as Area > Category > Principle with counts. Everything starts collapsed; opening a principle opens its own area and category. Search and the status filter open every group that matches.
+Principles are grouped in two levels: an **area** (Architecture) and a **category** inside it (Security), shown under **Principles > Library** as Area > Category > Principle with counts. Everything starts collapsed; opening a principle opens its own area and category. Search and the status filter open every group that matches.
 
 - **Default areas:** Business, Product, Architecture, Software engineering, Hardware and firmware, Security, Data and privacy, Delivery and process, Operations and support, and Safety and quality. Each has several categories (for example Architecture has Structure and layering, Integration and interfaces, Data, Security, Resilience and availability, Performance and scalability, Observability, and Evolution and technical debt), and about 195 principles in all, each with a statement, a rationale and usually its implications. **Architecture > Security** holds design-level principles (defence in depth, least privilege, trust boundaries, secure defaults, threat modelling). The **Security** area holds engineering practice: credentials, cryptography, supply chain, secure development and vulnerability handling.
 - **Add default principles:** administrators use **+ Defaults** to add packs. The dialog shows how many of each pack's principles the repository already has. Principles already present, including ones you deleted, are never added again, so adding a pack twice is safe.
@@ -310,9 +322,9 @@ Principles are grouped in two levels: an **area** (Architecture) and a **categor
 
 ### 3.8 Insight Panels, Reviews and Change Sets
 - **Editor, Insight tab:** trace (upstream, downstream and gaps), lifecycle stage and blockers, quality findings and impact. A status strip under the validation bar summarises the same. Saving a change shows an **impact preview** to confirm first.
-- **Overview and Roadmap** (header menu): per-product readiness and a Now/Next/Later view. Themes, initiatives and epics show a progress bar in the tree, and `GET /requirements/{uid}/summary` gives a strategic roll-up.
+- **Insights > Overview** and **Work > Roadmap**: per-product readiness and a Now/Next/Later view. Themes, initiatives and epics show a progress bar in the tree, and `GET /requirements/{uid}/summary` gives a strategic roll-up.
 - **Kanban:** columns are the union of the workflow states of the types shown, and items whose status matches no column go to an **Uncolumned** lane. Themes and initiatives are left off the default board (they have the Roadmap); choose that type explicitly to see them.
-- **Decisions, Modules and Query panels:** decisions, ADRs and TBDs (with resolve), module create, version, clone, pin, consumers, verification and update preview, and a query box.
+- **Decisions, Modules and Query panels:** decisions and ADRs (with accept), module create, version, clone, pin, consumers, verification and update preview, and a query box.
 - **Reviews and approvals:** request a review from the editor (`POST /requirements/{uid}/review-requests`). Approving with a stale `content_hash` returns `409 stale_content`. The **Inbox** lists review requests and `@mentions`; per-user notification preferences are `/notifications/preferences/{user}`.
 - **Change sets:** a change set is a `changeset/*` branch. Create, switch, diff and merge from the **Change Sets** panel (`/changesets`).
 - **Baselines:** the Baselines panel shows field-level differences (`GET /baselines/field-diff`) and `GET /trend` charts readiness between baselines.
@@ -357,19 +369,23 @@ Every type has a Definition of Ready or Done where it makes sense, including the
 
 Themes and initiatives show a **Strategic Fields** section in the editor: outcome, success measures, time horizon (`now`, `next`, `later`), target release, business value and risks. The values are stored under `custom_fields`, are included in Markdown exports and can be picked in CSV exports as `custom_fields.outcome` and so on. The field list comes from `type_fields` in `hierarchy.yaml`, so a repository can change it or add the same for other types.
 
-#### Decisions and TBDs
+#### Decisions
 
-In the app they are one **Decisions** area: the **Decisions** tab in the sidebar (and **⋯ More > Decisions & ADRs**) lists decisions, ADRs and open questions together, with a **Kind** filter (all, decisions and ADRs, open questions) and a status filter. **+ New** asks which kind first. One editor opens for all of them; an open question shows **Resolve**, and once resolved it says "Resolved into DEC-..." while the decision says "Resolves TBD-...", each a link to the other. A link such as `?uid=...&type=tbd` still opens the item. "TBD" is still the name in the files and in `/tbds`, which stays for existing clients and has no removal date yet; the screens call it an *open question (TBD)*.
+A decision is **Pending** until it is made, then **Accepted**, **Rejected** or **Superseded**. A question that needs an answer is simply a pending decision: there is no separate open-question or TBD kind. Pending is stored as `status: proposed`.
 
-A TBD is a decision record with `type: tbd`; both live in one collection and in the `decisions/` folder, served by `/decisions` (everything) and `/tbds` (TBDs only, kept for existing clients). Repositories created before this change keep working with a `tbds/` folder. Run `req migrate` to move those files into `decisions/`; it is safe to run twice and leaves a file in place if `decisions/` already holds a different copy.
+**Decisions** in the menu lists decisions by status, with Pending first. **+ Decision needed** creates a pending decision. Each one records what has to be decided, the impact, the owner, when it is needed by, the options, and the requirements waiting on it. **Accept decision** asks for the decision text (required), the rationale, the chosen option and an optional linked decision or ADR, and records who accepted it and when (the logged-in user, or the name supplied in local mode). **Reject** records the reason. `POST /decisions/{uid}/accept` and `POST /decisions/{uid}/reject` do the same.
 
-Resolving a TBD needs a decision text. The **Resolve** dialog (and `POST /tbds/{uid}/resolve` with `decision`, `rationale` and `linked_decision`) records the decision, the rationale, an optional linked ADR, the resolver (the logged-in user, or the name supplied in local mode) and the time. Older clients that send only `resolution` still work. To refuse approval of requirements that link to an open TBD, set `validation.block_approval_on_open_tbds: true` in `config.yaml`; approval then answers `409 open_tbd` listing the TBDs. Without it the existing `open_tbd_on_approved` warning is all you get.
+**Decisions in requirement text.** Write `[DEC-012]` in a requirement to name a decision. The editor shows each one as a chip: amber while pending, green with a tick once accepted, struck through when rejected or superseded, with the decision on hover. The text is never changed for you, because that would change an approved requirement's content without a review. Instead, when a decision is accepted, every requirement that links to it or names it gets an advisory note, **Decision accepted: check the wording** (quality code `Q007`), and its owner gets an inbox notification. The editor offers **Insert decision text**, an ordinary edit that you save and commit, or **Wording is fine**, which clears the note and records that in the history (`POST /requirements/{uid}/decision-wording`).
+
+**Approval gate.** To refuse approval of a requirement that links to a pending decision, set `validation.block_approval_on_pending_decisions: true` in `config.yaml`; approval then answers `409 pending_decision` listing the decisions. Without it, an approved requirement that links to a pending decision gets the `pending_decision_on_approved` warning. The gate lifts as soon as the decision is accepted.
+
+**Repositories from before this change.** Run `req migrate`. It moves a legacy `tbds/` folder into `decisions/`, turns every `type: tbd` record into a decision with a `DEC-nnn` id (open and in-progress questions become Pending, resolved ones Accepted), and folds a resolved question that became a decision into that decision. The old id is kept as an alias, so `[TBD-002]` markers, `?type=tbd` links and requirement links still resolve; requirement links of type `tbd` become `decision`. It is safe to run twice. Until you migrate, old records still load and validation warns `legacy_tbd`. The old names keep working for one release: `/tbds` (now listing and creating pending decisions), `POST .../resolve` (now the same as accept), `req new tbd`, and the settings `block_approval_on_open_tbds` and `warn_on_open_tbds_in_approved`.
 
 ### 4.0 Where workflows live and how to edit them
 
 `req init` copies the workflows into the repository as `.reqtool/hierarchy.yaml`, written out in full: every state, the states each one can move to, and every guard setting (`requires_fields`, `requires_ac`, `requires_children_in`, `children_enforce`, `message`). From then on the repository owns them, and an older repository gets the file from `req migrate`. You can edit the file by hand or use the workflow editor.
 
-**Workflow editor** (More > Workflows, administrators only; other roles can look but not change):
+**Workflow editor** (**Settings > Workflows**, administrators only; other roles can look but not change):
 
 1. Pick a workflow, or create a new one or a copy of an existing one. A workflow in use by an item type cannot be deleted.
 2. Add states, set labels and colours, mark end states and choose the start state. Ids are lower case letters, digits and underscores.
@@ -378,7 +394,7 @@ Resolving a TBD needs a decision text. The **Resolve** dialog (and `POST /tbds/{
 5. The diagram above redraws as you edit. It is drawn by the server. Errors (an unreachable state, a move to a state that does not exist) stop **Save**, and warnings (items whose status the new workflow no longer has) are shown.
 6. **Which workflow each item type uses** changes the type's workflow at once.
 
-The workflow in `.reqtool/config.yaml` stays as the fallback for item types with no workflow of their own (More > Workflows, then **Edit the fallback workflow**).
+The workflow in `.reqtool/config.yaml` stays as the fallback for item types with no workflow of their own (**Settings > Workflows**, then **Edit the fallback workflow**).
 
 ### 4.0a Moving an item on
 
@@ -386,44 +402,41 @@ The status buttons in the item editor move the item to the next state. If the mo
 
 ### 4.0c Issues and triage
 
-Not everything reported as wrong is a defect. The **Issue** type is the intake record for "something looks wrong": it is raised first, triaged, and only a confirmed defect becomes defect work. (The old **Bug** type is now labelled **Defect** everywhere; its id stays `bug`, so existing items and exports do not change.)
+Not everything reported as wrong is a defect. An **Issue** is a report: "something looks wrong". It stays an issue until triage decides what it is, then it either becomes work or is closed with a reason. (The **Bug** type is labelled **Defect** everywhere; its id stays `bug`, so existing items and exports do not change.)
 
-Issues use the `triage` workflow:
+Issues live on **Work > Issues**, in queues: **New**, **In triage**, **Needs info**, **Rejected** and **Converted**. The **Work** entry in the menu shows how many are waiting. Issues use the `triage` workflow:
 
 ```mermaid
 stateDiagram-v2
     [*] --> reported
     reported --> in_triage
-    in_triage --> defect
-    in_triage --> user_error
-    in_triage --> enhancement
-    in_triage --> duplicate
-    in_triage --> not_reproducible
     in_triage --> needs_info
     needs_info --> in_triage
-    defect --> fixing
-    fixing --> fixed
-    fixed --> closed
-    enhancement --> planned
-    planned --> closed
+    in_triage --> user_error
+    in_triage --> duplicate
+    in_triage --> not_reproducible
+    in_triage --> wont_do
+    in_triage --> closed
+    in_triage --> Converted: defect, feature or story
 ```
 
-| Decision | What it means | The move asks for |
+| Decision | What happens | It asks for |
 |---|---|---|
-| **Defect** | It is wrong and ours to fix | Priority and a triage note |
-| **User error** | Working as designed | A triage note saying what to do instead |
-| **Enhancement request** | Not wrong, but a reasonable ask | A triage note |
-| **Duplicate** | The same as another issue | **Duplicate of** (the other issue's id) |
-| **Not reproducible** | Could not see it happen | A triage note saying what was tried |
+| **Make it a defect** | The issue becomes a defect: the same record, with a new `BG-` id and the defect workflow | Optionally the requirement it breaks, a parent and the priority |
+| **Make it a feature or story** | The issue becomes that work item | Optionally the requirement it satisfies or changes, and a parent |
+| **Reject: user error** | Working as designed | A triage note saying what to do instead |
+| **Reject: duplicate** | The same as another issue | **Duplicate of** (the other issue's id) |
+| **Reject: not reproducible** | Could not see it happen | A triage note saying what was tried |
+| **Reject: won't do** | A fair report we will not act on | A triage note saying why |
 | **Needs info** | Waiting for the reporter | A triage note saying what is needed |
 
-Starting triage (`In triage`) needs an assignee, so someone owns the decision. The pop-up asks for each of these when you press the status button, and the server enforces the same. The issue form has fields for what was seen and expected, steps, version and environment (**Issue Report** in the template list pre-fills them). A decided issue can be reopened with **In triage**.
+**Start triage** makes the person triaging the owner (an assignee is required to triage). Converting keeps the uid, so comments, attachments, links and history stay with the item; its history says when it was converted and by whom, and the old `ISS-` id is kept as an alias that still opens it. A converted defect is linked to the requirement it breaks (`traces_to`), and a story or feature to the one it serves (`satisfies`). `POST /requirements/{uid}/triage` with `outcome` (`start`, `needs_info`, `rejected` with a `reason`, `defect`, `feature` or `story`), `note`, `parent`, `link` and `priority` does the same from scripts. A rejected issue can be reopened with **In triage**. The issue form has fields for what was seen and expected, steps, version and environment (**Issue Report** in the template list pre-fills them).
 
-When an issue is a **Defect** or an **Enhancement request**, **Raise a defect** (or **Raise a story**) in the editor header creates the work item, copies the title, description and priority, links it back with `derived_from`, and opens it (`POST /requirements/{uid}/raise`, optionally with `req_type`). Track the work on the new item; the issue can follow with `fixing`, `fixed` and `closed`. A queue of issues needing triage is the tree or the search filtered to the `issue` type and the `reported` or `in_triage` status.
+**Repositories from before this change.** The old flow raised a separate item (`POST /requirements/{uid}/raise`, now deprecated) and kept work states such as `fixing` on the issue. `req migrate` closes an issue that already raised a work item and points it at that item (`converted_to`), and converts the rest in place. A repository keeps its own `triage` workflow in `hierarchy.yaml`; new repositories get the simpler one above.
 
 ### 4.0b Parent and child rules
 
-Status moves can be checked against the item's family and can move the family for you. The rules live under `rules:` in `.reqtool/hierarchy.yaml` and are edited in **⋯ More > Workflows**, under **Parent and child rules** (administrators; everyone else can read them). A repository made with `req init` starts with the defaults below. A repository made earlier gets the same rules, all switched off, from `req migrate`, so nothing changes until an administrator turns them on.
+Status moves can be checked against the item's family and can move the family for you. The rules live under `rules:` in `.reqtool/hierarchy.yaml` and are edited in **Settings > Workflows**, under **Parent and child rules** (administrators; everyone else can read them). A repository made with `req init` starts with the defaults below. A repository made earlier gets the same rules, all switched off, from `req migrate`, so nothing changes until an administrator turns them on.
 
 | Kind | Does | Modes |
 |---|---|---|
@@ -501,16 +514,16 @@ The writing check reads the description, rationale and extended description of e
 | REQ001 | A vague term that cannot be verified (`fast`, `user-friendly`, `etc`) | warning |
 | REQ002 | A requirement description without "shall" | off |
 
-Code blocks, inline code, URLs and HTML are not checked. Findings show under the item in the editor, for the whole repository in More > Writing check, and from `reqtool lint`. They are not part of `reqtool validate` unless `include_in_validation` is true.
+Code blocks, inline code, URLs and HTML are not checked. Findings show under the item in the editor, for the whole repository in **Requirements > Writing check** (the **Check** menu), and from `reqtool lint`. They are not part of `reqtool validate` unless `include_in_validation` is true.
 
-**Settings** are in `.reqtool/lint.yaml` (every setting is written out when the repository is created) and administrators can edit them in More > Writing check > Settings: switch rules on and off, set each rule's severity, choose the fields, and edit the glossary, wordy phrases, vague terms and acronyms that need no definition.
+**Settings** are in `.reqtool/lint.yaml` (every setting is written out when the repository is created) and administrators can edit them in **Settings > Writing check**: switch rules on and off, set each rule's severity, choose the fields, and edit the glossary, wordy phrases, vague terms and acronyms that need no definition.
 
 **Vale.** [Vale](https://vale.sh) is an optional prose linter. Run `reqtool tools` to download it (the setup scripts `dev.sh`, `dev.ps1` and `run.ps1` do this for you whenever they check the virtual environment), then turn on "Use Vale". reqtool generates a Vale configuration from the settings (styles, checks to turn off, lowest alert level, time limit), or uses your own `.vale.ini` if you give its path. Styles go in `.reqtool/vale/styles` unless you set another folder. If Vale is missing or fails, the built-in rules still run and the settings page says Vale was not found.
 
 ## 5. Modules, Variant Overlays & Parameter Substitution
 
 ### 5.1 Reusable Modules
-Store shared requirements in `modules/<module-id>/_module.yaml`. Import external git repository modules using:
+Store shared requirements in `requirements/modules/<module-id>/`, with the manifest in `_module.yaml`. Repositories from before this layout keep their modules in `modules/<module-id>/` until `req migrate` moves them. Import external git repository modules using:
 ```bash
 reqtool import <module-id>
 ```
@@ -552,7 +565,7 @@ There is no default account. Older repositories that still contain the `admin` /
 | Role | Can do |
 |---|---|
 | `viewer` | Read everything. Cannot change anything (the editor is read-only and the buttons are hidden). |
-| `editor` | Add and change requirements, principles, TBDs, comments, attachments, approvals and status. Cannot delete, and has none of the administrator functions. |
+| `editor` | Add and change requirements, principles, decisions, comments, attachments, approvals and status. Cannot delete, and has none of the administrator functions. |
 | `admin` | Everything an editor can, plus deleting items, workflows, writing-check settings, configuration, vocabularies, custom fields, templates, automation rules, repository creation and switching, modules, products, baselines, webhooks and users. |
 
 The rules are in one table (`src/reqtool/permissions.py`) and are enforced by the server in `required` mode, so the buttons the UI hides are also refused if called directly. `GET /permissions` tells a client what the signed-in role may do. In `local` mode there is one user, who is an administrator.
@@ -577,7 +590,7 @@ While a Git merge, rebase, cherry-pick or revert is in progress, or any file is 
 
 ### 6.2b Baselines
 
-`POST /baselines` tags the last commit. If requirements, principles, decisions, TBDs, modules or products have uncommitted changes, it answers `409 dirty_working_tree` and lists the affected IDs, because the tag would not contain them. Commit first, or pass `allow_dirty: true` to proceed anyway. The tag message then records which items were left out. The Baselines panel asks for confirmation in the same situation.
+`POST /baselines` tags the last commit. If requirements, principles, decisions, modules or products have uncommitted changes, it answers `409 dirty_working_tree` and lists the affected IDs, because the tag would not contain them. Commit first, or pass `allow_dirty: true` to proceed anyway. The tag message then records which items were left out. The Baselines panel asks for confirmation in the same situation.
 
 ### 6.2a Item IDs
 
@@ -628,7 +641,7 @@ With `REQTOOL_GITHUB_WEBHOOK_SECRET` set, a signed push webhook to `POST /webhoo
 
 ## 7. Behaviour Notes
 
-- **Commits:** committing a requirement or TBD commits only that file. Other staged changes stay staged. The commit SHA is no longer written into the YAML; the history view reads it from git. Committing with nothing staged returns 409.
+- **Commits:** committing a requirement or decision commits only that file. Other staged changes stay staged. The commit SHA is no longer written into the YAML; the history view reads it from git. Committing with nothing staged returns 409.
 - **History:** a requirement's change history is append-only. It is no longer cut to 20 entries.
 - **CLI and server:** the `req` commands work on the repository files directly and need no server. A running server picks up those edits through its file watcher, so the CLI and the web UI can be used side by side.
 - **Saving:** YAML files are written atomically (temporary file, then rename).

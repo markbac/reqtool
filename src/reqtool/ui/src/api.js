@@ -77,7 +77,6 @@ export const api = {
     history:       (uid)           => get(`/requirements/${uid}/history`),
     transition:    (uid, status, extra = {}) => post(`/requirements/${uid}/transition`, { to_state: status, ...extra }),
     transitions:   (uid)           => get(`/requirements/${uid}/transitions`),
-    raise:         (uid, reqType)  => post(`/requirements/${uid}/raise`, reqType ? { req_type: reqType } : {}),
     lint:          (uid)           => get(`/requirements/${uid}/lint`),
     relationships: (uid)         => get(`/requirements/${uid}/relationships`),
     addAc:         (uid, body)   => post(`/requirements/${uid}/ac`, body),
@@ -90,6 +89,8 @@ export const api = {
     summary:       (uid)         => get(`/requirements/${uid}/summary`),
     lifecycle:     (uid)         => get(`/requirements/${uid}/lifecycle`),
     quality:       (uid)         => get(`/requirements/${uid}/quality`),
+    triage:        (uid, body)   => post(`/requirements/${uid}/triage`, { by: localStorage.getItem('reqtool:username') || 'user', ...body,
+      parent: body.parent?.uid ?? body.parent ?? null, link: body.link?.uid ?? body.link ?? null }),
     impact:        (uid)         => get(`/requirements/${uid}/impact`),
     impactPreview: (uid, body)   => post(`/requirements/${uid}/impact-preview`, body),
     progress:      (uid)         => get(`/requirements/${uid}/progress`),
@@ -120,6 +121,11 @@ export const api = {
     commit:  (uid, body)   => post(`/tbds/${uid}/commit`, body),
     resolve: (uid, body)   => post(`/tbds/${uid}/resolve`, { resolved_by: localStorage.getItem('reqtool:username') || 'user', ...body }),
   },
+  work: {
+    issues:  (product)         => get('/work/issues' + (product ? `?product=${encodeURIComponent(product)}` : '')),
+    backlog: (product)         => get('/work/backlog' + (product ? `?product=${encodeURIComponent(product)}` : '')),
+    rank:    (uid, where)      => post(`/work/backlog/${uid}/rank`, where),
+  },
   decisions: {
     list:    (params = {}) => get('/decisions?' + new URLSearchParams(params)),
     get:     (uid)         => get(`/decisions/${uid}`),
@@ -127,7 +133,11 @@ export const api = {
     update:  (uid, body)   => put(`/decisions/${uid}`, body),
     delete:  (uid)         => del(`/decisions/${uid}`),
     commit:  (uid, body)   => post(`/decisions/${uid}/commit`, body),
-    resolve: (uid, body)   => post(`/decisions/${uid}/resolve`, body),
+    accept:  (uid, body)   => post(`/decisions/${uid}/accept`, { resolved_by: localStorage.getItem('reqtool:username') || 'user', ...body }),
+    reject:  (uid, body)   => post(`/decisions/${uid}/reject`, { resolved_by: localStorage.getItem('reqtool:username') || 'user', ...body }),
+    resolve: (uid, body)   => post(`/decisions/${uid}/accept`, body),
+    wordingFine: (reqUid, decision) => post(`/requirements/${reqUid}/decision-wording`,
+      { decision, by: localStorage.getItem('reqtool:username') || 'user' }),
   },
   products: {
     list:   ()      => get('/products'),
@@ -284,7 +294,7 @@ export const api = {
     method: 'POST', headers: { 'Content-Type': 'application/xml', 'X-Reqtool-CSRF': '1' }, body: xml,
   }).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(new Error(e?.detail?.message || 'Upload failed')))),
   metrics: {
-    get: () => get('/metrics'),
+    get: (product) => get('/metrics' + (product ? `?product=${encodeURIComponent(product)}` : '')),
   },
   iterations: {
     list:   ()     => get('/iterations'),

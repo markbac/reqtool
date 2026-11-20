@@ -402,7 +402,7 @@ def test_module_pin_and_update_preview(c, repo_root, monkeypatch, tmp_path):
     from reqtool.features import registry
     from reqtool.fileio import load_yaml, save_yaml
     c.post("/modules", json={"id": "ext"})
-    path = repo_root / "modules" / "ext" / "_module.yaml"
+    path = repo_root / "requirements" / "modules" / "ext" / "_module.yaml"   # #380
     assert c.post("/modules/ext/pin", json={"ref": "v1.2.0"}).status_code == 409  # no remote yet
     m = load_yaml(path)
     m["git_remote"] = "https://example.com/ext.git"
@@ -410,7 +410,7 @@ def test_module_pin_and_update_preview(c, repo_root, monkeypatch, tmp_path):
     c.app.state.store.reload_modules()
     assert c.post("/modules/ext/pin", json={"ref": "--upload-pack=x"}).status_code == 409
     assert c.post("/modules/ext/pin", json={"ref": "v1.2.0"}).json()["git_ref"] == "v1.2.0"
-    remote = repo_root / "modules" / "ext" / "remote"
+    remote = repo_root / "requirements" / "modules" / "ext" / "remote"
     remote.mkdir()
     (remote / "a.yaml").write_text("x: 1\n")
     (remote / "b.yaml").write_text("x: 1\n")
@@ -428,10 +428,11 @@ def test_module_pin_and_update_preview(c, repo_root, monkeypatch, tmp_path):
 
 def test_kanban_excludes_strategic_types_and_unions_columns(c):
     make_req(c, title="A theme item here", req_type="theme")
-    make_req(c, title="A functional item", req_type="functional")
+    make_req(c, title="A functional item", req_type="functional")   # requirements have their own area (#373)
+    make_req(c, title="A story item here", req_type="story")
     board = c.get("/kanban").json()
     cards = [card for col in board["columns"].values() for card in col]
-    assert {x["req_type"] for x in cards} == {"functional"}
+    assert {x["req_type"] for x in cards} == {"story"}
     assert board["states"]
     explicit = c.get("/kanban", params={"req_type": "theme"}).json()
     assert [x["req_type"] for col in explicit["columns"].values() for x in col] == ["theme"]
@@ -439,7 +440,7 @@ def test_kanban_excludes_strategic_types_and_unions_columns(c):
 
 def test_kanban_unknown_status_goes_to_uncolumned_lane(c, repo_root):
     app = c.app
-    r = make_req(c, title="Odd status item")
+    r = make_req(c, title="Odd status item", req_type="task")
     app.state.store.requirements[r["uid"]]["status"] = "bogus"
     board = c.get("/kanban").json()
     assert [x["uid"] for x in board["columns"]["_uncolumned"]] == [r["uid"]]

@@ -4,13 +4,17 @@
  */
 
 import { createContext, useContext, useReducer, useMemo } from 'react';
+import { DEFAULT_TAB, parseRoute } from './route';
+
+// The page comes from the address (#372): area, tab, selected item and editor tab.
+const start = typeof window !== 'undefined' ? parseRoute(window.location.hash, window.location.search) : parseRoute();
 
 const initialState = {
   products: [], activeProduct: null, activeVariant: null,
   enums: {}, workflow: null, hierarchy: null, templates: [],
   permissions: null, role: null, operatingMode: null,
-  selectedUid: null, selectedType: null,
-  panel: 'requirements',
+  selectedUid: start.item, selectedType: start.item ? start.type : null,
+  area: start.area, tab: start.tab, editorTab: start.editorTab, routeProduct: start.product,
   dirtyUids: new Set(),
   searchQuery: '',
   _showValidation: false, _showExport: false, _showCoverage: false,
@@ -27,7 +31,9 @@ const initialState = {
 function reducer(state, action) {
   switch (action.type) {
     case 'SET_PRODUCTS':      return { ...state, products: action.payload };
-    case 'SET_ACTIVE_PRODUCT':return { ...state, activeProduct: action.payload, selectedUid: null };
+    case 'SET_ACTIVE_PRODUCT':return { ...state, activeProduct: action.payload,
+                                       selectedUid: action.keepSelection ? state.selectedUid : null,
+                                       selectedType: action.keepSelection ? state.selectedType : null };
     case 'SET_ACTIVE_VARIANT':return { ...state, activeVariant: action.payload };
     case 'SET_ENUMS':         return { ...state, enums: action.payload };
     case 'SET_WORKFLOW':      return { ...state, workflow: action.payload };
@@ -37,7 +43,19 @@ function reducer(state, action) {
     case 'SET_TEMPLATES':     return { ...state, templates: action.payload };
     case 'SELECT':            return { ...state, selectedUid: action.uid, selectedType: action.artefactType };
     case 'DESELECT':          return { ...state, selectedUid: null, selectedType: null };
-    case 'SET_PANEL':         return { ...state, panel: action.payload, selectedUid: null, selectedType: null };
+    case 'NAVIGATE': {
+      // Go to an area (and tab). The selection is kept only when asked, or when the item is opened at the same time.
+      const area = action.area ?? state.area;
+      const tab = action.tab ?? (area === state.area && !action.area ? state.tab : DEFAULT_TAB[area]);
+      const keep = action.keepSelection || action.uid;
+      return { ...state, area, tab, editorTab: action.editorTab ?? null,
+        selectedUid: keep ? (action.uid ?? state.selectedUid) : null,
+        selectedType: keep ? (action.artefactType ?? state.selectedType) : null };
+    }
+    case 'ROUTE':             // the address changed (Back, Forward, a pasted link)
+      return { ...state, area: action.route.area, tab: action.route.tab, editorTab: action.route.editorTab,
+        selectedUid: action.route.item, selectedType: action.route.item ? action.route.type : null };
+    case 'SET_EDITOR_TAB':    return { ...state, editorTab: action.payload };
     case 'MARK_DIRTY': {
       return { ...state, dirtyUids: new Set([...state.dirtyUids, action.uid]) };
     }

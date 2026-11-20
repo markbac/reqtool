@@ -165,16 +165,16 @@ function Settings({ info, editable, onSaved }) {
           <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? <span className="spinner" /> : 'Save settings'}</button>
           <button className="btn btn-secondary" onClick={() => setS(info.defaults)}>Reset to defaults</button>
         </div>
-      ) : <div className="text-muted" style={{ marginTop: 8, fontSize: 11 }}>Only an administrator can change these settings.</div>}
+      ) : <div className="text-muted" style={{ marginTop: 8, fontSize: 12 }}>Only an administrator can change these settings.</div>}
     </div>
   );
 }
 
 /** Repository-wide writing results, and (for administrators) the settings that drive them. */
-export function WritingCheckPanel({ onClose }) {
+export function WritingCheckPanel({ onClose, initialTab }) {
   const { dispatch } = useApp();
   const can = useCan();
-  const [tab, setTab] = useState('results');
+  const [tab, setTab] = useState(initialTab || 'results');
   const [report, setReport] = useState(null);
   const [info, setInfo] = useState(null);
   const [error, setError] = useState(null);

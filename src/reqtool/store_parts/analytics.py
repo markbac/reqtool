@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
+from reqtool import layout
 from reqtool.graph import relationship_target
 
 from reqtool.store_parts._host import StoreHost
@@ -12,6 +13,7 @@ from reqtool.store_parts._host import StoreHost
 log = logging.getLogger(__name__)
 
 STRATEGIC_TYPES = ("theme", "initiative")
+END_COLUMNS = ("cancelled", "rejected", "deprecated")
 
 
 class AnalyticsMixin(StoreHost):
@@ -99,8 +101,12 @@ class AnalyticsMixin(StoreHost):
         Cards contain: uid, id, title, assignee, estimate, priority, req_type.
         """
         # The delivery board leaves out the strategic layers (they have a roadmap): an explicit type still works.
+        # Only work items are worked on the board (#373): requirements have their own area, and an issue joins
+        # the board once triage has turned it into a defect or story.
         live = [(uid, r) for uid, r in self.requirements.items() if not r.get("deleted")
-                and (req_type is None and r.get("req_type") not in STRATEGIC_TYPES or r.get("req_type") == req_type)]
+                and (req_type is None and r.get("req_type") not in STRATEGIC_TYPES and r.get("req_type") != "issue"
+                     and layout.family(r.get("req_type"), self.hierarchy) == "work"
+                     or r.get("req_type") == req_type)]
         if req_type:
             wf = self.get_workflow_for_type(req_type)
             states = [st.id for st in wf.states] if wf else [st.id for st in self.config.workflow.states]
@@ -115,6 +121,8 @@ class AnalyticsMixin(StoreHost):
                         states.append(st)
             if not states:
                 states = [st.id for st in self.config.workflow.states]
+        # Columns follow the workflow order, with ways out of the flow (cancelled, rejected) last (#377).
+        states = [s for s in states if s not in END_COLUMNS] + [s for s in states if s in END_COLUMNS]
 
         columns: dict[str, list[dict]] = {s: [] for s in states}
         columns["_uncolumned"] = []

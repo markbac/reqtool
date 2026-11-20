@@ -2,6 +2,7 @@
  * Panels.jsx -- Validation and Export overlay panels.
  */
 
+import { Panel } from './Advanced/Panel';
 import { useState, useEffect } from 'react';
 import { useApp } from '../AppContext';
 import { api } from '../api';
@@ -37,19 +38,14 @@ export function ValidationPanel({ onClose }) {
       <span className="validation-code mono">{item.code ?? kind}</span>
       <div style={{ flex: 1 }}>
         <div className="validation-msg">{item.message}</div>
-        {item.field && <div className="validation-field mono" style={{ fontSize: 10, color: 'var(--text-muted)' }}>field: {item.field}</div>}
+        {item.field && <div className="validation-field mono" style={{ fontSize: 12, color: 'var(--text-muted)' }}>field: {item.field}</div>}
       </div>
       {item.uid && <span className="validation-nav-hint">→</span>}
     </div>
   );
 
   return (
-    <div className="panel-overlay" onClick={onClose}>
-      <div className="side-panel" onClick={e => e.stopPropagation()}>
-        <div className="side-panel-header">
-          <span className="side-panel-title">Validation</span>
-          <button className="btn btn-ghost" onClick={onClose}>✕</button>
-        </div>
+    <Panel title="Validation" onClose={onClose} raw>
 
         {loading && <div className="panel-loading"><div className="spinner" /></div>}
 
@@ -78,8 +74,7 @@ export function ValidationPanel({ onClose }) {
             )}
           </div>
         )}
-      </div>
-    </div>
+    </Panel>
   );
 }
 
@@ -148,12 +143,7 @@ export function ExportPanel({ onClose }) {
   };
 
   return (
-    <div className="panel-overlay" onClick={onClose}>
-      <div className="side-panel" onClick={e => e.stopPropagation()} style={{ width: 420 }}>
-        <div className="side-panel-header">
-          <span className="side-panel-title">Export</span>
-          <button className="btn btn-ghost" onClick={onClose}>✕</button>
-        </div>
+    <Panel title="Export" onClose={onClose} raw>
         <div className="panel-body">
           <div className="field-group">
             <label className="field-label">Format</label>
@@ -168,14 +158,14 @@ export function ExportPanel({ onClose }) {
               ].map(f => (
                 <label key={f.id} className={`export-format-option ${format === f.id ? 'active' : ''}`}>
                   <input type="radio" name="format" value={f.id} checked={format === f.id} onChange={() => setFormat(f.id)} />
-                  <span className="mono" style={{ fontSize: 11 }}>{f.label}</span>
+                  <span className="mono" style={{ fontSize: 12 }}>{f.label}</span>
                 </label>
               ))}
             </div>
           </div>
 
           <div className="field-group">
-            <label className="field-label">Product <span style={{ color: 'var(--text-muted)', textTransform: 'none', fontSize: 11 }}>(optional)</span></label>
+            <label className="field-label">Product <span style={{ color: 'var(--text-muted)', textTransform: 'none', fontSize: 12 }}>(optional)</span></label>
             <input value={product} onChange={e => setProduct(e.target.value)} placeholder="All products" />
           </div>
 
@@ -192,18 +182,18 @@ export function ExportPanel({ onClose }) {
 
           {format === 'csv' && (
             <div className="field-group">
-              <label className="field-label">Fields <span style={{ color: 'var(--text-muted)', textTransform: 'none', fontSize: 11 }}>(one per line)</span></label>
+              <label className="field-label">Fields <span style={{ color: 'var(--text-muted)', textTransform: 'none', fontSize: 12 }}>(one per line)</span></label>
               <textarea
                 value={csvFields}
                 onChange={e => setCsvFields(e.target.value)}
                 rows={8}
-                style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}
               />
             </div>
           )}
 
           {format === 'audit_package' && (
-            <div className="field-group" style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-secondary)', padding: 8, borderRadius: 4 }}>
+            <div className="field-group" style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--bg-secondary)', padding: 8, borderRadius: 4 }}>
               Generates a 21 CFR Part 11 / ISO 26262 audit zip package for the scope and contents you choose.
               <div style={{ marginTop: 6 }}>
                 <label>Scope{' '}
@@ -226,7 +216,6 @@ export function ExportPanel({ onClose }) {
             {busy ? <span className="spinner" /> : `↓ Export ${format.toUpperCase()}`}
           </button>
         </div>
-      </div>
-    </div>
+    </Panel>
   );
 }

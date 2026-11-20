@@ -1,7 +1,7 @@
 """
 reqtool.stores.comment_store
 ============================
-Comment storage helper functions for managing discussion comments on requirements, principles, and TBDs.
+Comment storage helper functions for managing discussion comments on requirements, principles and decisions.
 """
 
 from __future__ import annotations

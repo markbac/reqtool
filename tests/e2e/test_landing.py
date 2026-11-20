@@ -14,17 +14,23 @@ def test_quick_create_makes_the_item_and_shows_it_in_the_tree(page):
     expect(page.get_by_role("button", name="Save & Commit")).to_be_visible()
 
 
-def test_quick_create_offers_the_repositorys_types(page):
-    open_app(page)
+WORK = {"theme", "initiative", "epic", "feature", "story", "task", "bug", "spike", "issue"}
+
+
+def test_quick_create_offers_the_repositorys_types_in_their_own_area(page):
     types = page.server.get("/hierarchy/types")
-    for type_id in types:
-        expect(page.get_by_test_id(f"quick-{type_id}")).to_be_visible()
+    for area, wanted in (("work/tree", lambda t: t in WORK), ("requirements", lambda t: t not in WORK)):
+        open_app(page, area=area)
+        for type_id in types:
+            target = page.get_by_test_id(f"quick-{type_id}")
+            expect(target).to_be_visible() if wanted(type_id) else expect(target).to_have_count(0)
 
 
 def test_a_template_card_creates_the_item_and_shows_it(page):
     templates = page.server.get("/templates")
     assert templates, "the agile flavour ships templates"
-    open_app(page)
+    kind = (templates[0].get("fields") or {}).get("req_type", "functional")
+    open_app(page, area="work/tree" if kind in WORK else "requirements")
     card = page.get_by_test_id(f"template-{templates[0]['id']}")
     card.click()
     items = wait_until(lambda: page.server.get("/requirements"), what="the item made from the template")

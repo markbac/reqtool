@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 # Event types that mean the file changed. Others (opened, closed_no_write) come from reading it.
 CHANGE_EVENTS = ("created", "modified", "deleted", "moved", "closed")
-WATCHED_DIRS = ("requirements", "principles", "decisions", "tbds", "modules", "products", ".reqtool")
+WATCHED_DIRS = ("requirements", "work", "principles", "decisions", "tbds", "modules", "products", ".reqtool")
 
 
 def make_handler(store: Any):

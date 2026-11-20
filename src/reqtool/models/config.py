@@ -19,7 +19,7 @@ class CoreEnums(BaseModel):
         "active",
         # Issue triage workflow
         "reported", "in_triage", "needs_info", "defect", "fixing", "fixed", "enhancement", "planned",
-        "user_error", "duplicate", "not_reproducible", "closed",
+        "user_error", "duplicate", "not_reproducible", "wont_do", "closed",
         # TBD
         "open", "resolved",
     ]
@@ -59,7 +59,7 @@ class CoreEnums(BaseModel):
     ]
     link_type: list[str] = [
         "implements", "compliance", "backlog_item", "source_document",
-        "governed_by", "test_case", "test_suite", "references", "issue", "tbd",
+        "governed_by", "test_case", "test_suite", "references", "issue", "decision", "tbd",
     ]
 
 
@@ -198,9 +198,21 @@ class ValidationConfig(BaseModel):
     require_ac_for_approved: bool = True
     require_owner: bool = True
     warn_on_missing_test_ref: bool = True
-    warn_on_open_tbds_in_approved: bool = True
-    block_approval_on_open_tbds: bool = False  # policy: refuse approval while a linked TBD is open
+    warn_on_pending_decisions_in_approved: bool = True
+    block_approval_on_pending_decisions: bool = False  # policy: refuse approval while a linked decision is pending
+    # Deprecated names (#371), still read: either one being set turns the matching setting on.
+    warn_on_open_tbds_in_approved: Optional[bool] = None
+    block_approval_on_open_tbds: Optional[bool] = None
     max_history_entries: int = 20
+
+    @property
+    def warns_on_pending_decisions(self) -> bool:
+        legacy = self.warn_on_open_tbds_in_approved
+        return self.warn_on_pending_decisions_in_approved if legacy is None else legacy
+
+    @property
+    def blocks_on_pending_decisions(self) -> bool:
+        return self.block_approval_on_pending_decisions or bool(self.block_approval_on_open_tbds)
 
 
 class RepoConfig(BaseModel):
@@ -224,6 +236,8 @@ class RepoConfig(BaseModel):
 
 class ItemTypeConfig(BaseModel):
     label: str
+    # Which folder and area items of this type belong to (#380): requirements/ or work/. None: the built-in default.
+    family: Optional[Literal["requirement", "work"]] = None
     icon: str = ""
     color: str = "#8b949e"
     description: str = ""

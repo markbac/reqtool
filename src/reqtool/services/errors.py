@@ -65,8 +65,11 @@ class StaleContent(Conflict):
     code = "stale_content"
 
 
-class OpenTbd(Conflict):
-    code = "open_tbd"
+class PendingDecision(Conflict):
+    code = "pending_decision"
+
+
+OpenTbd = PendingDecision  # deprecated name (#371)
 
 
 class Forbidden(ServiceError):

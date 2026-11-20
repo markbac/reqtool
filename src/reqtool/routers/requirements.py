@@ -264,10 +264,22 @@ def transition_requirement(uid: ReqUid, body: dict, service: RequirementService 
                               reason=str(body.get("reason") or ""), actor=user)
 
 
-@router.post("/requirements/{uid}/raise", status_code=201)
+@router.post("/requirements/{uid}/raise", status_code=201, deprecated=True)
 def raise_from_issue(uid: ReqUid, body: dict, service: RequirementService = Depends(get_service)):
-    """Raise the work an issue needs: a defect (or the type you name), linked back to the issue."""
+    """Deprecated (#379): use ``/triage``, which converts the issue itself. This still creates a separate item."""
     return service.raise_from(uid, body.get("req_type") or None)
+
+
+@router.post("/requirements/{uid}/triage")
+def triage_issue(uid: ReqUid, body: dict, user: dict = Depends(get_current_user),
+                 service: RequirementService = Depends(get_service)):
+    """Decide what an issue is (#379). ``outcome``: ``start``, ``needs_info``, ``rejected`` (with ``reason``:
+    user_error, duplicate, not_reproducible, wont_do), or ``defect``, ``feature``, ``story`` to convert it in place
+    (with optional ``parent``, ``link`` to a requirement, and ``priority``). ``note`` is the triage note."""
+    return service.triage(uid, str(body.get("outcome") or ""), note=str(body.get("note") or ""),
+                          reason=str(body.get("reason") or ""), duplicate_of=str(body.get("duplicate_of") or ""),
+                          parent=body.get("parent") or None, link=body.get("link") or None,
+                          priority=body.get("priority") or None, actor=user, by=str(body.get("by") or ""))
 
 
 @router.get("/requirements/{uid}/transitions")

@@ -31,11 +31,13 @@ import { useApp, useCan } from '../AppContext';
 import { TransitionDialog, getPath, isFilled } from './TransitionDialog';
 import { ForceDialog, SuggestDialog, ruleBlock, rollupSummary } from './RuleDialogs';
 import { WritingStrip } from './WritingCheck';
+import { labelOf } from '../labels';
 import { api } from '../api';
 import { createAndOpen, quickTypes, templateBody, typeBody } from '../createItem';
 import { PlacementFields, principlesChanged } from './Principles';
 import CommitModal from './CommitModal';
 import ResolveDialog from './ResolveDialog';
+import { DECISION_TABS, decisionStatusLabel, isPendingDecision } from '../decisions';
 import ItemInsight, { StatusStrip } from './ItemInsight';
 import { AttachmentsSection, DiscussionSection as CommentsSection } from './Advanced';
 import './Editor.css';
@@ -58,7 +60,7 @@ function DomainBadge({ domain, style = {} }) {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
-      padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+      padding: '2px 8px', borderRadius: 4, fontSize: 12, fontWeight: 600,
       background: colour + '22', color: colour,
       border: `1px solid ${colour}55`,
       ...style,
@@ -70,6 +72,7 @@ function DomainBadge({ domain, style = {} }) {
 }
 
 function TypeBadge({ reqType, style = {} }) {
+  const { state } = useApp();
   if (!reqType) return null;
   const colours = {
     functional: '#1f6feb', performance: '#8957e5', safety: '#f85149',
@@ -78,11 +81,11 @@ function TypeBadge({ reqType, style = {} }) {
   const colour = colours[reqType] || '#8b949e';
   return (
     <span style={{
-      padding: '2px 7px', borderRadius: 4, fontSize: 11,
+      padding: '2px 7px', borderRadius: 4, fontSize: 12,
       background: colour + '22', color: colour,
       border: `1px solid ${colour}44`,
       ...style,
-    }}>{reqType?.replace('_', ' ')}</span>
+    }}>{labelOf.type(reqType, state.hierarchy)}</span>
   );
 }
 
@@ -130,6 +133,68 @@ function MarkdownEditor({ value, onChange, rows = 5 }) {
           />
         </Suspense>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Decisions named in a requirement's text ([DEC-012], or an old [TBD-002] through its alias), shown as chips,
+// and the "Decision accepted: check the wording" note (Q007). The text is only changed when someone asks (#371).
+// ---------------------------------------------------------------------------
+const MARKER = /\[((?:DEC|TBD)-[A-Za-z0-9_-]+)\]/g;
+
+function DecisionMarkers({ draft, uid, dirty, onInsert, onChecked }) {
+  const { toast } = useApp();
+  const [decisions, setDecisions] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const text = draft.content?.description || '';
+  const keys = [...new Set([...text.matchAll(MARKER)].map(m => m[1]))];
+
+  useEffect(() => { api.decisions.list().then(setDecisions).catch(() => {}); }, []);
+  useEffect(() => {
+    api.requirements.quality(uid).then(r => setNotes((r.findings || []).filter(f => f.code === 'Q007')))
+      .catch(() => setNotes([]));
+  }, [uid, draft.last_modified, draft.decision_wording_checked?.length]);
+
+  const find = key => decisions.find(d => d.id === key || (d.aliases || []).includes(key));
+  if (!keys.length && !notes.length) return null;
+
+  const insert = note => {
+    const d = decisions.find(x => x.uid === note.decision);
+    const marker = keys.find(k => find(k)?.uid === note.decision);
+    const addition = note.decision_text.trim();
+    onInsert(marker ? text.replace(`[${marker}]`, `${addition} [${marker}]`) : `${text.trim()} ${addition} [${d?.id || note.decision_id}]`);
+  };
+  const fine = async note => {
+    try { onChecked(await api.decisions.wordingFine(uid, note.decision)); setNotes(n => n.filter(x => x !== note)); }
+    catch (err) { toast(err.message, 'error'); }
+  };
+
+  return (
+    <div className="decision-markers" data-testid="decision-markers">
+      {keys.length > 0 && (
+        <div className="decision-chips">
+          <span className="field-label">Decisions named here</span>
+          {keys.map(key => {
+            const d = find(key);
+            const state = !d ? 'unknown' : isPendingDecision(d) ? 'pending' : d.status;
+            const title = !d ? `${key} is not a known decision`
+              : isPendingDecision(d) ? `${d.id} is pending: ${d.title}` : `${d.id} ${decisionStatusLabel(d.status)}: ${d.content?.resolution || d.title}`;
+            return <span key={key} className={`decision-chip decision-chip--${state}`} title={title}>
+              {state === 'accepted' && <span aria-hidden="true">✓ </span>}{d?.id || key}
+              <span className="sr-only"> ({d ? decisionStatusLabel(d.status) : 'unknown'})</span></span>;
+          })}
+        </div>
+      )}
+      {notes.map(note => (
+        <div key={note.decision} className="decision-note" role="status">
+          <div className="decision-note-text"><strong>Decision accepted: check the wording.</strong>{' '}
+            {note.decision_id} was accepted: {note.decision_text || 'see the decision'}.</div>
+          <button className="btn btn-secondary" onClick={() => insert(note)}>Insert decision text</button>
+          <button className="btn btn-ghost" onClick={() => fine(note)} disabled={dirty}
+            title={dirty ? 'Save your changes first' : 'Record that the wording still fits'}>Wording is fine</button>
+        </div>
+      ))}
     </div>
   );
 }
@@ -203,7 +268,7 @@ function ControlledListEditor({ items = [], onChange, vocabulary = [], placehold
             ))}
             {allowFreeText && inputVal.trim() && !vocabulary.includes(inputVal.trim()) && (
               <div className="controlled-list-option controlled-list-option--new" onMouseDown={() => add(inputVal.trim())}>
-                <span style={{ color: 'var(--text-muted)', fontSize: 10, marginRight: 4 }}>NEW</span>
+                <span style={{ color: 'var(--text-muted)', fontSize: 12, marginRight: 4 }}>NEW</span>
                 {inputVal.trim()}
               </div>
             )}
@@ -230,7 +295,7 @@ function EnumSelect({ value, options = [], onChange, nullable = true }) {
   return (
     <select value={value ?? ''} onChange={e => onChange(e.target.value || null)}>
       {nullable && <option value="">—</option>}
-      {options.map(o => <option key={o} value={o}>{o}</option>)}
+      {options.map(o => <option key={o} value={o}>{labelOf.plain(o)}</option>)}
     </select>
   );
 }
@@ -297,10 +362,10 @@ function ACLinksEditor({ links = [], onChange, enums }) {
     <div className="ac-links-editor">
       {links.map((link, i) => (
         <div key={i} className="ac-link-row">
-          <span className="badge" style={{ fontSize: 9 }}>{link.system}</span>
-          <span className="badge" style={{ background: 'rgba(88,166,255,.15)', color: 'var(--text-link)', fontSize: 9 }}>{link.type}</span>
-          <span className="mono" style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{link.ref}</span>
-          {link.title && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{link.title}</span>}
+          <span className="badge" style={{ fontSize: 12 }}>{link.system}</span>
+          <span className="badge" style={{ background: 'rgba(88,166,255,.15)', color: 'var(--text-link)', fontSize: 12 }}>{link.type}</span>
+          <span className="mono" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{link.ref}</span>
+          {link.title && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{link.title}</span>}
           <button className="string-list-remove" onClick={() => remove(i)}>✕</button>
         </div>
       ))}
@@ -342,7 +407,7 @@ function ACEditor({ acs = [], onChange, enums }) {
             <span className="ac-id mono">{ac.id}</span>
             <button
               className="btn btn-ghost"
-              style={{ fontSize: 10, padding: '2px 6px' }}
+              style={{ fontSize: 12, padding: '2px 6px' }}
               onClick={() => setExpandedAc(expandedAc === idx ? null : idx)}
               title="Edit links for this criterion"
             >
@@ -501,7 +566,7 @@ export function RelationshipsEditor({ rels = [], onChange, enums, excludeUid, on
     <div className="rels-editor">
       {rels.map((rel, idx) => (
         <div key={idx} className="rel-row">
-          <span className="rel-type badge">{rel.type}</span>
+          <span className="rel-type badge" title={rel.type}>{labelOf.link(rel.type)}</span>
           {rel.suspect && (
             <span className="rel-suspect badge" title="The linked item changed after this link was made">⚠ suspect</span>
           )}
@@ -521,7 +586,7 @@ export function RelationshipsEditor({ rels = [], onChange, enums, excludeUid, on
       ))}
       <div className="rel-add">
         <select value={newType} onChange={e => setNewType(e.target.value)} style={{ flex: '0 0 160px' }}>
-          {(enums?.relationship_type || []).map(t => <option key={t} value={t}>{t}</option>)}
+          {(enums?.relationship_type || []).map(t => <option key={t} value={t}>{labelOf.link(t)}</option>)}
         </select>
         <div className="rel-search-wrap">
           <input
@@ -534,9 +599,9 @@ export function RelationshipsEditor({ rels = [], onChange, enums, excludeUid, on
             <div className="rel-dropdown">
               {results.map(r => (
                 <div key={r.uid} className="rel-option" onClick={() => addRel(r.uid, r.id, r.title)}>
-                  <span className="mono" style={{ fontSize: 11 }}>{r.id}</span>
+                  <span className="mono" style={{ fontSize: 12 }}>{r.id}</span>
                   <span style={{ color: 'var(--text-secondary)', marginLeft: 6 }}>{r.title}</span>
-                  <span className="badge" style={{ marginLeft: 6, fontSize: 9 }}>{r.type}</span>
+                  <span className="badge" style={{ marginLeft: 6, fontSize: 12 }}>{r.type}</span>
                 </div>
               ))}
             </div>
@@ -585,8 +650,8 @@ function LinksEditor({ links = [], onChange, enums }) {
       {links.map((link, idx) => (
         <div key={idx} className="link-row">
           <span className="link-system-icon">{SYSTEM_ICONS[link.system] || '⊞'}</span>
-          <span className="badge" style={{ fontSize: 10 }}>{link.system}</span>
-          <span className="badge" style={{ background: 'rgba(88,166,255,.15)', color: 'var(--text-link)', fontSize: 10 }}>{link.type}</span>
+          <span className="badge" style={{ fontSize: 12 }}>{link.system}</span>
+          <span className="badge" style={{ background: 'rgba(88,166,255,.15)', color: 'var(--text-link)', fontSize: 12 }}>{link.type}</span>
           {link.ref.startsWith('http') ? (
             <a href={link.ref} target="_blank" rel="noopener noreferrer" className="link-ref mono">{link.title || link.ref}</a>
           ) : (
@@ -652,13 +717,13 @@ function QuickLinkButton({ preset, onAdd }) {
           if (e.key === 'Enter') { onAdd(preset.system, preset.type, ref); setRef(''); setActive(false); }
           if (e.key === 'Escape') { setActive(false); setRef(''); }
         }}
-        style={{ width: 130, height: 26, fontSize: 11 }}
+        style={{ width: 130, height: 26, fontSize: 12 }}
       />
-      <button className="btn btn-primary" style={{ height: 26, fontSize: 11, padding: '0 8px' }}
+      <button className="btn btn-primary" style={{ height: 26, fontSize: 12, padding: '0 8px' }}
         onClick={() => { onAdd(preset.system, preset.type, ref); setRef(''); setActive(false); }}>
         Add
       </button>
-      <button className="btn btn-ghost" style={{ height: 26, fontSize: 11 }} onClick={() => { setActive(false); setRef(''); }}>✕</button>
+      <button className="btn btn-ghost" style={{ height: 26, fontSize: 12 }} onClick={() => { setActive(false); setRef(''); }}>✕</button>
     </div>
   );
 }
@@ -699,7 +764,7 @@ function ParentPicker({ value, onChange, excludeUid }) {
     <div className="parent-picker">
       {value ? (
         <div className="parent-picker-value">
-          <span className="mono" style={{ fontSize: 11, color: 'var(--text-secondary)', flex: 1 }}>{label || value}</span>
+          <span className="mono" style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1 }}>{label || value}</span>
           <button className="string-list-remove" onClick={clear} title="Remove parent">✕</button>
         </div>
       ) : (
@@ -713,7 +778,7 @@ function ParentPicker({ value, onChange, excludeUid }) {
             <div className="rel-dropdown">
               {results.map(r => (
                 <div key={r.uid} className="rel-option" onClick={() => select(r.uid, r.id, r.title)}>
-                  <span className="mono" style={{ fontSize: 11 }}>{r.id}</span>
+                  <span className="mono" style={{ fontSize: 12 }}>{r.id}</span>
                   <span style={{ color: 'var(--text-secondary)', marginLeft: 6, fontSize: 12 }}>{r.title}</span>
                 </div>
               ))}
@@ -834,29 +899,16 @@ export function needsInput(option, draft) {
   return (r.open_children || []).length > 0 && r.children_enforce !== 'off';
 }
 
-/** What an issue turns into once triage has decided, by its status. The server uses the same table. */
-export const RAISE_AS = {
-  defect: { type: 'bug', label: 'Raise a defect' },
-  enhancement: { type: 'story', label: 'Raise a story' },
-};
-
-/** On a triaged issue: create the defect (or story) it needs, linked back to the issue, and open it. */
-export function RaiseButton({ item, disabled }) {
-  const { dispatch, toast } = useApp();
+/** On an issue still in triage: open it on Work > Issues, where triage turns it into work or rejects it (#379). */
+export function RaiseButton({ item }) {
+  const { dispatch } = useApp();
   const can = useCan();
-  const raise = item?.req_type === 'issue' ? RAISE_AS[item.status] : null;
-  if (!raise || !can('write')) return null;
-  const go = async () => {
-    try {
-      const made = await api.requirements.raise(item.uid, raise.type);
-      dispatch({ type: 'SELECT', uid: made.uid, artefactType: 'requirement' });
-      window.dispatchEvent(new Event('reqtool:tree-changed'));
-      toast(`Created ${made.id} from ${item.id}`, 'success');
-    } catch (err) { toast(err.message, 'error'); }
-  };
+  if (item?.req_type !== 'issue' || !['reported', 'in_triage', 'needs_info'].includes(item.status) || !can('write')) return null;
   return (
-    <button className="btn btn-secondary" style={{ fontSize: 12, padding: '4px 8px' }} disabled={disabled}
-      title={disabled ? 'Save your changes first' : `Create a ${raise.type} linked to ${item.id}`} onClick={go}>{raise.label}</button>
+    <button className="btn btn-secondary" style={{ fontSize: 12, padding: '4px 8px' }}
+      title="Decide what this issue is: a defect, a feature or story, or rejected"
+      onClick={() => dispatch({ type: 'NAVIGATE', area: 'work', tab: 'issues', uid: item.uid, artefactType: 'requirement' })}>
+      Triage this issue</button>
   );
 }
 
@@ -904,7 +956,7 @@ export function WorkflowStateWidget({ uid, status, reqType, draft, onTransition 
         {currentState.label}
       </span>
       {can('write') && nextTransitions.length > 0 && (
-        <span style={{ fontSize: 10, color: 'var(--text-muted)', marginRight: 2 }}>Move to:</span>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)', marginRight: 2 }}>Move to:</span>
       )}
       {can('write') && nextTransitions.map(t => (
         <button
@@ -941,16 +993,21 @@ function RequirementEditor({ uid }) {
   const [history, setHistory] = useState(null);
   const [breadcrumb, setBreadcrumb] = useState([]);
   const [validationIssues, setValidationIssues] = useState(null);
-  const [activeTab, setActiveTab] = useState('content');
+  // The open tab is part of the page address (#372), so a link can open an item on a given tab.
+  const EDITOR_TAB_IDS = ['content', 'classification', 'relations', 'governance', 'insight'];
+  const routedTab = EDITOR_TAB_IDS.includes(state.editorTab) ? state.editorTab : 'content';
+  const [activeTab, setActiveTabState] = useState(routedTab);
+  const setActiveTab = (tab) => { setActiveTabState(tab); dispatch({ type: 'SET_EDITOR_TAB', payload: tab === 'content' ? null : tab }); };
   const prevUid = useRef(null);
   // Reset to content tab only when switching to a different requirement
   useEffect(() => {
     if (prevUid.current !== uid) {
-      setActiveTab('content');
+      if (prevUid.current !== null) setActiveTab('content');
       setHistory(null); // clear cached history for previous req
       prevUid.current = uid;
     }
   }, [uid]);
+  useEffect(() => { if (routedTab !== activeTab) setActiveTabState(routedTab); }, [state.editorTab]);
 
   // Auto-load history when switching to governance tab
   useEffect(() => {
@@ -1190,6 +1247,9 @@ function RequirementEditor({ uid }) {
               <Field label="Shall statement">
                 <MarkdownEditor value={draft.content?.description} onChange={v => patchContent('description', v)} rows={7} />
               </Field>
+              <DecisionMarkers draft={draft} uid={uid} dirty={isDirty}
+                onInsert={text => patchContent('description', text)}
+                onChecked={updated => { setReq(updated); setDraft(updated); }} />
               <Field label="Rationale">
                 <MarkdownEditor value={draft.content?.rationale} onChange={v => patchContent('rationale', v)} rows={4} />
               </Field>
@@ -1433,16 +1493,16 @@ function RequirementEditor({ uid }) {
                 <div className="history-list">
                   {history.in_file?.map((h, i) => (
                     <div key={i} className="hist-row">
-                      <span className="mono text-muted" style={{ fontSize: 10 }}>v{h.version}</span>
-                      <span className="text-secondary" style={{ fontSize: 11 }}>{h.date?.slice(0, 10)}</span>
+                      <span className="mono text-muted" style={{ fontSize: 12 }}>v{h.version}</span>
+                      <span className="text-secondary" style={{ fontSize: 12 }}>{h.date?.slice(0, 10)}</span>
                       <span style={{ fontSize: 12 }}>{h.summary}</span>
-                      {h.commit_sha && <span className="mono text-muted" style={{ fontSize: 10 }}>{h.commit_sha?.slice(0,7)}</span>}
+                      {h.commit_sha && <span className="mono text-muted" style={{ fontSize: 12 }}>{h.commit_sha?.slice(0,7)}</span>}
                     </div>
                   ))}
                   {history.git?.map((g, i) => (
                     <div key={`g${i}`} className="hist-row" style={{ borderTop: i === 0 ? '1px solid var(--border)' : undefined }}>
-                      <span className="mono" style={{ fontSize: 10, color: 'var(--accent-blue)' }}>{g.sha?.slice(0, 7)}</span>
-                      <span className="text-secondary" style={{ fontSize: 11 }}>{g.date?.slice(0, 10)}</span>
+                      <span className="mono" style={{ fontSize: 12, color: 'var(--accent-blue)' }}>{g.sha?.slice(0, 7)}</span>
+                      <span className="text-secondary" style={{ fontSize: 12 }}>{g.date?.slice(0, 10)}</span>
                       <span style={{ fontSize: 12 }}>{g.subject}</span>
                     </div>
                   ))}
@@ -1568,7 +1628,7 @@ function PrincipleEditor({ uid }) {
         <div className="editor-header-left">
           <span className="editor-id mono">{draft.id}</span>
           <span className="editor-version mono text-muted">v{draft.version}</span>
-          <span className="badge" style={{ background: 'rgba(139,148,158,.2)', color: 'var(--text-muted)', fontSize: 10 }}>Principle</span>
+          <span className="badge" style={{ background: 'rgba(139,148,158,.2)', color: 'var(--text-muted)', fontSize: 12 }}>Principle</span>
           {isDirty && <span className="editor-dirty-badge" title="You have unsaved changes -- press Ctrl+S or click Save">● Unsaved changes</span>}
         </div>
         <div className="editor-header-right">
@@ -1656,7 +1716,7 @@ function PrincipleEditor({ uid }) {
 }
 
 // ---------------------------------------------------------------------------
-// Decision editor: decisions, ADRs and open questions (TBDs) share one editor
+// Decision editor. A decision that is still needed is Pending (stored as `proposed`) until it is accepted (#371).
 // ---------------------------------------------------------------------------
 function DecisionEditor({ uid }) {
   const { state, dispatch, toast } = useApp();
@@ -1715,11 +1775,22 @@ function DecisionEditor({ uid }) {
 
   const [showResolve, setShowResolve] = useState(false);
   const handleResolve = async (body) => {
-    await api.tbds.resolve(uid, body);
+    await api.decisions.accept(uid, body);
     const updated = await api.decisions.get(uid);
     setData(updated); setDraft(updated);
     setShowResolve(false);
-    toast('Resolved into a decision', 'success');
+    dispatch({ type: 'COMMITTED' });
+    toast('Decision accepted. Requirements that refer to it are asked to check their wording.', 'success');
+  };
+  const handleReject = async () => {
+    const reason = prompt(`Why is ${draft.id} rejected?`);
+    if (reason === null) return;
+    try {
+      const updated = await api.decisions.reject(uid, { decision: reason });
+      setData({ ...data, ...updated }); setDraft({ ...draft, ...updated });
+      dispatch({ type: 'COMMITTED' });
+      toast(`${draft.id} rejected`, 'info');
+    } catch (err) { toast(err.message, 'error'); }
   };
 
   useEffect(() => {
@@ -1733,31 +1804,37 @@ function DecisionEditor({ uid }) {
   if (loading) return <div className="editor-loading"><div className="spinner" /></div>;
   if (!draft) return <div className="editor-empty">Could not load this decision.</div>;
 
-  const isQuestion = draft.type === 'tbd';
-  const STATUS_COLOURS = { open: 'var(--accent-red)', in_progress: 'var(--accent-orange)', resolved: 'var(--accent-green)', cancelled: 'var(--text-muted)',
-    proposed: 'var(--accent-orange)', accepted: 'var(--accent-green)', rejected: 'var(--accent-red)', superseded: 'var(--text-muted)' };
-  const statuses = isQuestion ? ['open', 'in_progress', 'resolved', 'cancelled'] : ['proposed', 'accepted', 'rejected', 'superseded'];
+  const isPending = ['proposed', 'open', 'in_progress'].includes(draft.status);
+  const statusLabel = decisionStatusLabel(draft.status);
+  const STATUS_COLOURS = { Pending: 'var(--accent-orange)', Accepted: 'var(--accent-green)', Rejected: 'var(--accent-red)',
+    Superseded: 'var(--text-secondary)' };
+  const waiting = draft.referenced_by ?? draft.affected_requirements ?? [];
+  const reqLabel = (reqUid) => {
+    const r = draft.waiting?.find(x => x.uid === reqUid);
+    return r ? `${r.id} ${r.title}` : reqUid.slice(0, 12);
+  };
 
   return (
     <div className="editor">
       <div className="editor-header">
         <div className="editor-header-left">
           <span className="editor-id mono">{draft.id}</span>
-          <span className="badge" data-testid="decision-kind" style={{ fontSize: 10 }}>{isQuestion ? 'Open question (TBD)' : 'Decision'}</span>
           <span className="editor-version mono text-muted">v{draft.version}</span>
-          <span className="badge" style={{
-            background: STATUS_COLOURS[draft.status] + '20',
-            color: STATUS_COLOURS[draft.status],
-            fontSize: 10
-          }}>{draft.status}</span>
+          <span className="badge" data-testid="decision-status" style={{
+            background: STATUS_COLOURS[statusLabel] + '20',
+            color: STATUS_COLOURS[statusLabel],
+            fontSize: 12
+          }}>{statusLabel}</span>
+          {draft.in_progress && isPending && <span className="badge" style={{ fontSize: 12 }}>Being worked on</span>}
+          {draft.aliases?.length > 0 && <span className="text-muted" style={{ fontSize: 12 }}>was {draft.aliases.join(', ')}</span>}
           {isDirty && <span className="editor-dirty-badge" title="You have unsaved changes -- press Ctrl+S or click Save">● Unsaved changes</span>}
         </div>
         <div className="editor-header-right">
-          {isQuestion && (draft.status === 'open' || draft.status === 'in_progress') && can('write') && (
-            <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setShowResolve(true)}>
-              ✓ Resolve
-            </button>
-          )}
+          {isPending && can('write') && (<>
+            <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={handleReject}>Reject</button>
+            <button className="btn btn-primary" style={{ fontSize: 12, background: 'var(--accent-green)' }}
+              onClick={() => setShowResolve(true)}>Accept decision</button>
+          </>)}
           {can('delete') && <button className="btn btn-danger" style={{ fontSize: 12, padding: '4px 8px' }}
             onClick={async () => {
               if (!confirm(`Delete ${draft.id}?\n"${draft.title}"\n\nThis cannot be undone.`)) return;
@@ -1783,8 +1860,10 @@ function DecisionEditor({ uid }) {
           <Field label="Title"><input value={draft.title ?? ''} onChange={e => patch('title', e.target.value)} /></Field>
           <div className="field-row">
             <Field label="Status">
-              <EnumSelect value={draft.status} options={statuses}
-                onChange={v => patch('status', v)} nullable={false} />
+              <select value={isPending ? 'proposed' : draft.status} onChange={e => patch('status', e.target.value)}
+                aria-label="Status">
+                {DECISION_TABS.filter(([v]) => v).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+              </select>
             </Field>
             <Field label="Priority">
               <EnumSelect value={draft.priority} options={enums?.priority || ['critical','high','medium','low']}
@@ -1797,7 +1876,7 @@ function DecisionEditor({ uid }) {
                 onChange={v => patch('owner', v[v.length - 1] || null)}
                 vocabulary={enums?.owner || []} placeholder="Select owner..." allowFreeText />
             </Field>
-            <Field label="Due Date">
+            <Field label="Needed by">
               <input type="date" value={draft.due?.slice(0, 10) ?? ''}
                 onChange={e => patch('due', e.target.value || null)} />
             </Field>
@@ -1805,20 +1884,19 @@ function DecisionEditor({ uid }) {
         </Section>
 
         <Section title="Content" static>
-          <Field label="Description">
+          <Field label="What has to be decided">
             <MarkdownEditor value={draft.content?.description} onChange={v => patchContent('description', v)} rows={4} />
           </Field>
-          {isQuestion ? (<>
-            <Field label="Impact">
-              <MarkdownEditor value={draft.content?.impact} onChange={v => patchContent('impact', v)} rows={3} />
-            </Field>
-            <Field label="Resolution Criteria">
-              <MarkdownEditor value={draft.content?.resolution_criteria} onChange={v => patchContent('resolution_criteria', v)} rows={3} />
-            </Field>
-          </>) : (<>
-            <Field label="Context">
-              <MarkdownEditor value={draft.content?.context} onChange={v => patchContent('context', v)} rows={3} />
-            </Field>
+          <Field label="Impact">
+            <MarkdownEditor value={draft.content?.impact} onChange={v => patchContent('impact', v)} rows={3} />
+          </Field>
+          <Field label="Context">
+            <MarkdownEditor value={draft.content?.context} onChange={v => patchContent('context', v)} rows={3} />
+          </Field>
+          <Field label="Decided when">
+            <MarkdownEditor value={draft.content?.resolution_criteria} onChange={v => patchContent('resolution_criteria', v)} rows={2} />
+          </Field>
+          {!isPending && (<>
             <Field label="Rationale">
               <MarkdownEditor value={draft.content?.rationale} onChange={v => patchContent('rationale', v)} rows={3} />
             </Field>
@@ -1835,22 +1913,35 @@ function DecisionEditor({ uid }) {
             </div>
           )}
           {draft.content?.resolution && (
-            <Field label="Resolution">
+            <Field label="Decision">
               <MarkdownEditor value={draft.content?.resolution} onChange={v => patchContent('resolution', v)} rows={3} />
             </Field>
           )}
         </Section>
 
-        <Section title="Affected Requirements" defaultOpen={draft.affected_requirements?.length > 0}>
-          <div style={{ marginBottom: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-            Requirements that are blocked by or depend on this {isQuestion ? 'open question' : 'decision'}.
+        <Section title={`Requirements waiting on this (${waiting.length})`} defaultOpen={waiting.length > 0}>
+          {isPending && waiting.length > 0 && (
+            <div className="decision-blocks" role="status">
+              {waiting.length} requirement(s) refer to this decision. With the approval gate on, they cannot be approved until it is accepted.
+            </div>
+          )}
+          {waiting.filter(u => !(draft.affected_requirements ?? []).includes(u)).map(reqUid => (
+            <div key={reqUid} className="rel-row">
+              <button className="rel-target-link" onClick={() => dispatch({ type: 'SELECT', uid: reqUid, artefactType: 'requirement' })}>
+                {reqLabel(reqUid)}
+              </button>
+              <span className="text-muted" style={{ fontSize: 12 }}>named in its text</span>
+            </div>
+          ))}
+          <div style={{ marginBottom: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+            Requirements linked to this decision:
           </div>
           {(draft.affected_requirements ?? []).map((reqUid, i) => (
             <div key={reqUid} className="rel-row">
               <button className="rel-target-link" onClick={() => dispatch({ type: 'SELECT', uid: reqUid, artefactType: 'requirement' })}>
-                {reqUid.slice(0, 12)}...
+                {reqLabel(reqUid)}
               </button>
-              <button className="string-list-remove"
+              <button className="string-list-remove" aria-label="Remove link"
                 onClick={() => patch('affected_requirements', draft.affected_requirements.filter((_, j) => j !== i))}>✕</button>
             </div>
           ))}
@@ -1884,6 +1975,25 @@ function DecisionEditor({ uid }) {
 // Empty state
 // ---------------------------------------------------------------------------
 function EditorEmpty() {
+  const { state } = useApp();
+  // Decisions and principles have their own create buttons beside the list; nothing to quick-create here.
+  if (state.area === 'decisions' || state.area === 'principles') {
+    return (
+      <div className="editor-onboarding">
+        <div className="editor-onboarding-hero">
+          <div className="editor-onboarding-icon">◈</div>
+          <div className="editor-onboarding-title">Select {state.area === 'decisions' ? 'a decision' : 'a principle'}</div>
+          <div className="editor-onboarding-sub">
+            {state.area === 'decisions' ? 'Or record one that is needed with + Decision needed.' : 'Or add one from the list.'}
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return <EditorStart />;
+}
+
+function EditorStart() {
   const { state, dispatch, toast } = useApp();
   const can = useCan();
   const templates = (state.templates || []).slice(0, 4);
@@ -1893,9 +2003,11 @@ function EditorEmpty() {
 
   useEffect(() => {
     let live = true;
-    api.hierarchy.get().then(h => { if (live) setQuick(quickTypes(h)); }).catch(() => {});
+    // Offer the types of this area: requirements here, work items in Work (#373).
+    const family = state.area === 'work' ? 'work' : 'requirement';
+    api.hierarchy.get().then(h => { if (live) setQuick(quickTypes(h).filter(q => labelOf.family(q.id, h) === family)); }).catch(() => {});
     return () => { live = false; };
-  }, [state.activeProduct]);
+  }, [state.activeProduct, state.area]);
 
   const opts = { dispatch, toast, hasProduct };
   const createQuick = (q) => createAndOpen(typeBody(q.id, q.label), opts);
@@ -1981,8 +2093,8 @@ export default function Editor() {
         </div>
         <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, background: 'var(--bg-elevated)', padding: '12px 16px', borderRadius: 6, border: '1px solid var(--border)' }}>
           Module requirements are read-only in this product. To edit them, modify the files in{' '}
-          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>modules/{modId}/</code> directly,
-          then run <code style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>req import {modId}</code> to update the lock file.
+          <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>modules/{modId}/</code> directly,
+          then run <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>req import {modId}</code> to update the lock file.
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
           Click an individual requirement below the module group to view its details.

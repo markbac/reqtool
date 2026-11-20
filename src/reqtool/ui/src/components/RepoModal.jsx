@@ -2,6 +2,7 @@
  * RepoModal.jsx -- Modal for switching active repository or initializing a new repository.
  */
 
+import { Panel } from './Advanced/Panel';
 import { useState, useEffect } from 'react';
 import { useApp } from '../AppContext';
 import { api } from '../api';
@@ -98,12 +99,7 @@ export function RepoModal({ onClose, onRepoChanged }) {
   };
 
   return (
-    <div className="panel-overlay" onClick={onClose}>
-      <div className="side-panel" style={{ maxWidth: 540 }} onClick={e => e.stopPropagation()}>
-        <div className="side-panel-header">
-          <span className="side-panel-title">📦 Repository Management</span>
-          <button className="btn btn-ghost" onClick={onClose}>✕</button>
-        </div>
+    <Panel title="Repository" onClose={onClose} wide raw>
 
         {loading ? (
           <div className="panel-loading"><div className="spinner" /></div>
@@ -119,15 +115,15 @@ export function RepoModal({ onClose, onRepoChanged }) {
                 marginBottom: 16
               }}>
                 <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>
-                  Active: {repoInfo.repo_title} <span className="mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>({repoInfo.repo_id})</span>
+                  Active: {repoInfo.repo_title} <span className="mono" style={{ fontSize: 12, color: 'var(--text-muted)' }}>({repoInfo.repo_id})</span>
                 </div>
-                <div className="mono" style={{ fontSize: 11, color: 'var(--text-muted)', margin: '4px 0 8px', wordBreak: 'break-all' }}>
+                <div className="mono" style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 8px', wordBreak: 'break-all' }}>
                   {repoInfo.path}
                 </div>
-                <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-secondary)' }}>
+                <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-secondary)' }}>
                   <span>📋 {repoInfo.requirements_count} requirements</span>
                   <span>💡 {repoInfo.principles_count} principles</span>
-                  <span>❓ {repoInfo.tbds_count} TBDs</span>
+                  <span>{repoInfo.decisions_count} decisions ({repoInfo.tbds_count} pending)</span>
                 </div>
               </div>
             )}
@@ -282,7 +278,6 @@ export function RepoModal({ onClose, onRepoChanged }) {
             )}
           </div>
         )}
-      </div>
-    </div>
+    </Panel>
   );
 }

@@ -83,7 +83,8 @@ def test_a_viewer_sees_a_read_only_board(page):
 
     log_in(page, "vera")
     page.locator("select.header-select").first.select_option("p1")
-    page.get_by_text("TASK MGMT").click()
+    page.get_by_role("navigation", name="Main").get_by_role("link", name="Work").click()
+    page.get_by_role("tab", name="Board", exact=True).click()
     board = page.locator(".kanban-page")
     expect(board.locator(".kanban-card").first).to_be_visible()
     expect(board.locator(".kanban-card[draggable='true']")).to_have_count(0)

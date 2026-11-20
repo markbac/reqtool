@@ -38,7 +38,7 @@ export function MermaidView({ source, title = 'Workflow diagram' }) {
   if (failed) {
     return (
       <div className="mermaid-view" aria-label={title}>
-        <div className="text-muted" style={{ fontSize: 11, marginBottom: 4 }}>The diagram could not be drawn. Mermaid source:</div>
+        <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>The diagram could not be drawn. Mermaid source:</div>
         <pre className="mermaid-source" data-testid="mermaid-source">{source}</pre>
       </div>
     );

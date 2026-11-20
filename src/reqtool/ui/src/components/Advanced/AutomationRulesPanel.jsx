@@ -1,3 +1,4 @@
+import { Panel } from './Panel';
 import { useState, useEffect } from 'react';
 import { useApp } from '../../AppContext';
 import { api } from '../../api';
@@ -43,17 +44,9 @@ export function AutomationRulesPanel({ onClose }) {
   const setCondition = (idx, rule, pairs) => updateRule(idx, { condition: Object.fromEntries(pairs.filter(([k]) => k !== '')) });
 
   return (
-    <div className="panel-overlay" onClick={onClose}>
-      <div className="side-panel side-panel--wide" onClick={e => e.stopPropagation()} style={{ width: 620 }}>
-        <div className="side-panel-header">
-          <span className="side-panel-title">Automation Rules Manager</span>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-primary" onClick={handleSave} disabled={saving || !rules || !schema}>
+    <Panel title="Automation rules" onClose={onClose} wide raw actions={<><button className="btn btn-primary" onClick={handleSave} disabled={saving || !rules || !schema}>
               {saving ? <span className="spinner" /> : 'Save Rules'}
-            </button>
-            <button className="btn btn-ghost" onClick={onClose}>✕</button>
-          </div>
-        </div>
+            </button></>}>
 
         {loading ? (
           <div className="panel-body"><div className="panel-loading"><div className="spinner" /></div></div>
@@ -141,7 +134,6 @@ export function AutomationRulesPanel({ onClose }) {
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </Panel>
   );
 }

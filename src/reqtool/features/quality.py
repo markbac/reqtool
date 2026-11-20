@@ -22,6 +22,7 @@ RULES = {
     "Q004": "No measurable value",
     "Q005": "More than one requirement in a sentence",
     "Q006": "Title is empty or very short",
+    "Q007": "Decision accepted: check the wording",
 }
 
 
@@ -52,7 +53,25 @@ def check_text(title: str, description: str, criteria: int = 0) -> list[dict[str
     return out
 
 
-def check_requirement(req: dict[str, Any]) -> list[dict[str, str]]:
+def check_requirement(req: dict[str, Any], store: Any = None) -> list[dict[str, str]]:
     content = req.get("content") or {}
     criteria = len(content.get("acceptance_criteria") or req.get("acceptance_criteria") or [])
-    return check_text(req.get("title", ""), content.get("description", ""), criteria)
+    out = check_text(req.get("title", ""), content.get("description", ""), criteria)
+    return out + (decision_wording(store, req) if store is not None else [])
+
+
+def decision_wording(store: Any, req: dict[str, Any]) -> list[dict[str, str]]:
+    """Q007 for each decision the requirement refers to that was accepted after the requirement last changed,
+    unless someone has said the wording is fine. The text is never changed for them (#371)."""
+    refs = set(store.decisions_linked_from(req)) | store.decision_markers(req)
+    checked = set(req.get("decision_wording_checked") or [])
+    out = []
+    for uid in sorted(refs - checked):
+        d = store.decision_map().get(uid) or {}
+        accepted_at = d.get("resolved_at") or ""
+        if d.get("status") != "accepted" or d.get("deleted") or accepted_at < (req.get("last_modified") or ""):
+            continue
+        out.append({"code": "Q007", "severity": "advisory", "rule": RULES["Q007"], "decision": uid,
+                    "decision_id": d.get("id", ""), "decision_text": (d.get("content") or {}).get("resolution") or "",
+                    "message": f"{d.get('id', uid)} was accepted: check this requirement's wording still fits"})
+    return out

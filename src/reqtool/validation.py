@@ -12,6 +12,8 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
+from . import layout
+from .artefacts import DECISION_LINK_TYPES
 from .validation_context import ValidationContext
 from .principles import check_placement, effective_vocabulary
 from .fileio import (
@@ -112,6 +114,11 @@ def validate_all(store: "Store") -> dict[str, list[dict[str, str]]]:
     severity ``error`` as errors, the rest as warnings.
     """
     result = validate_context(ValidationContext.from_store(store))
+    for uid, have, want in store.misplaced_items():
+        result["warnings"].append(_warn(
+            "misplaced_file",
+            f"{have.relative_to(store.root)} belongs in {want.parent.relative_to(store.root)}/: run 'req migrate'",
+            uid, "req_type"))
     from .services.lint import LintService
     for finding in LintService(store).validation_findings():
         entry = {k: finding[k] for k in ("code", "message", "uid", "field")}
@@ -340,7 +347,7 @@ def _validate_module_locks(ctx: ValidationContext, errors: list) -> None:
                 continue
             locked = locked_by_id[mod_id]
             stored_hash = locked.get("content_hash", "")
-            computed = _compute_module_dir_hash(ctx.root / "modules" / mod_id)
+            computed = _compute_module_dir_hash(layout.module_dir(ctx.root, mod_id))
             if stored_hash and computed and stored_hash != computed:
                 errors.append(_err(
                     "lock_hash_mismatch",
@@ -552,13 +559,13 @@ def _validate_requirement(
                 uid, "acceptance_criteria",
             ))
 
-    # open TBDs on approved requirement
-    if cfg.warn_on_open_tbds_in_approved and approval_status == "approved":
+    # pending decisions on an approved requirement
+    if cfg.warns_on_pending_decisions and approval_status == "approved":
         for link in req.get("links", []):
-            if link.get("type") == "tbd" and link.get("ref") in open_tbd_uids:
+            if link.get("type") in DECISION_LINK_TYPES and link.get("ref") in open_tbd_uids:
                 warnings.append(_warn(
-                    "open_tbd_on_approved",
-                    f"Approved requirement links to open question (TBD) {link.get('ref', '')[:8]}...",
+                    "pending_decision_on_approved",
+                    f"Approved requirement links to pending decision {link.get('ref', '')[:8]}...",
                     uid, "links",
                 ))
 
@@ -692,6 +699,11 @@ def _validate_tbd(
     if priority and priority not in merged_enums.get("priority", []):
         errors.append(_err("invalid_enum",
                            f"priority '{priority}' is not valid", uid, "priority"))
+
+    if tbd.get("type") == "tbd":
+        warnings.append(_warn("legacy_tbd",
+                              "Open questions are now pending decisions: run 'req migrate' to convert this TBD",
+                              uid, "type"))
 
     return errors, warnings
 

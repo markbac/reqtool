@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional
 
+from .artefacts import is_pending_decision
 from .models import HierarchyConfig, RepoConfig
 
 if TYPE_CHECKING:
@@ -44,8 +45,7 @@ class ValidationContext:
 
     @property
     def open_tbd_uids(self) -> set[str]:
-        return {uid for uid, t in self.decisions.items()
-                if not t.get("deleted") and t.get("status") in ("open", "in_progress")}
+        return {uid for uid, t in self.decisions.items() if is_pending_decision(t)}
 
     def hierarchy_problem(self, child_type: str, parent_uid: Optional[str]) -> Optional[str]:
         """Message if ``child_type`` is not allowed under ``parent_uid``'s type (ignores the enforce mode)."""

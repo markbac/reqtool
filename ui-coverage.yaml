@@ -241,6 +241,10 @@ GET /rules:
   status: surfaced
 GET /rules/overrides:
   status: surfaced
+GET /work/backlog:
+  status: surfaced
+GET /work/issues:
+  status: surfaced
 GET /workflows:
   status: surfaced
 GET /workflows/{workflow_id}:
@@ -277,10 +281,15 @@ POST /changesets/{name}/merge:
   status: surfaced
 POST /decisions:
   status: surfaced
+POST /decisions/{uid}/accept:
+  status: surfaced
 POST /decisions/{uid}/commit:
   status: surfaced
-POST /decisions/{uid}/resolve:
+POST /decisions/{uid}/reject:
   status: surfaced
+POST /decisions/{uid}/resolve:
+  status: backend-only
+  reason: deprecated name for accept (#371), kept for one release
 POST /duplicates/suggest:
   status: surfaced
 POST /export/csv:
@@ -369,21 +378,33 @@ POST /requirements/{uid}/comments/{comment_uid}/resolve:
   reason: the UI uses the /artefacts/{uid}/comments routes
 POST /requirements/{uid}/commit:
   status: surfaced
+POST /requirements/{uid}/decision-wording:
+  status: surfaced
 POST /requirements/{uid}/impact-preview:
   status: surfaced
 POST /requirements/{uid}/relationships/{rel_index}/clear-suspect:
   status: surfaced
 POST /requirements/{uid}/review-requests:
   status: surfaced
+POST /requirements/{uid}/triage:
+  status: surfaced
 POST /requirements/{uid}/transition:
   status: surfaced
 POST /tbds:
   status: surfaced
+POST /tbds/{uid}/accept:
+  status: backend-only
+  reason: /tbds is a deprecated alias of /decisions for pending decisions (#371)
 POST /tbds/{uid}/commit:
   status: surfaced
+POST /tbds/{uid}/reject:
+  status: backend-only
+  reason: /tbds is a deprecated alias of /decisions for pending decisions (#371)
 POST /tbds/{uid}/resolve:
   status: surfaced
 POST /test-results:
+  status: surfaced
+POST /work/backlog/{uid}/rank:
   status: surfaced
 POST /webhooks:
   status: surfaced
@@ -391,7 +412,8 @@ POST /webhooks/github:
   status: backend-only
   reason: called by GitHub with an HMAC signature
 POST /requirements/{uid}/raise:
-  status: surfaced
+  status: backend-only
+  reason: deprecated (#379); triage converts the issue itself
 POST /rules/preview:
   status: surfaced
 POST /workflows:

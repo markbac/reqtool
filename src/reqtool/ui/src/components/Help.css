@@ -130,7 +130,7 @@ kbd {
   display: inline-block;
   padding: 2px 7px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -170,7 +170,7 @@ kbd {
   padding: 2px 8px;
 }
 .help-card-workflow {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   font-family: var(--font-mono);
 }
@@ -243,7 +243,7 @@ kbd {
 .help-topic-body p { margin-bottom: 8px; }
 .help-topic-body h4 { font-size: 13px; font-weight: 600; margin: 12px 0 6px; color: var(--text-primary); }
 .help-topic-body li { margin-left: 20px; margin-bottom: 4px; }
-.help-topic-body code { font-family: var(--font-mono); font-size: 11px; background: var(--bg-elevated); padding: 1px 5px; border-radius: 3px; color: var(--accent-blue); }
+.help-topic-body code { font-family: var(--font-mono); font-size: 12px; background: var(--bg-elevated); padding: 1px 5px; border-radius: 3px; color: var(--accent-blue); }
 .help-topic-body strong { font-weight: 600; color: var(--text-primary); }
 
 .help-loading { color: var(--text-muted); font-size: 13px; padding: 20px; }
@@ -265,12 +265,12 @@ kbd {
   background: var(--bg-elevated);
   border-radius: 6px;
 }
-.help-templates-hint code { font-family: var(--font-mono); font-size: 11px; color: var(--accent-blue); }
+.help-templates-hint code { font-family: var(--font-mono); font-size: 12px; color: var(--accent-blue); }
 .help-templates-hint strong { color: var(--text-primary); }
 
 .help-template-group { display: flex; flex-direction: column; gap: 6px; }
 .help-template-group-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -323,7 +323,7 @@ kbd {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-muted);
   background: var(--bg-elevated);
@@ -346,7 +346,7 @@ kbd {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px 10px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
   line-height: 1.5;
   color: var(--text-primary);

@@ -58,3 +58,22 @@ def test_unknown_baseline_is_404(repo_root):
     c = _setup(repo_root)
     assert c.get("/baselines/nope/diff").status_code == 404
     assert c.get("/baselines/compare", params={"baseline_a": "x", "baseline_b": "y"}).status_code == 404
+
+
+def test_work_items_are_in_baseline_diffs_and_trend(repo_root):
+    """A story lives in work/ (#380); baselines, change sets and trend still see it change."""
+    c = _setup(repo_root)
+    story = make_req(c, title="A story", req_type="story")["uid"]
+    _commit_all(repo_root, "base")
+    assert c.post("/baselines", json={"name": "b1"}).status_code == 201
+    assert c.put(f"/requirements/{story}", json={"title": "A story, edited"}).status_code == 200
+    _commit_all(repo_root, "second")
+    assert c.post("/baselines", json={"name": "b2"}).status_code == 201
+
+    assert [x["path"] for x in c.get("/baselines/b1/diff").json()["changed"]] == [f"work/{story}.yaml"]
+    assert c.get("/baselines/compare", params={"baseline_a": "b1", "baseline_b": "b2"}).json()["summary"]["modified"] == 1
+    d = c.get("/baselines/field-diff", params={"baseline_a": "b1", "baseline_b": "b2"}).json()
+    assert d["summary"] == {"added": 0, "removed": 0, "modified": 1}
+    points = c.get("/trend").json()["points"]
+    assert points[1]["churn"]["changed"] == 1
+    assert points[1]["requirements"] == 0   # the Overview counts requirements, not work items

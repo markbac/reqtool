@@ -86,7 +86,7 @@
 }
 
 .tree-node-toggle {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-muted);
   width: 12px;
   flex-shrink: 0;
@@ -115,7 +115,7 @@
 
 .tree-node-module-tag {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
   color: var(--text-muted);
   background: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -206,7 +206,7 @@
 /* Module group node */
 .tree-node--module-group { background: rgba(139,148,158,.05); }
 .tree-node--module-group .tree-node-id { color: var(--text-muted); }
-.tree-module-pill { font-size: 9px; background: rgba(139,148,158,.2); color: var(--text-muted); border-radius: 3px; padding: 1px 4px; flex-shrink: 0; }
+.tree-module-pill { font-size: 12px; background: rgba(139,148,158,.2); color: var(--text-muted); border-radius: 3px; padding: 1px 4px; flex-shrink: 0; }
 
 /* List panel toolbar */
 .list-panel-toolbar { display: flex; padding: 4px 8px; border-bottom: 1px solid var(--border); }
@@ -246,10 +246,10 @@
   border-left-style: solid;
 }
 .principle-group-header:hover { background: var(--bg-hover); }
-.principle-group-toggle { font-size: 10px; color: var(--text-muted); flex-shrink: 0; }
+.principle-group-toggle { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
 .principle-group-label { flex: 1; }
 .principle-group-count {
-  font-size: 10px;
+  font-size: 12px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   padding: 1px 5px;
@@ -267,7 +267,7 @@
 .sidebar-section-tab {
   flex: 1;
   padding: 8px 4px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -311,7 +311,7 @@
   gap: 2px;
   padding: 6px 8px;
   min-width: 48px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-muted);
   background: none;
   border: none;
@@ -322,7 +322,7 @@
 }
 .task-type-btn:hover { color: var(--text-primary); }
 .task-type-btn--active { color: var(--text-primary); }
-.task-type-btn .task-type-label { font-size: 9px; opacity: 0.8; }
+.task-type-btn .task-type-label { font-size: 12px; opacity: 0.8; }
 
 .task-filters {
   display: flex;
@@ -334,7 +334,7 @@
 .task-filter-input {
   flex: 1;
   padding: 3px 6px;
-  font-size: 11px;
+  font-size: 12px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -344,7 +344,7 @@
 .task-filter-input:focus { outline: none; border-color: var(--accent-blue); }
 
 .task-estimate {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--accent-blue);
   background: color-mix(in srgb, var(--accent-blue) 12%, transparent);
   border-radius: 3px;
@@ -358,7 +358,7 @@
   margin-top: 3px;
 }
 .task-meta-pill {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-muted);
   background: var(--bg-secondary);
   border-radius: 3px;
@@ -394,9 +394,9 @@
 }
 .module-item:hover { background: var(--bg-hover); }
 .module-item--selected { background: var(--bg-selected); }
-.module-item-id { font-size: 10px; color: var(--text-muted); flex-shrink: 0; }
+.module-item-id { font-size: 12px; color: var(--text-muted); flex-shrink: 0; }
 .module-item-title { flex: 1; }
-.module-item-version { font-size: 10px; color: var(--accent-blue); }
+.module-item-version { font-size: 12px; color: var(--accent-blue); }
 
 .module-reqs { flex: 1; overflow-y: auto; }
 .module-reqs-header {
@@ -421,7 +421,7 @@
   flex-shrink: 0;
 }
 .tree-toolbar-btn {
-  font-size: 11px;
+  font-size: 12px;
   padding: 3px 8px;
   color: var(--text-secondary);
   border: 1px solid transparent;
@@ -447,14 +447,14 @@
 }
 .module-include-hint {
   padding: 8px 12px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   line-height: 1.5;
   border-bottom: 1px solid var(--border-subtle, var(--border));
 }
 .module-include-empty {
   padding: 12px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   line-height: 1.6;
 }
@@ -465,7 +465,7 @@
 .module-include-item:last-child { border-bottom: none; }
 .module-include-cli-hint {
   padding: 8px 12px;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-muted);
   border-top: 1px solid var(--border);
   font-family: var(--font-mono);
@@ -484,7 +484,7 @@
 }
 .tree-node--module-group .tree-node-title { color: var(--text-primary); font-weight: 600; }
 .tree-module-pill {
-  font-size: 9px;
+  font-size: 12px;
   background: color-mix(in srgb, var(--accent-purple) 20%, transparent);
   color: var(--accent-purple);
   border: 1px solid color-mix(in srgb, var(--accent-purple) 35%, transparent);
@@ -516,7 +516,7 @@
 }
 
 .task-sidebar-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -535,7 +535,7 @@
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
   background: var(--bg-elevated);
@@ -569,7 +569,7 @@
 }
 
 .task-stat-label {
-  font-size: 9px;
+  font-size: 12px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -577,12 +577,12 @@
 }
 
 .task-sidebar-hint {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   line-height: 1.5;
 }
 .task-sidebar-hint kbd {
-  font-size: 10px;
+  font-size: 12px;
   padding: 1px 5px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -597,7 +597,7 @@
   flex-wrap: wrap;
 }
 .tree-node-suspect {
-  font-size: 10px;
+  font-size: 12px;
   color: #d29922;
   margin-left: 4px;
   flex-shrink: 0;
@@ -612,7 +612,11 @@
 .move-option { display: flex; gap: 8px; align-items: baseline; width: 100%; text-align: left; padding: 6px 10px; background: none; color: var(--text-primary); cursor: pointer; }
 .move-option:hover:not(:disabled) { background: var(--bg-hover); }
 .move-option:disabled { color: var(--text-muted); cursor: not-allowed; }
-.move-id { font-size: 11px; flex: none; }
+.move-id { font-size: 12px; flex: none; }
 .move-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.move-why { font-size: 10px; flex: none; }
+.move-why { font-size: 12px; flex: none; }
 .move-empty { padding: 8px 10px; color: var(--text-muted); }
+
+/* Filter inside the tree (the header search opens Ctrl+K, #373) */
+.tree-filter { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.tree-filter input { width: 100%; height: 30px; font-size: 13px; }

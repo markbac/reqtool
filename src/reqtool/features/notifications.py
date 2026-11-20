@@ -13,7 +13,7 @@ from typing import Any
 
 from reqtool.fileio import load_yaml, save_yaml, utcnow_iso
 
-NOTIFY_EVENTS = ("mention", "review_requested", "status_changed")
+NOTIFY_EVENTS = ("mention", "review_requested", "status_changed", "decision_accepted")
 MENTION = re.compile(r"(?<![\w@])@([A-Za-z0-9][A-Za-z0-9_.-]{0,63})")
 INBOX_LIMIT = 500
 
@@ -31,6 +31,8 @@ def describe(event: str, payload: dict) -> str:
         return f"{payload.get('by', 'Someone')} asked {payload.get('reviewer', '')} to review {label}"
     if event == "status_changed":
         return f"{label} moved from {payload.get('from', '?')} to {payload.get('to', '?')}"
+    if event == "decision_accepted":
+        return f"{payload.get('decision', '')} was accepted: check the wording of {label}"
     if event in ("requirement_approved", "approved"):
         return f"{label} was approved by {payload.get('approved_by', '')}"
     return f"{event.replace('_', ' ')}: {label}"
@@ -89,7 +91,7 @@ def recipients(store, event: str, payload: dict) -> list[str]:
         return [payload["user"]] if payload.get("user") else []
     if event == "review_requested":
         return [payload["reviewer"]] if payload.get("reviewer") else []
-    if event == "status_changed":
+    if event in ("status_changed", "decision_accepted"):
         owner = (store.requirement_map().get(payload.get("uid", "")) or {}).get("owner")
         return [owner] if owner else []
     return []

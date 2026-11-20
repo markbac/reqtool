@@ -22,6 +22,7 @@ class Storage(Protocol):
     def read_bytes(self, path: Path) -> bytes: ...
     def list_yaml(self, directory: Path) -> list[Path]: ...
     def list_dirs(self, directory: Path) -> list[Path]: ...
+    def delete(self, path: Path) -> None: ...
 
 
 class FileStorage:
@@ -45,6 +46,9 @@ class FileStorage:
 
     def list_dirs(self, directory: Path) -> list[Path]:
         return sorted(p for p in directory.iterdir() if p.is_dir()) if directory.is_dir() else []
+
+    def delete(self, path: Path) -> None:
+        path.unlink(missing_ok=True)
 
 
 class MemoryStorage:
@@ -77,3 +81,6 @@ class MemoryStorage:
         children = {next(a for a in (p, *p.parents) if a.parent == directory)
                     for p in self.files if directory in p.parents}
         return sorted(c for c in children if c not in self.files)
+
+    def delete(self, path: Path) -> None:
+        self.files.pop(path, None)

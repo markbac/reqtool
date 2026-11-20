@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { AppProvider } from '../AppContext';
+import { useEffect } from 'react';
+import { AppProvider, useApp } from '../AppContext';
 import {
   OverviewPanel, RoadmapPanel, DecisionsPanel, ModulesPanel, ChangeSetsPanel, QueryPanel, InboxPanel,
 } from '../components/Insight';
@@ -116,15 +117,16 @@ describe('DecisionsPanel (UI-06)', () => {
     expect(body.content.atam.tradeoff_points).toEqual([{ attributes: ['latency', 'cost'], description: 'cheaper brokers are slower' }]);
   });
 
-  it('resolves a TBD to a decision', async () => {
-    mockApi({ 'GET /decisions': [{ uid: 't1', id: 'TBD-1', title: 'Pick a bus', type: 'tbd', status: 'open' }],
-      'POST /decisions/t1/resolve': { status: 'resolved' } });
+  it('accepts a pending decision', async () => {
+    mockApi({ 'GET /decisions': [{ uid: 't1', id: 'DEC-1', title: 'Pick a bus', type: 'decision', status: 'proposed' }],
+      'POST /decisions/t1/accept': { status: 'accepted' } });
     ui(<DecisionsPanel onClose={() => {}} />);
-    fireEvent.click(await screen.findByText('Resolve', { selector: 'button' }));
+    expect(await screen.findByText('Pending')).toBeTruthy();
+    fireEvent.click(await screen.findByText('Accept', { selector: 'button' }));
     fireEvent.change(await screen.findByLabelText('Decision'), { target: { value: 'CAN' } });
-    fireEvent.click(within(screen.getByRole('dialog')).getByText('Resolve', { selector: 'button' }));
-    await waitFor(() => expect(calls('POST', '/decisions/t1/resolve')).toHaveLength(1));
-    expect(JSON.parse(calls('POST', '/decisions/t1/resolve')[0][1].body)).toEqual({ decision: 'CAN' });
+    fireEvent.click(within(screen.getByRole('dialog', { name: /^Accept DEC-1/ })).getByText('Accept decision', { selector: 'button' }));
+    await waitFor(() => expect(calls('POST', '/decisions/t1/accept')).toHaveLength(1));
+    expect(JSON.parse(calls('POST', '/decisions/t1/accept')[0][1].body)).toMatchObject({ decision: 'CAN' });
   });
 });
 
@@ -223,7 +225,7 @@ describe('InboxPanel (FEAT-04, FEAT-10)', () => {
     ui(<InboxPanel onClose={() => {}} />);
     expect(await screen.findByText('carol mentioned @alice on FR-1')).toBeTruthy();
     expect(screen.getByText('changed since requested')).toBeTruthy();
-    expect(screen.getByLabelText('mention')).toBeTruthy;
+    expect(screen.getByLabelText('Mention')).toBeTruthy;
   });
 });
 
@@ -269,12 +271,21 @@ describe('ItemInsight (ENH-01, ENH-02, ENH-05, FEAT-04, FEAT-06)', () => {
   };
   const draft = { title: 'Brake fast', req_type: 'functional', content: { description: 'The system should be fast' } };
 
-  it('shows the lifecycle strip, blockers, trace, suspect links and progress', async () => {
+  it('shows the item\'s own workflow as the lifecycle, blockers, trace, suspect links and progress (#375)', async () => {
     mockApi(routes);
-    ui(<ItemInsight uid="u1" draft={draft} version="1.0.0" />);
+    const hierarchy = { types: { functional: { workflow: 'formal' } }, workflows: { formal: { states: [
+      { id: 'draft', label: 'Draft' }, { id: 'in_review', label: 'In review' }, { id: 'approved', label: 'Approved' }] } } };
+    function WithHierarchy({ children }) {
+      const { dispatch } = useApp();
+      useEffect(() => { dispatch({ type: 'SET_HIERARCHY', payload: hierarchy }); }, [dispatch]);
+      return children;
+    }
+    ui(<WithHierarchy><ItemInsight uid="u1" draft={{ ...draft, status: 'in_review' }} version="1.0.0" /></WithHierarchy>);
     expect(await screen.findByText('Open TBD TBD-1')).toBeTruthy();
-    expect(screen.getByRole('list', { name: 'Lifecycle' }).querySelector('[aria-current="step"]').textContent).toBe('review');
-    expect(screen.getByText('suspect')).toBeTruthy();
+    const strip = screen.getByRole('list', { name: 'Lifecycle' });
+    expect([...strip.children].map(c => c.textContent)).toEqual(['Draft', 'In review', 'Approved']);
+    expect(strip.querySelector('[aria-current="step"]').textContent).toBe('In review');
+    expect(screen.getByText('Suspect')).toBeTruthy();
     expect(screen.getByText('P-1')).toBeTruthy();
     expect(screen.getByRole('progressbar', { name: 'Progress' }).getAttribute('aria-valuenow')).toBe('60');
   });
@@ -318,7 +329,7 @@ describe('Kanban (MOD-13)', () => {
       _uncolumned: [{ uid: 'b', id: 'F-1', title: 'Odd status', req_type: 'feature' }] } } });
     ui(<KanbanPanel />);
     expect(await screen.findByText('Odd status')).toBeTruthy();
-    expect(screen.getByText('no matching column')).toBeTruthy();
+    expect(screen.getByText('No matching column')).toBeTruthy();
     const options = [...screen.getByDisplayValue('All types').options].map(o => o.value);
     expect(options).not.toContain('theme');
     expect(options).not.toContain('initiative');

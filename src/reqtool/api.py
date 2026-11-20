@@ -28,7 +28,7 @@ from .store import UnknownParent, ParentCycle, HierarchyViolation, RelationshipV
 from .routers import (
     system, requirements, principles, decisions, modules,
     comments, attachments, analysis, features, exports, git_ops,
-    imports, ws, auth, iterations, github, automation, workflows, lint, rules, visuals,
+    imports, ws, auth, iterations, github, automation, workflows, lint, rules, visuals, work,
 )
 
 log = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ def create_app(repo_root: Path, auth_mode: str | None = None, enable_watcher: bo
         version=__version__,
         description=(
             "Git-backed YAML requirements management tool. "
-            "Requirements, principles, and TBDs live as individual YAML files; "
+            "Requirements, principles and decisions live as individual YAML files; "
             "the API handles hashing, versioning, validation, and export."
         ),
         license_info={"name": "MIT"},
@@ -167,6 +167,7 @@ def create_app(repo_root: Path, auth_mode: str | None = None, enable_watcher: bo
     app.include_router(iterations.router)
     app.include_router(github.router)
     app.include_router(automation.router)
+    app.include_router(work.router)
 
     # ------------------------------------------------------------------
     # Static UI (or fallback landing page when dist is not built)
@@ -241,7 +242,7 @@ def create_app(repo_root: Path, auth_mode: str | None = None, enable_watcher: bo
             version=__version__,
             description=(
                 "Git-backed YAML requirements management tool. "
-                "Requirements, principles, and TBDs live as individual YAML files; "
+                "Requirements, principles and decisions live as individual YAML files; "
                 "the API handles hashing, versioning, validation, and export."
             ),
             routes=app.routes,

@@ -40,7 +40,8 @@ describe('AppContext', () => {
     let st = null;
     function Probe() { st = useApp().state; return null; }
     render(<AppProvider><Probe /></AppProvider>);
-    expect(st.panel).toBe('requirements');
+    expect(st.area).toBe('requirements');
+    expect(st.tab).toBe('tree');
     expect(st.selectedUid).toBeNull();
     expect(st.theme).toBe('dark');
     expect(Array.isArray(st.toasts)).toBe(true);
@@ -65,14 +66,19 @@ describe('AppContext', () => {
     expect(ctx.state.selectedUid).toBeNull();
   });
 
-  it('SET_PANEL changes panel and clears selection', () => {
+  it('NAVIGATE changes area and tab and clears the selection unless an item is opened (#372)', () => {
     let ctx = null;
     function Probe() { ctx = useApp(); return null; }
     render(<AppProvider><Probe /></AppProvider>);
     act(() => ctx.dispatch({ type: 'SELECT', uid: 'xyz', artefactType: 'requirement' }));
-    act(() => ctx.dispatch({ type: 'SET_PANEL', payload: 'principles' }));
-    expect(ctx.state.panel).toBe('principles');
+    act(() => ctx.dispatch({ type: 'NAVIGATE', area: 'principles' }));
+    expect(ctx.state.area).toBe('principles');
+    expect(ctx.state.tab).toBe('library');
     expect(ctx.state.selectedUid).toBeNull();
+    act(() => ctx.dispatch({ type: 'NAVIGATE', area: 'decisions', uid: 'd1', artefactType: 'decision' }));
+    expect(ctx.state.selectedUid).toBe('d1');
+    act(() => ctx.dispatch({ type: 'NAVIGATE', tab: 'cited' }));
+    expect(ctx.state.area).toBe('decisions');
   });
 
   it('SET_THEME updates theme', () => {

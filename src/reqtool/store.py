@@ -31,9 +31,10 @@ from .actor import resolve_author
 from . import ids
 from . import principles as principle_rules
 from .artefacts import (
-    DECISION, PRINCIPLE, REQUIREMENT, apply_fields, history_entry, mark_deleted, new_requirement, record_change,
-    seal_new,
+    DECISION, DECISION_LINK_TYPES, DECISION_MARKER, PRINCIPLE, REQUIREMENT, apply_fields, history_entry,
+    is_pending_decision, legacy_decision_status, mark_deleted, new_requirement, record_change, seal_new,
 )
+from . import layout
 from .graph import TraceabilityGraph, relationship_target
 from .storage import FileStorage, Storage
 from .vcs import GitVcs, Vcs, _REMOTE_SCHEMES, _validate_remote_url, _validate_remote_ref, _git_remote  # noqa: F401
@@ -135,7 +136,9 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
             self._load_config()
             self._load_enums()
             self._load_hierarchy()
-            self._load_dir(self.root / "requirements", new_reqs, "requirements")
+            # Requirements in requirements/, work items and issues in work/ (#380); one collection in memory.
+            self._load_dir(self.root / layout.REQUIREMENTS_DIR, new_reqs, "requirements")
+            self._load_dir(self.root / layout.WORK_DIR, new_reqs, "requirements")
             for req in new_reqs.values():
                 # Older files used `iteration_id`; `iteration` is the one field the editor and filters use.
                 legacy = req.pop("iteration_id", None)
@@ -258,10 +261,15 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
     def _read_modules(self) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, dict[str, Any]]]]:
         modules: dict[str, dict[str, Any]] = {}
         module_requirements: dict[str, dict[str, dict[str, Any]]] = {}
-        modules_dir = self.root / "modules"
-        if not self.storage.exists(modules_dir):
-            return modules, module_requirements
-        for module_dir in self.storage.list_dirs(modules_dir):
+        # requirements/modules/<id>/ (#380), and the legacy modules/<id>/ until `req migrate` moves it.
+        seen: set[str] = set()
+        module_folders = []
+        for base in (self.root / layout.MODULES_DIR, self.root / layout.LEGACY_MODULES_DIR):
+            for folder in self.storage.list_dirs(base) if self.storage.exists(base) else []:
+                if folder.name not in seen:
+                    seen.add(folder.name)
+                    module_folders.append(folder)
+        for module_dir in module_folders:
             manifest = module_dir / "_module.yaml"
             if not self.storage.exists(manifest):
                 continue
@@ -364,7 +372,33 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
     # ------------------------------------------------------------------
 
     def req_path(self, uid: str) -> Path:
-        return self._file_for.get(("requirements", uid)) or self.root / "requirements" / f"{uid}.yaml"
+        """The file of a requirement or work item: where it was read from, else the folder its type belongs in."""
+        recorded = self._file_for.get(("requirements", uid))
+        if recorded is not None:
+            return recorded
+        path = self.expected_req_path(uid)
+        if uid in self.requirements:
+            self._file_for[("requirements", uid)] = path   # remembered, so a later type change can move it
+        return path
+
+    def expected_req_path(self, uid: str) -> Path:
+        """Where the item belongs by its type: requirements/ or work/ (#380)."""
+        req_type = (self.requirements.get(uid) or {}).get("req_type")
+        return layout.item_dir(self.root, req_type, self.hierarchy) / f"{uid}.yaml"
+
+    def module_dir(self, module_id: str) -> Path:
+        """A module's folder: requirements/modules/<id>/, or the legacy modules/<id>/ while it is still there."""
+        legacy = self.root / layout.LEGACY_MODULES_DIR / module_id
+        return legacy if self.storage.exists(legacy / "_module.yaml") else self.root / layout.MODULES_DIR / module_id
+
+    def misplaced_items(self) -> list[tuple[str, Path, Path]]:
+        """Items whose file is in the other family's folder: (uid, where it is, where it belongs)."""
+        out = []
+        for uid in self.requirements:
+            have, want = self._file_for.get(("requirements", uid)), self.expected_req_path(uid)
+            if have is not None and have.parent != want.parent:
+                out.append((uid, have, want))
+        return out
 
     def principle_path(self, uid: str) -> Path:
         return self._file_for.get(("principles", uid)) or self.root / "principles" / f"{uid}.yaml"
@@ -661,7 +695,14 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
             # Dated status moves are what the flow and burn-up views are built from.
             data["history"][-1]["status_from"], data["history"][-1]["status_to"] = before_status, data.get("status")
 
-        self.storage.write(self.req_path(uid), data)
+        path = self.req_path(uid)
+        if "req_type" in fields and path.parent != self.expected_req_path(uid).parent \
+                and path.parent in (self.root / layout.REQUIREMENTS_DIR, self.root / layout.WORK_DIR):
+            # The type moved to the other family (a requirement became work, or back): move the file with it.
+            self.storage.delete(path)
+            path = self.expected_req_path(uid)
+            self._file_for[("requirements", uid)] = path
+        self.storage.write(path, data)
         return data
 
     def hierarchy_problem(self, child_type: str, parent_uid: Optional[str]) -> Optional[str]:
@@ -708,13 +749,25 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
                 raise DuplicateId(f"ID '{rid}' is already used by another requirement")
 
     def resolve_uid(self, key: str) -> Optional[str]:
-        """Accept a UID or a human ID (unique, non-deleted) and return the UID."""
+        """Accept a UID, a human ID (unique, non-deleted) or an old ID kept as an alias, and return the UID."""
         if key in self.requirements:
             return key
         hits = [u for u, r in self.requirements.items() if r.get("id") == key and not r.get("deleted")]
         if len(hits) == 1:
             return hits[0]
-        return None if hits else ids.resolve_provisional(self.requirements, key)
+        if hits:
+            return None
+        # An issue converted to a defect or story keeps its old id as an alias (#379).
+        aliased = [u for u, r in self.requirements.items() if key in (r.get("aliases") or []) and not r.get("deleted")]
+        if len(aliased) == 1:
+            return aliased[0]
+        return ids.resolve_provisional(self.requirements, key)
+
+    def new_id_for(self, req_type: str, uid: str) -> str:
+        """The id a new item of ``req_type`` gets: the next number, or a provisional one in shared-repo mode."""
+        if ids.strategy(self.config) == "provisional":
+            return ids.provisional_id(hierarchy_store.id_prefix(self.hierarchy, req_type), uid)
+        return self.next_id_for_type(req_type)
 
     def _check_parent_exists(self, parent_uid: Optional[str]) -> None:
         """Raise UnknownParent unless ``parent_uid`` is empty or a live requirement."""
@@ -915,15 +968,13 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
     def create_decision(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
         uid = uuid7()
         now = utcnow_iso()
-        item_type = fields.get("type", "decision")
-        prefix = "TBD" if item_type == "tbd" else "DEC"
-        default_status = "open" if item_type == "tbd" else "proposed"
+        # An open question is a decision that has not been made yet (#371): there is no separate TBD kind.
         data: dict[str, Any] = {
             "schema_version": "1.0.0",
-            "type": item_type,
+            "type": "decision",
             "tool_version": TOOL_VERSION,
             "uid": uid,
-            "id": fields.get("id", f"{prefix}-{uid[:8]}"),
+            "id": fields.get("id", f"DEC-{uid[:8]}"),
             "title": fields.get("title", ""),
             "version": "1.0.0",
             "content": fields.get("content", {
@@ -933,7 +984,7 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
             }),
             "owner": fields.get("owner"),
             "due": fields.get("due"),
-            "status": fields.get("status", default_status),
+            "status": legacy_decision_status(fields.get("status")) or "proposed",
             "priority": fields.get("priority", "medium"),
             "supersedes": fields.get("supersedes"),
             "superseded_by": fields.get("superseded_by"),
@@ -941,6 +992,8 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
             "links": fields.get("links", []),
             "attachments": fields.get("attachments", []),
             "tags": fields.get("tags", []),
+            "aliases": fields.get("aliases", []),
+            "in_progress": bool(fields.get("in_progress", False)),
             "content_hash": "",
             "created": now,
             "last_modified": now,
@@ -970,9 +1023,9 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
 
     @_locked
     def create_tbd(self, fields: dict[str, Any], author: str = "reqtool") -> dict[str, Any]:
+        """Deprecated name: creates a pending decision (status ``proposed``)."""
         f = dict(fields)
-        f.setdefault("type", "tbd")
-        f.setdefault("status", "open")
+        f["status"] = "proposed"
         return self.create_decision(f, author=author)
 
     @_locked
@@ -1011,6 +1064,18 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
     def delete_tbd(self, uid: str) -> Optional[dict[str, Any]]:
         return self.delete_decision(uid)
 
+    @_locked
+    def purge_decision(self, uid: str) -> None:
+        """Remove a decision from memory and disk without a trace. Only for building a new repository (the demo):
+        everywhere else a decision is soft-deleted so its history stays."""
+        path = self.decision_path(uid)
+        self.decisions.pop(uid, None)
+        self._file_for.pop(("decisions", uid), None)
+        pending = getattr(self.storage, "pending", None)
+        if isinstance(pending, dict):
+            pending.pop(path, None)
+        self.storage.delete(path)
+
     # ------------------------------------------------------------------
     # Affected requirements for TBDs
     # ------------------------------------------------------------------
@@ -1045,6 +1110,10 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
                 return
 
             top = parts[0]
+            if layout.is_module_path(rel):
+                top = "modules"
+            elif top == layout.WORK_DIR:
+                top = "requirements"   # work items are requirement-kind records (#380)
 
         try:
             if top == "requirements":
@@ -1135,24 +1204,72 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
         self.decisions[uid] = snapshot
         self.storage.write(self.decision_path(uid), snapshot)
 
+    def pending_decisions(self) -> list[dict[str, Any]]:
+        """Non-deleted decisions that have not been made yet (status ``proposed``, or a legacy open TBD)."""
+        return [d for d in self.decisions.values() if is_pending_decision(d)]
+
     def live_tbds(self) -> list[dict[str, Any]]:
-        """Non-deleted items of type ``tbd`` (open questions), excluding decision records."""
-        return [d for d in self.decisions.values() if not d.get("deleted") and d.get("type") == "tbd"]
+        """Deprecated name for :meth:`pending_decisions`."""
+        return self.pending_decisions()
 
     def live_decision_records(self) -> list[dict[str, Any]]:
-        """Non-deleted decision records (ADRs), excluding TBDs."""
-        return [d for d in self.decisions.values() if not d.get("deleted") and d.get("type") != "tbd"]
+        """Every non-deleted decision, pending or made."""
+        return [d for d in self.decisions.values() if not d.get("deleted")]
 
-    def open_tbds_for(self, req: dict[str, Any]) -> list[str]:
-        """Ids of unresolved TBDs the requirement links to."""
+    def resolve_decision(self, key: str) -> Optional[str]:
+        """Accept a decision uid, its id (``DEC-012``) or an alias (a migrated ``TBD-002``) and return the uid."""
+        if key in self.decisions:
+            return key
+        for uid, d in self.decisions.items():
+            if d.get("deleted"):
+                continue
+            if d.get("id") == key or key in (d.get("aliases") or []):
+                return uid
+        return None
+
+    def pending_decisions_for(self, req: dict[str, Any]) -> list[str]:
+        """Ids of pending decisions the requirement links to."""
         out = []
         for link in req.get("links", []) or []:
-            if link.get("type") != "tbd":
+            if link.get("type") not in DECISION_LINK_TYPES:
                 continue
-            t = self.decisions.get(link.get("ref", ""))
-            if t and not t.get("deleted") and t.get("type") == "tbd" and t.get("status") in ("open", "in_progress"):
-                out.append(t.get("id") or t["uid"])
+            d = self.decisions.get(self.resolve_decision(link.get("ref", "")) or "")
+            if d and is_pending_decision(d):
+                out.append(d.get("id") or d["uid"])
         return out
+
+    def open_tbds_for(self, req: dict[str, Any]) -> list[str]:
+        """Deprecated name for :meth:`pending_decisions_for`."""
+        return self.pending_decisions_for(req)
+
+    def decision_markers(self, req: dict[str, Any]) -> set[str]:
+        """Uids of decisions named by a ``[DEC-nnn]`` (or legacy ``[TBD-nnn]``) marker in the requirement's text."""
+        content = req.get("content") or {}
+        text = " ".join(str(content.get(k) or "") for k in ("description", "rationale", "extended_description"))
+        found = set()
+        for key in DECISION_MARKER.findall(text):
+            uid = self.resolve_decision(key)
+            if uid:
+                found.add(uid)
+        return found
+
+    def decisions_linked_from(self, req: dict[str, Any]) -> list[str]:
+        """Uids of the decisions this requirement links to (the reverse of compute_affected_requirements)."""
+        out = []
+        for link in req.get("links") or []:
+            if link.get("type") in DECISION_LINK_TYPES:
+                uid = self.resolve_decision(link.get("ref", ""))
+                if uid:
+                    out.append(uid)
+        return out
+
+    def requirements_referencing_decision(self, decision_uid: str) -> list[str]:
+        """Live requirements that link to the decision or name it in their text."""
+        linked = set(self.compute_affected_requirements(decision_uid))
+        for uid, req in self.requirements.items():
+            if not req.get("deleted") and decision_uid in self.decision_markers(req):
+                linked.add(uid)
+        return sorted(linked)
 
     def compute_affected_requirements(self, tbd_uid: str) -> list[str]:
         """Return UIDs of live requirements that reference ``tbd_uid``.
@@ -1167,7 +1284,7 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
                 continue
             hit = False
             for link in req.get("links") or []:
-                if link.get("type") == "tbd" and link.get("ref") == tbd_uid:
+                if link.get("type") in DECISION_LINK_TYPES and link.get("ref") == tbd_uid:
                     hit = True
                     break
             if not hit:
@@ -1227,7 +1344,7 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
         if uid in self.principles:
             return self.principles[uid], "principle"
         if uid in self.decisions:
-            return self.decisions[uid], "tbd"
+            return self.decisions[uid], "decision"
         return None
 
     def _update_artefact(self, uid: str, fields: dict, summary: str) -> Optional[dict]:
@@ -1237,7 +1354,7 @@ class Store(AccessMixin, AnalyticsMixin, PresetsMixin, ModuleOpsMixin, SearchMix
         if uid in self.principles:
             return self.update_principle(uid, fields, summary=summary, increment="patch")
         if uid in self.decisions:
-            return self.update_tbd(uid, fields, summary=summary, increment="patch")
+            return self.update_decision(uid, fields, summary=summary, increment="patch")
         return None
 
     def add_attachment(

@@ -46,7 +46,8 @@ def _commit(root):
 
 
 def _hand_edit(root, uid, **fields):
-    path = root / "requirements" / f"{uid}.yaml"
+    # Requirements live in requirements/, work items and issues in work/ (#380).
+    path = next(p for p in (root / "requirements" / f"{uid}.yaml", root / "work" / f"{uid}.yaml") if p.exists())
     data = yaml.safe_load(path.read_text())
     data.update(fields)
     path.write_text(yaml.safe_dump(data, sort_keys=False))

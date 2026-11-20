@@ -286,33 +286,26 @@ workflows:
         children_enforce: warn      # off | warn | error
 
   triage:
-    # Intake for anything reported as wrong: raise an issue, triage it, and only a confirmed defect becomes defect work.
+    # Intake for anything reported as wrong. Triage decides what an issue is: it becomes a defect, feature or story
+    # (the same record, which then follows that type's workflow), or it is closed with a reason (#379).
     initial: reported
     states:
       - {id: reported, label: Reported, colour: "#8b949e", terminal: false}
       - {id: in_triage, label: In triage, colour: "#1f6feb", terminal: false}
       - {id: needs_info, label: Needs info, colour: "#e3b341", terminal: false}
-      - {id: defect, label: Defect, colour: "#da3633", terminal: false}
-      - {id: fixing, label: Being fixed, colour: "#1f6feb", terminal: false}
-      - {id: fixed, label: Fixed, colour: "#2ea043", terminal: false}
-      - {id: enhancement, label: Enhancement request, colour: "#a371f7", terminal: false}
-      - {id: planned, label: Planned, colour: "#8957e5", terminal: false}
       - {id: user_error, label: User error, colour: "#768390", terminal: true}
       - {id: duplicate, label: Duplicate, colour: "#768390", terminal: true}
       - {id: not_reproducible, label: Not reproducible, colour: "#768390", terminal: true}
+      - {id: wont_do, label: "Won't do", colour: "#768390", terminal: true}
       - {id: closed, label: Closed, colour: "#238636", terminal: true}
     transitions:
       reported: [in_triage, duplicate, closed]
-      in_triage: [defect, user_error, enhancement, duplicate, not_reproducible, needs_info]
-      needs_info: [in_triage, not_reproducible, closed]
-      defect: [fixing, in_triage, closed]
-      fixing: [fixed, defect]
-      fixed: [closed, fixing]
-      enhancement: [planned, in_triage, closed]
-      planned: [closed, enhancement]
+      in_triage: [user_error, duplicate, not_reproducible, wont_do, needs_info, closed]
+      needs_info: [in_triage, not_reproducible, wont_do, closed]
       user_error: [in_triage, closed]
       duplicate: [in_triage]
       not_reproducible: [in_triage, needs_info]
+      wont_do: [in_triage]
       closed: [in_triage]
     guards:
       in_triage:
@@ -321,21 +314,18 @@ workflows:
       needs_info:
         requires_fields: [custom_fields.triage_note]
         message: Say what you need from the reporter (triage note).
-      defect:
-        requires_fields: [priority, custom_fields.triage_note]
-        message: Say why this is a defect and how serious it is (triage note and priority).
       user_error:
         requires_fields: [custom_fields.triage_note]
         message: Say what the reporter should do instead (triage note).
-      enhancement:
-        requires_fields: [custom_fields.triage_note]
-        message: Say what is being asked for and why it is not a defect (triage note).
       duplicate:
         requires_fields: [custom_fields.duplicate_of]
         message: Name the issue this duplicates (duplicate of).
       not_reproducible:
         requires_fields: [custom_fields.triage_note]
         message: Say what was tried (triage note).
+      wont_do:
+        requires_fields: [custom_fields.triage_note]
+        message: Say why this will not be done (triage note).
 
   formal:
     initial: draft

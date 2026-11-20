@@ -135,7 +135,7 @@ def serve(repo: Optional[str], host: str, port: int, operating_mode: Optional[st
     click.echo("")
     _row("Requirements", str(_req_count),       "bright_white")
     _row("Principles",   str(_principle_count), "bright_white")
-    _row("TBDs",         str(_tbd_count),       "bright_white")
+    _row("Decisions",    str(_tbd_count),       "bright_white")
     _row("Types loaded", str(_type_count),      "bright_white")
     click.echo("")
     base_url = f"http://{host}:{port}"

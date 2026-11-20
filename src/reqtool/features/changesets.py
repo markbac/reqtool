@@ -15,7 +15,7 @@ from .diff import ref_diff
 
 PREFIX = "changeset/"
 NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,60}$")
-TRACKED = ("requirements", "principles", "decisions", "modules", "products")
+TRACKED = ("requirements", "work", "principles", "decisions", "modules", "products")
 
 
 class ChangeSetError(ValueError):

@@ -31,10 +31,12 @@ from .fileio import (
     utcnow_iso, yaml_loads_safe,
 )
 
-ATTRIBUTES = ("requirements/*.yaml merge=reqtool", "principles/*.yaml merge=reqtool", "decisions/*.yaml merge=reqtool")
+ATTRIBUTES = ("requirements/*.yaml merge=reqtool", "work/*.yaml merge=reqtool", "principles/*.yaml merge=reqtool",
+              "decisions/*.yaml merge=reqtool")
 BOOKKEEPING = ("version", "content_hash", "last_modified", "history")
 _HASH_BY_DIR: dict[str, Callable[[dict[str, Any]], str]] = {
-    "requirements": compute_requirement_hash, "principles": compute_principle_hash, "decisions": compute_tbd_hash,
+    "requirements": compute_requirement_hash, "work": compute_requirement_hash, "principles": compute_principle_hash,
+    "decisions": compute_tbd_hash,
 }
 _LIST_KEYS: dict[str, Callable[[Any], Any]] = {
     "acceptance_criteria": lambda x: x.get("uid") or x.get("id"),

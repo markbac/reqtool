@@ -470,8 +470,10 @@ def validation_badge(store: Store = Depends(get_store)):
 
 
 @router.get("/metrics", tags=["metrics"])
-def get_metrics(store: Store = Depends(get_store)):
-    reqs = store.live_requirements()
+def get_metrics(product: Optional[str] = None, store: Store = Depends(get_store)):
+    """Requirement metrics (work items are not counted), for one product or the whole repository."""
+    from reqtool.features.insight import requirement_items
+    reqs = requirement_items(store, product)
     principles = store.live_principles()
     tbds = store.live_tbds()
 
@@ -484,7 +486,7 @@ def get_metrics(store: Store = Depends(get_store)):
     no_rationale = sum(1 for r in reqs if not (r.get("content") or {}).get("rationale"))
     no_verification = sum(1 for r in reqs if (r.get("verification") or {}).get("status", "not_started") == "not_started")
     safety_related = sum(1 for r in reqs if r.get("safety_related"))
-    open_tbds = sum(1 for t in tbds if t.get("status") in ("open", "in_progress"))
+    open_tbds = len(tbds)  # pending decisions (#371)
     suspect_links = sum(1 for r in reqs for rel in r.get("relationships") or [] if rel.get("suspect"))
 
     approved = status_counts.get("approved", 0)
